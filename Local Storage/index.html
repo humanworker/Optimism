@@ -7,6 +7,7 @@
     <style>
         :root {
             --element-width: 200px;
+            --bg-color: black;
             --element-bg-color: transparent;
             --element-text-color: white;
             --element-border-color: #555;
@@ -17,7 +18,7 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            background-color: black;
+            background-color: var(--bg-color);
             color: white;
             height: 100vh;
             width: 100vw;
@@ -39,7 +40,8 @@
             left: 0;
             right: 0;
             height: 40px;
-            background-color: #333;
+            background-color: var(--bg-color);
+            border-bottom: 1px solid #333;
             display: flex;
             align-items: center;
             padding: 0 10px;
@@ -57,7 +59,7 @@
 
         .breadcrumb-item {
             padding: 4px 8px;
-            background-color: #555;
+            background-color: #333;
             color: white;
             border: none;
             border-radius: 4px;
@@ -86,32 +88,38 @@
             max-width: calc(100% - 100px);
         }
 
-        .text-element {
+        .text-element-container {
             position: absolute;
-            width: var(--element-width);
-            min-height: 30px;
-            background-color: var(--element-bg-color);
-            color: var(--element-text-color);
             border: 1px solid var(--element-border-color);
+            border-radius: 4px;
+            background-color: var(--element-bg-color);
+            min-width: var(--element-width);
+            min-height: 30px;
+            z-index: 1;
+            cursor: move;
+        }
+
+        .text-element-container.selected {
+            border-color: var(--selected-border-color);
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+        .text-element {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            color: var(--element-text-color);
+            border: none;
             padding: 8px;
             resize: none;
-            overflow: hidden;
-            border-radius: 4px;
-            cursor: move;
-            z-index: 1;
+            overflow: auto;
             font-family: inherit;
+            box-sizing: border-box;
         }
 
         .text-element:focus {
             outline: none;
-            border-color: var(--selected-border-color);
             cursor: text;
-            z-index: 10;
-        }
-
-        .text-element.selected {
-            border-color: var(--selected-border-color);
-            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
         }
 
         .dragging {
@@ -123,46 +131,31 @@
             border: 2px dashed #aaa !important;
         }
 
-        /* Notification dot style */
-        .text-element::after {
-            content: '';
+        /* Children notification dot - changed to white */
+        .children-dot {
             position: absolute;
             top: 5px;
             right: 5px;
-            width: 8px;
-            height: 8px;
-            background-color: #ff5252;
+            width: 6px;
+            height: 6px;
+            background-color: white;
             border-radius: 50%;
             display: none; /* Hidden by default */
         }
 
-        .has-content::after {
-            display: block; /* Show when has content */
-        }
-
-        /* Delete indicator */
-        .delete-indicator {
+        /* Resize handle - very minimal */
+        .resize-handle {
             position: absolute;
-            top: -15px;
-            right: -15px;
-            width: 20px;
-            height: 20px;
-            background-color: red;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.2s;
-            z-index: 20;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            cursor: nwse-resize; /* Diagonal resize cursor */
         }
 
-        .text-element.selected .delete-indicator {
-            opacity: 1;
+        /* Only show resize handle when hovering over the bottom-right corner */
+        .text-element-container:hover .resize-handle {
+            background-color: rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
@@ -171,7 +164,7 @@
         <div id="breadcrumb-container">
             <!-- Breadcrumbs will be added here dynamically -->
         </div>
-        <div id="title-text">Canvas Website Builder</div>
+        <div id="title-text">Home</div>
     </div>
     <div id="workspace"></div>
 
@@ -234,6 +227,14 @@
 
             findElement(id) {
                 return this.currentNode.elements?.find(el => el.id === id);
+            }
+
+            // Check if an element has children cards
+            hasChildren(elementId) {
+                if (!this.currentNode.children) return false;
+                return !!this.currentNode.children[elementId] && 
+                      (this.currentNode.children[elementId].elements?.length > 0 || 
+                       Object.keys(this.currentNode.children[elementId].children || {}).length > 0);
             }
 
             navigateToElement(elementId) {
@@ -347,10 +348,14 @@
                 this.titleText = document.getElementById('title-text');
                 
                 this.draggedElement = null;
+                this.resizingElement = null;
                 this.dragStartX = 0;
                 this.dragStartY = 0;
                 this.elemOffsetX = 0;
                 this.elemOffsetY = 0;
+                
+                this.initialWidth = 0;
+                this.initialHeight = 0;
                 
                 // Detect platform
                 this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -407,7 +412,8 @@
                 this.renderBreadcrumbs();
                 
                 // Update title
-                this.titleText.textContent = this.model.currentNode.title || 'Canvas Website Builder';
+                this.titleText.textContent = this.model.navigationStack.length > 1 ? 
+                    this.model.currentNode.title : 'Home';
                 
                 // Render elements
                 if (this.model.currentNode.elements) {
@@ -427,7 +433,7 @@
                         // Create breadcrumb item
                         const breadcrumb = document.createElement('a');
                         breadcrumb.className = 'breadcrumb-item';
-                        const title = navItem.nodeTitle || 'Untitled';
+                        const title = index === 0 ? 'Home' : (navItem.nodeTitle || 'Untitled');
                         breadcrumb.textContent = title.substring(0, 10) + (title.length > 10 ? '...' : '');
                         breadcrumb.title = title; // Full title on hover
                         breadcrumb.href = 'javascript:void(0);'; // Make it look like a link without page reload
@@ -448,82 +454,46 @@
             }
             
             createElementDOM(elementData) {
-                const textElement = document.createElement('textarea');
-                textElement.className = 'text-element';
+                // Create container for the element
+                const container = document.createElement('div');
+                container.className = 'text-element-container';
+                container.dataset.id = elementData.id;
+                container.style.left = `${elementData.x}px`;
+                container.style.top = `${elementData.y}px`;
                 
-                // Add content indicator if there's text
-                if (elementData.text && elementData.text.trim() !== '') {
-                    textElement.classList.add('has-content');
+                // Set dimensions if they exist in the data
+                if (elementData.width) {
+                    container.style.width = `${elementData.width}px`;
+                } else {
+                    container.style.width = `200px`; // Default width
                 }
                 
-                textElement.dataset.id = elementData.id;
+                if (elementData.height) {
+                    container.style.height = `${elementData.height}px`;
+                } else {
+                    container.style.height = `100px`; // Default height
+                }
+
+                // Create the text area element
+                const textElement = document.createElement('textarea');
+                textElement.className = 'text-element';
                 textElement.value = elementData.text || '';
-                textElement.style.left = `${elementData.x}px`;
-                textElement.style.top = `${elementData.y}px`;
                 
-                // Create delete button (X icon)
-                const deleteButton = document.createElement('div');
-                deleteButton.className = 'delete-indicator';
-                deleteButton.textContent = '×'; // × character
-                deleteButton.title = 'Delete';
-                deleteButton.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent other click handlers
-                    if (this.controller.deleteElement(elementData.id)) {
-                        // If deletion was successful, update the view
-                        this.renderWorkspace();
-                    }
-                });
-                textElement.appendChild(deleteButton);
+                // Create children notification dot (now white)
+                const childrenDot = document.createElement('div');
+                childrenDot.className = 'children-dot';
                 
-                // Setup element event listeners
-                textElement.addEventListener('click', (e) => {
-                    // Select the element
-                    this.selectElement(textElement);
-                    
-                    // If cmd/ctrl is pressed, navigate into the element
-                    if (this.isModifierKeyPressed(e)) {
-                        this.controller.navigateToElement(elementData.id);
-                        e.stopPropagation();
-                    }
-                });
+                // Display children dot if element has children
+                if (this.model.hasChildren(elementData.id)) {
+                    childrenDot.style.display = 'block';
+                }
                 
-                textElement.addEventListener('dblclick', (e) => {
-                    // Make the element editable on double-click
-                    textElement.focus();
-                    e.stopPropagation(); // Prevent creating a new element
-                });
+                // Create resize handle - much more minimal now
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
                 
-                textElement.addEventListener('mousedown', (e) => {
-                    // Only handle left mouse button
-                    if (e.button !== 0) return;
-                    
-                    // If clicking the delete button, don't drag
-                    if (e.target.className === 'delete-indicator') return;
-                    
-                    // Don't start drag if inside textarea when editing
-                    if (document.activeElement === textElement) return;
-                    
-                    this.selectElement(textElement);
-                    this.draggedElement = textElement;
-                    this.model.selectedElement = elementData.id;
-                    
-                    // Calculate offset - use exact mouse position without adjustment
-                    const rect = textElement.getBoundingClientRect();
-                    this.elemOffsetX = e.clientX - rect.left;
-                    this.elemOffsetY = e.clientY - rect.top;
-                    
-                    textElement.classList.add('dragging');
-                    e.preventDefault(); // Prevent text selection
-                });
-                
-                textElement.addEventListener('input', (e) => {
-                    const hasContent = textElement.value.trim() !== '';
-                    if (hasContent) {
-                        textElement.classList.add('has-content');
-                    } else {
-                        textElement.classList.remove('has-content');
-                    }
-                    
+                // Setup content listeners
+                textElement.addEventListener('input', () => {
                     this.controller.updateElement(elementData.id, {
                         text: textElement.value
                     });
@@ -535,9 +505,84 @@
                     });
                 });
                 
-                // Add to DOM
-                this.workspace.appendChild(textElement);
-                return textElement;
+                // Setup container event listeners
+                container.addEventListener('click', (e) => {
+                    this.selectElement(container);
+                    
+                    // If cmd/ctrl is pressed, navigate into the element
+                    if (this.isModifierKeyPressed(e) && e.target !== textElement) {
+                        this.controller.navigateToElement(elementData.id);
+                        e.stopPropagation();
+                    }
+                });
+                
+                container.addEventListener('dblclick', (e) => {
+                    if (this.isModifierKeyPressed(e)) {
+                        // Navigate when ctrl+double-click
+                        this.controller.navigateToElement(elementData.id);
+                    } else {
+                        // Focus the text area on double-click if not modifying
+                        textElement.focus();
+                    }
+                    e.stopPropagation(); // Prevent creating a new element
+                });
+                
+                container.addEventListener('mousedown', (e) => {
+                    // Don't handle if not left mouse button
+                    if (e.button !== 0) return;
+                    
+                    // Don't start drag when on resize handle
+                    if (e.target === resizeHandle) return;
+                    
+                    this.selectElement(container);
+                    
+                    // Start dragging if:
+                    // 1. The modifier key is pressed, OR
+                    // 2. We're not clicking inside the textarea, OR
+                    // 3. The textarea is not currently being edited
+                    if (this.isModifierKeyPressed(e) || 
+                        e.target !== textElement || 
+                        document.activeElement !== textElement) {
+                        
+                        this.draggedElement = container;
+                        this.model.selectedElement = elementData.id;
+                        
+                        // Calculate offset
+                        const rect = container.getBoundingClientRect();
+                        this.elemOffsetX = e.clientX - rect.left;
+                        this.elemOffsetY = e.clientY - rect.top;
+                        
+                        container.classList.add('dragging');
+                        e.preventDefault();
+                    }
+                });
+                
+                // Setup resize handle event listeners
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation(); // Prevent other mouse handlers
+                    
+                    this.selectElement(container);
+                    this.resizingElement = container;
+                    
+                    // Save initial dimensions
+                    this.initialWidth = container.offsetWidth;
+                    this.initialHeight = container.offsetHeight;
+                    
+                    // Save initial mouse position
+                    this.dragStartX = e.clientX;
+                    this.dragStartY = e.clientY;
+                    
+                    e.preventDefault();
+                });
+                
+                // Append all elements to the container
+                container.appendChild(textElement);
+                container.appendChild(childrenDot);
+                container.appendChild(resizeHandle);
+                
+                // Add to workspace
+                this.workspace.appendChild(container);
+                return container;
             }
             
             selectElement(element) {
@@ -547,7 +592,7 @@
             }
             
             deselectAllElements() {
-                document.querySelectorAll('.text-element.selected').forEach(el => {
+                document.querySelectorAll('.text-element-container.selected').forEach(el => {
                     el.classList.remove('selected');
                 });
                 this.model.selectedElement = null;
@@ -555,9 +600,26 @@
             
             setupDragListeners() {
                 document.addEventListener('mousemove', (e) => {
+                    // Handle resizing
+                    if (this.resizingElement) {
+                        // Calculate size delta
+                        const deltaWidth = e.clientX - this.dragStartX;
+                        const deltaHeight = e.clientY - this.dragStartY;
+                        
+                        // Apply new dimensions with minimum constraints
+                        const newWidth = Math.max(100, this.initialWidth + deltaWidth);
+                        const newHeight = Math.max(30, this.initialHeight + deltaHeight);
+                        
+                        this.resizingElement.style.width = `${newWidth}px`;
+                        this.resizingElement.style.height = `${newHeight}px`;
+                        
+                        return;
+                    }
+                    
+                    // Handle dragging
                     if (!this.draggedElement) return;
                     
-                    // Calculate new position - use exact mouse position
+                    // Calculate new position
                     const newX = e.clientX - this.elemOffsetX;
                     const newY = e.clientY - this.elemOffsetY;
                     
@@ -570,6 +632,19 @@
                 });
                 
                 document.addEventListener('mouseup', (e) => {
+                    // Handle end of resizing
+                    if (this.resizingElement) {
+                        const id = this.resizingElement.dataset.id;
+                        const width = parseFloat(this.resizingElement.style.width);
+                        const height = parseFloat(this.resizingElement.style.height);
+                        
+                        this.controller.updateElement(id, { width, height });
+                        
+                        this.resizingElement = null;
+                        return;
+                    }
+                    
+                    // Handle end of dragging
                     if (!this.draggedElement) return;
                     
                     const draggedId = this.draggedElement.dataset.id;
@@ -580,7 +655,7 @@
                         const targetId = dropTarget.dataset.id;
                         this.controller.moveElement(draggedId, targetId);
                     } else {
-                        // Update position in model - use parsed exact values
+                        // Update position in model
                         const newX = parseFloat(this.draggedElement.style.left);
                         const newY = parseFloat(this.draggedElement.style.top);
                         this.controller.updateElement(draggedId, { x: newX, y: newY });
@@ -611,7 +686,7 @@
             findDropTarget(e) {
                 const elements = document.elementsFromPoint(e.clientX, e.clientY);
                 for (const element of elements) {
-                    if (element.classList.contains('text-element') && element !== this.draggedElement) {
+                    if (element.classList.contains('text-element-container') && element !== this.draggedElement) {
                         return element;
                     }
                 }
@@ -636,12 +711,17 @@
                     id: crypto.randomUUID(),
                     x: x,
                     y: y,
-                    text: ''
+                    text: '',
+                    width: 200,
+                    height: 100
                 };
                 
                 this.model.addElement(element);
                 const elemDOM = this.view.createElementDOM(element);
-                elemDOM.focus();
+                
+                // Focus the textarea inside the container
+                const textarea = elemDOM.querySelector('.text-element');
+                if (textarea) textarea.focus();
             }
             
             updateElement(id, properties) {
