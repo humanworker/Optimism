@@ -12,6 +12,7 @@
             --element-text-color: white;
             --element-border-color: #555;
             --selected-border-color: #fff;
+            --panel-width: 250px;
         }
 
         body {
@@ -27,7 +28,7 @@
         }
 
         #workspace {
-            width: 100%;
+            width: calc(100% - var(--panel-width));
             height: 100%;
             position: relative;
             padding-top: 40px; /* Add space for title bar */
@@ -90,7 +91,7 @@
 
         .text-element-container {
             position: absolute;
-            border: 1px solid var(--element-border-color);
+            border: 1px solid transparent; /* Border is transparent by default */
             border-radius: 4px;
             background-color: var(--element-bg-color);
             min-width: var(--element-width);
@@ -115,6 +116,16 @@
             overflow: auto;
             font-family: inherit;
             box-sizing: border-box;
+            font-size: 14px; /* Default size - Small */
+        }
+
+        .text-element.size-large {
+            font-size: 24px; /* Large size */
+        }
+
+        .text-element.size-huge {
+            font-size: 36px; /* Huge size */
+            font-weight: bold;
         }
 
         .text-element:focus {
@@ -131,7 +142,7 @@
             border: 2px dashed #aaa !important;
         }
 
-        /* Children notification dot - changed to white */
+        /* Children notification dot */
         .children-dot {
             position: absolute;
             top: 5px;
@@ -157,6 +168,67 @@
         .text-element-container:hover .resize-handle {
             background-color: rgba(255, 255, 255, 0.1);
         }
+
+        /* Style panel */
+        #style-panel {
+            position: fixed;
+            top: 40px;
+            right: 0;
+            width: var(--panel-width);
+            height: calc(100vh - 40px);
+            background-color: var(--bg-color);
+            border-left: 1px solid #333;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            display: none; /* Hidden by default */
+        }
+
+        .panel-heading {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+
+        .style-option {
+            margin-bottom: 20px;
+        }
+
+        .option-label {
+            display: block;
+            margin-bottom: 10px;
+            color: #aaa;
+        }
+
+        .option-values {
+            display: flex;
+            gap: 10px;
+        }
+
+        .option-value {
+            cursor: pointer;
+            color: #ddd;
+            text-decoration: none;
+        }
+
+        .option-value.selected {
+            text-decoration: underline;
+            color: white;
+            font-weight: bold;
+        }
+
+        .style-option-small {
+            font-size: 14px;
+        }
+
+        .style-option-large {
+            font-size: 18px;
+        }
+
+        .style-option-huge {
+            font-size: 22px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -167,6 +239,17 @@
         <div id="title-text">Home</div>
     </div>
     <div id="workspace"></div>
+    <div id="style-panel">
+        <h3 class="panel-heading">Styling Options</h3>
+        <div class="style-option">
+            <span class="option-label">Text Size:</span>
+            <div class="option-values">
+                <a href="#" class="option-value style-option-small" data-size="small">Small</a>
+                <a href="#" class="option-value style-option-large" data-size="large">Large</a>
+                <a href="#" class="option-value style-option-huge" data-size="huge">Huge</a>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Model to manage data
@@ -346,6 +429,7 @@
                 this.titleBar = document.getElementById('title-bar');
                 this.breadcrumbContainer = document.getElementById('breadcrumb-container');
                 this.titleText = document.getElementById('title-text');
+                this.stylePanel = document.getElementById('style-panel');
                 
                 this.draggedElement = null;
                 this.resizingElement = null;
@@ -361,6 +445,7 @@
                 this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
                 
                 this.setupEventListeners();
+                this.setupStylePanel();
             }
             
             setupEventListeners() {
@@ -400,6 +485,31 @@
                 });
             }
             
+            setupStylePanel() {
+                // Get all size option elements
+                const sizeOptions = document.querySelectorAll('.option-value[data-size]');
+                
+                // Add click event listeners to each size option
+                sizeOptions.forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        
+                        // Only apply if an element is selected
+                        if (!this.model.selectedElement) return;
+                        
+                        // Get the selected size
+                        const size = option.dataset.size;
+                        
+                        // Update the element's style
+                        this.controller.updateElementStyle(this.model.selectedElement, { textSize: size });
+                        
+                        // Update the UI to show which option is selected
+                        sizeOptions.forEach(opt => opt.classList.remove('selected'));
+                        option.classList.add('selected');
+                    });
+                });
+            }
+            
             isModifierKeyPressed(e) {
                 return this.isMac ? e.metaKey : e.ctrlKey;
             }
@@ -421,6 +531,9 @@
                         this.createElementDOM(element);
                     });
                 }
+                
+                // Hide style panel when no element is selected
+                this.stylePanel.style.display = 'none';
             }
             
             renderBreadcrumbs() {
@@ -479,7 +592,16 @@
                 textElement.className = 'text-element';
                 textElement.value = elementData.text || '';
                 
-                // Create children notification dot (now white)
+                // Apply text size if defined
+                if (elementData.style && elementData.style.textSize) {
+                    if (elementData.style.textSize === 'large') {
+                        textElement.classList.add('size-large');
+                    } else if (elementData.style.textSize === 'huge') {
+                        textElement.classList.add('size-huge');
+                    }
+                }
+                
+                // Create children notification dot
                 const childrenDot = document.createElement('div');
                 childrenDot.className = 'children-dot';
                 
@@ -488,7 +610,7 @@
                     childrenDot.style.display = 'block';
                 }
                 
-                // Create resize handle - much more minimal now
+                // Create resize handle
                 const resizeHandle = document.createElement('div');
                 resizeHandle.className = 'resize-handle';
                 
@@ -507,7 +629,7 @@
                 
                 // Setup container event listeners
                 container.addEventListener('click', (e) => {
-                    this.selectElement(container);
+                    this.selectElement(container, elementData);
                     
                     // If cmd/ctrl is pressed, navigate into the element
                     if (this.isModifierKeyPressed(e) && e.target !== textElement) {
@@ -534,7 +656,7 @@
                     // Don't start drag when on resize handle
                     if (e.target === resizeHandle) return;
                     
-                    this.selectElement(container);
+                    this.selectElement(container, elementData);
                     
                     // Start dragging if:
                     // 1. The modifier key is pressed, OR
@@ -561,7 +683,7 @@
                 resizeHandle.addEventListener('mousedown', (e) => {
                     e.stopPropagation(); // Prevent other mouse handlers
                     
-                    this.selectElement(container);
+                    this.selectElement(container, elementData);
                     this.resizingElement = container;
                     
                     // Save initial dimensions
@@ -585,10 +707,32 @@
                 return container;
             }
             
-            selectElement(element) {
+            selectElement(element, elementData) {
                 this.deselectAllElements();
                 element.classList.add('selected');
                 this.model.selectedElement = element.dataset.id;
+                
+                // Show style panel
+                this.stylePanel.style.display = 'block';
+                
+                // Update the selected option in the style panel
+                this.updateStylePanel(elementData);
+            }
+            
+            updateStylePanel(elementData) {
+                // Reset all selected options
+                document.querySelectorAll('.option-value').forEach(opt => opt.classList.remove('selected'));
+                
+                // Set the correct text size option as selected
+                let selectedSize = 'small'; // Default
+                if (elementData.style && elementData.style.textSize) {
+                    selectedSize = elementData.style.textSize;
+                }
+                
+                const sizeOption = document.querySelector(`.option-value[data-size="${selectedSize}"]`);
+                if (sizeOption) {
+                    sizeOption.classList.add('selected');
+                }
             }
             
             deselectAllElements() {
@@ -713,7 +857,10 @@
                     y: y,
                     text: '',
                     width: 200,
-                    height: 100
+                    height: 100,
+                    style: {
+                        textSize: 'small' // Default text size
+                    }
                 };
                 
                 this.model.addElement(element);
@@ -726,6 +873,47 @@
             
             updateElement(id, properties) {
                 this.model.updateElement(id, properties);
+            }
+            
+            updateElementStyle(id, styleProperties) {
+                const element = this.model.findElement(id);
+                if (element) {
+                    // Ensure style object exists
+                    if (!element.style) {
+                        element.style = {};
+                    }
+                    
+                    // Update style properties
+                    Object.assign(element.style, styleProperties);
+                    
+                    // Save changes
+                    this.model.saveData();
+                    
+                    // Update the DOM to reflect style changes
+                    this.updateElementDOM(id, element);
+                }
+            }
+            
+            updateElementDOM(id, element) {
+                // Find the element in the DOM
+                const container = document.querySelector(`.text-element-container[data-id="${id}"]`);
+                if (!container) return;
+                
+                // Get the textarea
+                const textarea = container.querySelector('.text-element');
+                if (!textarea) return;
+                
+                // Reset all size classes
+                textarea.classList.remove('size-small', 'size-large', 'size-huge');
+                
+                // Apply the correct size class
+                if (element.style && element.style.textSize) {
+                    if (element.style.textSize === 'large') {
+                        textarea.classList.add('size-large');
+                    } else if (element.style.textSize === 'huge') {
+                        textarea.classList.add('size-huge');
+                    }
+                }
             }
             
             deleteElement(id) {
