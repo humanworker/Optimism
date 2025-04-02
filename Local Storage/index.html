@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Website Builder</title>
+    <style>
+        :root {
+            --element-width: 200px;
+            --element-bg-color: transparent;
+            --element-text-color: white;
+            --element-border-color: #555;
+            --selected-border-color: #fff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: black;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #workspace {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            padding-top: 40px; /* Add space for title bar */
+            box-sizing: border-box;
+        }
+
+        #title-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background-color: #333;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            z-index: 100;
+        }
+
+        #breadcrumb-container {
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            white-space: nowrap;
+            max-width: 50%;
+            margin-right: 10px;
+        }
+
+        .breadcrumb-item {
+            padding: 4px 8px;
+            background-color: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin-right: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-block;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .breadcrumb-separator {
+            margin: 0 5px;
+            color: #777;
+        }
+
+        #title-text {
+            font-size: 18px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: calc(100% - 100px);
+        }
+
+        .text-element {
+            position: absolute;
+            width: var(--element-width);
+            min-height: 30px;
+            background-color: var(--element-bg-color);
+            color: var(--element-text-color);
+            border: 1px solid var(--element-border-color);
+            padding: 8px;
+            resize: none;
+            overflow: hidden;
+            border-radius: 4px;
+            cursor: move;
+            z-index: 1;
+            font-family: inherit;
+        }
+
+        .text-element:focus {
+            outline: none;
+            border-color: var(--selected-border-color);
+            cursor: text;
+            z-index: 10;
+        }
+
+        .text-element.selected {
+            border-color: var(--selected-border-color);
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+        .dragging {
+            opacity: 0.7;
+            z-index: 20;
+        }
+
+        .drag-over {
+            border: 2px dashed #aaa !important;
+        }
+
+        /* Notification dot style */
+        .text-element::after {
+            content: '';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 8px;
+            height: 8px;
+            background-color: #ff5252;
+            border-radius: 50%;
+            display: none; /* Hidden by default */
+        }
+
+        .has-content::after {
+            display: block; /* Show when has content */
+        }
+
+        /* Delete indicator */
+        .delete-indicator {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 20;
+        }
+
+        .text-element.selected .delete-indicator {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="title-bar">
+        <div id="breadcrumb-container">
+            <!-- Breadcrumbs will be added here dynamically -->
+        </div>
+        <div id="title-text">Canvas Website Builder</div>
+    </div>
+    <div id="workspace"></div>
+
+    <script>
+        // Model to manage data
+        class CanvasModel {
+            constructor() {
+                this.navigationStack = [{
+                    nodeId: 'root',
+                    nodeTitle: 'Home',
+                    node: null  // Root node will be populated after data load
+                }];
+                
+                this.data = this.loadData() || { id: 'root', title: 'Home', elements: [], children: {} };
+                
+                // Set root node reference
+                this.navigationStack[0].node = this.data;
+                
+                // Current node is always the last in the navigation stack
+                this.currentNode = this.data;
+                this.selectedElement = null;
+            }
+
+            loadData() {
+                const savedData = localStorage.getItem('canvasData');
+                return savedData ? JSON.parse(savedData) : null;
+            }
+
+            saveData() {
+                localStorage.setItem('canvasData', JSON.stringify(this.data));
+            }
+
+            addElement(element) {
+                if (!this.currentNode.elements) {
+                    this.currentNode.elements = [];
+                }
+                this.currentNode.elements.push(element);
+                this.saveData();
+            }
+
+            updateElement(id, properties) {
+                const element = this.findElement(id);
+                if (element) {
+                    Object.assign(element, properties);
+                    this.saveData();
+                }
+            }
+
+            deleteElement(id) {
+                if (!this.currentNode.elements) return false;
+                
+                const index = this.currentNode.elements.findIndex(el => el.id === id);
+                if (index !== -1) {
+                    this.currentNode.elements.splice(index, 1);
+                    this.saveData();
+                    return true;
+                }
+                return false;
+            }
+
+            findElement(id) {
+                return this.currentNode.elements?.find(el => el.id === id);
+            }
+
+            navigateToElement(elementId) {
+                const element = this.findElement(elementId);
+                if (!element) return false;
+
+                if (!this.currentNode.children) {
+                    this.currentNode.children = {};
+                }
+
+                // Create a child node if it doesn't exist
+                if (!this.currentNode.children[elementId]) {
+                    const truncatedTitle = element.text ? 
+                        (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : 
+                        "Untitled";
+                        
+                    this.currentNode.children[elementId] = {
+                        id: elementId,
+                        parentId: this.currentNode.id,
+                        title: truncatedTitle,
+                        elements: [],
+                        children: {}
+                    };
+                }
+
+                // Add to navigation stack
+                this.navigationStack.push({
+                    nodeId: elementId,
+                    nodeTitle: this.currentNode.children[elementId].title,
+                    node: this.currentNode.children[elementId]
+                });
+                
+                // Update current node
+                this.currentNode = this.currentNode.children[elementId];
+                this.saveData();
+                return true;
+            }
+
+            navigateBack() {
+                if (this.navigationStack.length <= 1) return false;
+                
+                // Remove the current level
+                this.navigationStack.pop();
+                
+                // Set current node to the previous level
+                this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
+                return true;
+            }
+
+            navigateToIndex(index) {
+                if (index >= this.navigationStack.length || index < 0) return false;
+                
+                // Keep only up to the specified index
+                this.navigationStack = this.navigationStack.slice(0, index + 1);
+                
+                // Set current node
+                this.currentNode = this.navigationStack[index].node;
+                return true;
+            }
+
+            moveElement(elementId, targetElementId) {
+                // Find source element
+                const sourceElement = this.findElement(elementId);
+                if (!sourceElement) return false;
+                
+                // Find target element and its node
+                const targetElement = this.findElement(targetElementId);
+                if (!targetElement) return false;
+                
+                // Make sure target has children node
+                if (!this.currentNode.children) {
+                    this.currentNode.children = {};
+                }
+                
+                // Create child node for target if it doesn't exist
+                if (!this.currentNode.children[targetElementId]) {
+                    const truncatedTitle = targetElement.text ? 
+                        (targetElement.text.trim() === "" ? "Untitled" : targetElement.text.substring(0, 60)) : 
+                        "Untitled";
+                        
+                    this.currentNode.children[targetElementId] = {
+                        id: targetElementId,
+                        parentId: this.currentNode.id,
+                        title: truncatedTitle,
+                        elements: [],
+                        children: {}
+                    };
+                }
+                
+                // Add source element to target's elements
+                const newElement = {...sourceElement};
+                newElement.id = crypto.randomUUID();
+                this.currentNode.children[targetElementId].elements.push(newElement);
+                
+                // Remove source element from current node
+                this.deleteElement(elementId);
+                
+                this.saveData();
+                return true;
+            }
+        }
+
+        // View to handle UI interactions
+        class CanvasView {
+            constructor(model, controller) {
+                this.model = model;
+                this.controller = controller;
+                this.workspace = document.getElementById('workspace');
+                this.titleBar = document.getElementById('title-bar');
+                this.breadcrumbContainer = document.getElementById('breadcrumb-container');
+                this.titleText = document.getElementById('title-text');
+                
+                this.draggedElement = null;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.elemOffsetX = 0;
+                this.elemOffsetY = 0;
+                
+                // Detect platform
+                this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                // Workspace double-click to create new elements
+                this.workspace.addEventListener('dblclick', (e) => {
+                    // Ignore if click was on an element or if modifier key is pressed
+                    if (e.target !== this.workspace || this.isModifierKeyPressed(e)) return;
+                    
+                    // Get correct coordinates relative to the workspace
+                    const rect = this.workspace.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    this.controller.createElement(x, y);
+                });
+                
+                // Single click on workspace should deselect elements
+                this.workspace.addEventListener('click', (e) => {
+                    if (e.target === this.workspace) {
+                        this.deselectAllElements();
+                    }
+                });
+                
+                // Global keyboard handlers for deletion
+                document.addEventListener('keydown', (e) => {
+                    if ((e.key === 'Delete' || e.key === 'Backspace') && 
+                        this.model.selectedElement && 
+                        document.activeElement.tagName !== 'TEXTAREA') {
+                        this.controller.deleteElement(this.model.selectedElement);
+                        e.preventDefault(); // Prevent browser back navigation on backspace
+                    }
+                });
+
+                // Prevent right-click context menu
+                document.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+            }
+            
+            isModifierKeyPressed(e) {
+                return this.isMac ? e.metaKey : e.ctrlKey;
+            }
+            
+            renderWorkspace() {
+                // Clear workspace
+                this.workspace.innerHTML = '';
+                
+                // Update breadcrumbs
+                this.renderBreadcrumbs();
+                
+                // Update title
+                this.titleText.textContent = this.model.currentNode.title || 'Canvas Website Builder';
+                
+                // Render elements
+                if (this.model.currentNode.elements) {
+                    this.model.currentNode.elements.forEach(element => {
+                        this.createElementDOM(element);
+                    });
+                }
+            }
+            
+            renderBreadcrumbs() {
+                this.breadcrumbContainer.innerHTML = '';
+                
+                // Create breadcrumb elements
+                this.model.navigationStack.forEach((navItem, index) => {
+                    // Don't add the current level as a clickable breadcrumb if it's the last one
+                    if (index < this.model.navigationStack.length - 1) {
+                        // Create breadcrumb item
+                        const breadcrumb = document.createElement('a');
+                        breadcrumb.className = 'breadcrumb-item';
+                        const title = navItem.nodeTitle || 'Untitled';
+                        breadcrumb.textContent = title.substring(0, 10) + (title.length > 10 ? '...' : '');
+                        breadcrumb.title = title; // Full title on hover
+                        breadcrumb.href = 'javascript:void(0);'; // Make it look like a link without page reload
+                        breadcrumb.addEventListener('click', () => {
+                            this.controller.navigateToIndex(index);
+                        });
+                        this.breadcrumbContainer.appendChild(breadcrumb);
+                        
+                        // Add separator if not the last item
+                        if (index < this.model.navigationStack.length - 2) {
+                            const separator = document.createElement('span');
+                            separator.className = 'breadcrumb-separator';
+                            separator.textContent = '>';
+                            this.breadcrumbContainer.appendChild(separator);
+                        }
+                    }
+                });
+            }
+            
+            createElementDOM(elementData) {
+                const textElement = document.createElement('textarea');
+                textElement.className = 'text-element';
+                
+                // Add content indicator if there's text
+                if (elementData.text && elementData.text.trim() !== '') {
+                    textElement.classList.add('has-content');
+                }
+                
+                textElement.dataset.id = elementData.id;
+                textElement.value = elementData.text || '';
+                textElement.style.left = `${elementData.x}px`;
+                textElement.style.top = `${elementData.y}px`;
+                
+                // Create delete button (X icon)
+                const deleteButton = document.createElement('div');
+                deleteButton.className = 'delete-indicator';
+                deleteButton.textContent = '×'; // × character
+                deleteButton.title = 'Delete';
+                deleteButton.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent other click handlers
+                    if (this.controller.deleteElement(elementData.id)) {
+                        // If deletion was successful, update the view
+                        this.renderWorkspace();
+                    }
+                });
+                textElement.appendChild(deleteButton);
+                
+                // Setup element event listeners
+                textElement.addEventListener('click', (e) => {
+                    // Select the element
+                    this.selectElement(textElement);
+                    
+                    // If cmd/ctrl is pressed, navigate into the element
+                    if (this.isModifierKeyPressed(e)) {
+                        this.controller.navigateToElement(elementData.id);
+                        e.stopPropagation();
+                    }
+                });
+                
+                textElement.addEventListener('dblclick', (e) => {
+                    // Make the element editable on double-click
+                    textElement.focus();
+                    e.stopPropagation(); // Prevent creating a new element
+                });
+                
+                textElement.addEventListener('mousedown', (e) => {
+                    // Only handle left mouse button
+                    if (e.button !== 0) return;
+                    
+                    // If clicking the delete button, don't drag
+                    if (e.target.className === 'delete-indicator') return;
+                    
+                    // Don't start drag if inside textarea when editing
+                    if (document.activeElement === textElement) return;
+                    
+                    this.selectElement(textElement);
+                    this.draggedElement = textElement;
+                    this.model.selectedElement = elementData.id;
+                    
+                    // Calculate offset - use exact mouse position without adjustment
+                    const rect = textElement.getBoundingClientRect();
+                    this.elemOffsetX = e.clientX - rect.left;
+                    this.elemOffsetY = e.clientY - rect.top;
+                    
+                    textElement.classList.add('dragging');
+                    e.preventDefault(); // Prevent text selection
+                });
+                
+                textElement.addEventListener('input', (e) => {
+                    const hasContent = textElement.value.trim() !== '';
+                    if (hasContent) {
+                        textElement.classList.add('has-content');
+                    } else {
+                        textElement.classList.remove('has-content');
+                    }
+                    
+                    this.controller.updateElement(elementData.id, {
+                        text: textElement.value
+                    });
+                });
+                
+                textElement.addEventListener('blur', () => {
+                    this.controller.updateElement(elementData.id, {
+                        text: textElement.value
+                    });
+                });
+                
+                // Add to DOM
+                this.workspace.appendChild(textElement);
+                return textElement;
+            }
+            
+            selectElement(element) {
+                this.deselectAllElements();
+                element.classList.add('selected');
+                this.model.selectedElement = element.dataset.id;
+            }
+            
+            deselectAllElements() {
+                document.querySelectorAll('.text-element.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                this.model.selectedElement = null;
+            }
+            
+            setupDragListeners() {
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.draggedElement) return;
+                    
+                    // Calculate new position - use exact mouse position
+                    const newX = e.clientX - this.elemOffsetX;
+                    const newY = e.clientY - this.elemOffsetY;
+                    
+                    // Apply new position
+                    this.draggedElement.style.left = `${newX}px`;
+                    this.draggedElement.style.top = `${newY}px`;
+                    
+                    // Highlight potential drop targets
+                    this.handleDragOver(e);
+                });
+                
+                document.addEventListener('mouseup', (e) => {
+                    if (!this.draggedElement) return;
+                    
+                    const draggedId = this.draggedElement.dataset.id;
+                    
+                    // Check if dragged over another element
+                    const dropTarget = this.findDropTarget(e);
+                    if (dropTarget && dropTarget !== this.draggedElement) {
+                        const targetId = dropTarget.dataset.id;
+                        this.controller.moveElement(draggedId, targetId);
+                    } else {
+                        // Update position in model - use parsed exact values
+                        const newX = parseFloat(this.draggedElement.style.left);
+                        const newY = parseFloat(this.draggedElement.style.top);
+                        this.controller.updateElement(draggedId, { x: newX, y: newY });
+                    }
+                    
+                    // Reset drag state
+                    this.draggedElement.classList.remove('dragging');
+                    this.draggedElement = null;
+                    
+                    // Remove highlights
+                    const highlighted = document.querySelectorAll('.drag-over');
+                    highlighted.forEach(el => el.classList.remove('drag-over'));
+                });
+            }
+            
+            handleDragOver(e) {
+                // Remove previous highlights
+                const highlighted = document.querySelectorAll('.drag-over');
+                highlighted.forEach(el => el.classList.remove('drag-over'));
+                
+                // Check for new target
+                const dropTarget = this.findDropTarget(e);
+                if (dropTarget && dropTarget !== this.draggedElement) {
+                    dropTarget.classList.add('drag-over');
+                }
+            }
+            
+            findDropTarget(e) {
+                const elements = document.elementsFromPoint(e.clientX, e.clientY);
+                for (const element of elements) {
+                    if (element.classList.contains('text-element') && element !== this.draggedElement) {
+                        return element;
+                    }
+                }
+                return null;
+            }
+        }
+
+        // Controller to handle user actions
+        class CanvasController {
+            constructor(model, view) {
+                this.model = model;
+                this.view = view;
+            }
+            
+            initialize() {
+                this.view.renderWorkspace();
+                this.view.setupDragListeners();
+            }
+            
+            createElement(x, y) {
+                const element = {
+                    id: crypto.randomUUID(),
+                    x: x,
+                    y: y,
+                    text: ''
+                };
+                
+                this.model.addElement(element);
+                const elemDOM = this.view.createElementDOM(element);
+                elemDOM.focus();
+            }
+            
+            updateElement(id, properties) {
+                this.model.updateElement(id, properties);
+            }
+            
+            deleteElement(id) {
+                if (this.model.deleteElement(id)) {
+                    this.view.renderWorkspace();
+                    return true;
+                }
+                return false;
+            }
+            
+            navigateToElement(id) {
+                if (this.model.navigateToElement(id)) {
+                    this.view.renderWorkspace();
+                    return true;
+                }
+                return false;
+            }
+            
+            navigateBack() {
+                if (this.model.navigateBack()) {
+                    this.view.renderWorkspace();
+                    return true;
+                }
+                return false;
+            }
+            
+            navigateToIndex(index) {
+                if (this.model.navigateToIndex(index)) {
+                    this.view.renderWorkspace();
+                    return true;
+                }
+                return false;
+            }
+            
+            moveElement(elementId, targetElementId) {
+                if (this.model.moveElement(elementId, targetElementId)) {
+                    this.view.renderWorkspace();
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', () => {
+            const model = new CanvasModel();
+            const controller = new CanvasController(model);
+            const view = new CanvasView(model, controller);
+            
+            controller.view = view;
+            controller.initialize();
+        });
+    </script>
+</body>
+</html>
