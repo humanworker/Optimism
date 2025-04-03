@@ -97,6 +97,23 @@
             opacity: 0.3;
         }
 
+        .nav-link {
+            cursor: pointer;
+            padding: 5px 10px;
+            border: none;
+            background-color: transparent;
+            color: var(--element-text-color);
+            font-size: 14px;
+            text-decoration: underline;
+            padding-bottom: 3px; /* Match breadcrumb text height */
+            margin-left: 10px;
+        }
+        
+        .nav-link:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         #theme-toggle {
             cursor: pointer;
             padding: 5px 10px;
@@ -260,6 +277,15 @@
             text-decoration: underline;
             font-weight: bold;
         }
+
+        .right-controls {
+    display: flex;
+    align-items: center;
+}
+
+.right-controls .nav-link {
+    margin-left: 10px;
+}
     </style>
 </head>
 <body>
@@ -269,7 +295,11 @@
                 <!-- Breadcrumbs will be added here dynamically -->
             </div>
         </div>
-        <button id="theme-toggle">Toggle Theme</button>
+        <div id="right-controls">
+            <button id="undo-button" class="nav-link" disabled>Undo</button>
+            <button id="redo-button" class="nav-link" disabled>Redo</button>
+            <button id="theme-toggle" class="nav-link">Toggle Theme</button>
+        </div>
     </div>
     <div id="workspace"></div>
     <div id="style-panel">
@@ -303,6 +333,11 @@
                 this.currentNode = this.data;
                 this.selectedElement = null;
                 this.isDarkTheme = true; // Default to dark theme
+                
+                // Command history for undo/redo
+                this.undoStack = [];
+                this.redoStack = [];
+                this.maxHistorySize = 50; // Limit history size to prevent memory issues
             }
 
             loadData() {
@@ -312,6 +347,68 @@
 
             saveData() {
                 localStorage.setItem('canvasData', JSON.stringify(this.data));
+            }
+            
+            // Command pattern for undo/redo
+            execute(command) {
+                // Execute the command and save its result
+                const result = command.execute();
+                
+                // Add to undo stack
+                this.undoStack.push(command);
+                
+                // Clear redo stack when a new action is performed
+                this.redoStack = [];
+                
+                // Limit undo stack size
+                if (this.undoStack.length > this.maxHistorySize) {
+                    this.undoStack.shift(); // Remove oldest command
+                }
+                
+                return result;
+            }
+            
+            undo() {
+                if (this.undoStack.length === 0) return false;
+                
+                // Get the last command from the undo stack
+                const command = this.undoStack.pop();
+                
+                // Execute the undo action
+                command.undo();
+                
+                // Add to redo stack
+                this.redoStack.push(command);
+                
+                // Limit redo stack size
+                if (this.redoStack.length > this.maxHistorySize) {
+                    this.redoStack.shift(); // Remove oldest command
+                }
+                
+                return true;
+            }
+            
+            redo() {
+                if (this.redoStack.length === 0) return false;
+                
+                // Get the last command from the redo stack
+                const command = this.redoStack.pop();
+                
+                // Execute the command again
+                command.execute();
+                
+                // Add back to undo stack
+                this.undoStack.push(command);
+                
+                return true;
+            }
+            
+            canUndo() {
+                return this.undoStack.length > 0;
+            }
+            
+            canRedo() {
+                return this.redoStack.length > 0;
             }
 
             addElement(element) {
@@ -478,6 +575,122 @@
                 return this.isDarkTheme;
             }
         }
+        
+        // Command classes for undo/redo
+        class AddElementCommand {
+            constructor(model, element) {
+                this.model = model;
+                this.element = element;
+                this.nodeId = model.currentNode.id; // Store the current node ID
+            }
+            
+            execute() {
+                this.model.addElement(this.element);
+                return this.element.id;
+            }
+            
+            undo() {
+                // Remove the element that was added
+                this.model.deleteElement(this.element.id);
+            }
+        }
+        
+        class DeleteElementCommand {
+            constructor(model, elementId) {
+                this.model = model;
+                this.elementId = elementId;
+                this.element = {...model.findElement(elementId)}; // Store a copy of the element
+                this.nodeId = model.currentNode.id;
+            }
+            
+            execute() {
+                return this.model.deleteElement(this.elementId);
+            }
+            
+            undo() {
+                if (!this.model.currentNode.elements) {
+                    this.model.currentNode.elements = [];
+                }
+                this.model.currentNode.elements.push(this.element);
+                this.model.saveData();
+            }
+        }
+        
+        class UpdateElementCommand {
+            constructor(model, elementId, newProperties) {
+                this.model = model;
+                this.elementId = elementId;
+                this.newProperties = newProperties;
+                
+                // Store the old properties that are being changed
+                const element = model.findElement(elementId);
+                if (element) {
+                    this.oldProperties = {};
+                    for (const key in newProperties) {
+                        this.oldProperties[key] = element[key];
+                    }
+                }
+                this.nodeId = model.currentNode.id;
+            }
+            
+            execute() {
+                this.model.updateElement(this.elementId, this.newProperties);
+                return true;
+            }
+            
+            undo() {
+                if (this.oldProperties) {
+                    this.model.updateElement(this.elementId, this.oldProperties);
+                }
+            }
+        }
+        
+        class MoveElementCommand {
+            constructor(model, sourceId, targetId) {
+                this.model = model;
+                this.sourceId = sourceId;
+                this.targetId = targetId;
+                this.sourceElement = {...model.findElement(sourceId)}; // Store a copy
+                this.nodeId = model.currentNode.id;
+            }
+            
+            execute() {
+                // First, store the new ID that will be created in the target
+                const sourceElement = this.model.findElement(this.sourceId);
+                if (sourceElement) {
+                    // We'll need to remember this for undo
+                    this.newElementId = crypto.randomUUID();
+                    
+                    // Remember the target's children before the move
+                    const targetNode = this.model.currentNode.children[this.targetId];
+                    this.originalTargetElements = targetNode ? [...(targetNode.elements || [])] : [];
+                }
+                
+                return this.model.moveElement(this.sourceId, this.targetId);
+            }
+            
+            undo() {
+                // First, restore the source element in the current node
+                if (!this.model.currentNode.elements) {
+                    this.model.currentNode.elements = [];
+                }
+                this.model.currentNode.elements.push(this.sourceElement);
+                
+                // Remove the element from the target node
+                if (this.model.currentNode.children && 
+                    this.model.currentNode.children[this.targetId] && 
+                    this.model.currentNode.children[this.targetId].elements) {
+                    
+                    // We need to find and remove the moved element from the target
+                    // Since we don't know exactly which one it is (since it got a new ID),
+                    // we'll restore the target node's elements to their original state
+                    this.model.currentNode.children[this.targetId].elements = 
+                        [...this.originalTargetElements];
+                }
+                
+                this.model.saveData();
+            }
+        }
 
         // View to handle UI interactions
         class CanvasView {
@@ -489,6 +702,8 @@
                 this.breadcrumbContainer = document.getElementById('breadcrumb-container');
                 this.stylePanel = document.getElementById('style-panel');
                 this.themeToggle = document.getElementById('theme-toggle');
+                this.undoButton = document.getElementById('undo-button');
+                this.redoButton = document.getElementById('redo-button');
                 
                 this.draggedElement = null;
                 this.resizingElement = null;
@@ -506,6 +721,7 @@
                 this.setupEventListeners();
                 this.setupStylePanel();
                 this.setupThemeToggle();
+                this.setupUndoRedoButtons();
             }
             
             setupEventListeners() {
@@ -552,6 +768,19 @@
                         this.controller.navigateToElement(this.model.selectedElement);
                         e.preventDefault();
                     }
+                    
+                    // Undo with Ctrl/Cmd+Z
+                    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                        this.controller.undo();
+                        e.preventDefault();
+                    }
+                    
+                    // Redo with Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
+                    if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+                        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) {
+                        this.controller.redo();
+                        e.preventDefault();
+                    }
                 });
 
                 // Prevent right-click context menu
@@ -568,6 +797,24 @@
                         this.stylePanel.style.display = 'none';
                     }
                 });
+            }
+            
+            setupUndoRedoButtons() {
+                this.undoButton.addEventListener('click', () => {
+                    this.controller.undo();
+                });
+                
+                this.redoButton.addEventListener('click', () => {
+                    this.controller.redo();
+                });
+                
+                // Initially disable buttons
+                this.updateUndoRedoButtons();
+            }
+            
+            updateUndoRedoButtons() {
+                this.undoButton.disabled = !this.model.canUndo();
+                this.redoButton.disabled = !this.model.canRedo();
             }
             
             setupStylePanel() {
@@ -624,6 +871,9 @@
                 if (!this.model.selectedElement) {
                     this.stylePanel.style.display = 'none';
                 }
+                
+                // Update undo/redo buttons
+                this.updateUndoRedoButtons();
             }
             
             renderBreadcrumbs() {
@@ -675,66 +925,66 @@
                 }
             }
             
-// URL detection and conversion to clickable links
-convertUrlsToLinks(text) {
-    if (!text) return '';
-    
-    // Escape HTML characters to prevent XSS
-    let safeText = text.replace(/[&<>"']/g, function(match) {
-        switch (match) {
-            case '&': return '&amp;';
-            case '<': return '&lt;';
-            case '>': return '&gt;';
-            case '"': return '&quot;';
-            case "'": return '&#39;';
-            default: return match;
-        }
-    });
-    
-    // Replace newlines with <br> tags
-    safeText = safeText.replace(/\n/g, '<br>');
-    
-    // Process the text to find and replace URLs with proper anchor tags
-    let result = '';
-    let lastIndex = 0;
-    
-    // More comprehensive URL regex
-    const urlRegex = /(\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
-    
-    let match;
-    while ((match = urlRegex.exec(safeText)) !== null) {
-        // Add text before the URL
-        result += safeText.substring(lastIndex, match.index);
-        
-        // Get the URL
-        let url = match[0];
-        
-        // Remove any trailing punctuation that shouldn't be part of the URL
-        url = url.replace(/[.,;:!?)]+$/, '');
-        
-        // Create the proper href attribute
-        let href = url;
-        if (url.toLowerCase().startsWith('www.')) {
-            href = 'https://' + url;
-        }
-        
-        // Add the anchor tag
-        result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-        
-        // Update lastIndex to end of current match
-        lastIndex = match.index + url.length;
-        
-        // Adjust the regex lastIndex if we modified the URL (removed trailing punctuation)
-        if (url.length !== match[0].length) {
-            urlRegex.lastIndex = lastIndex;
-        }
-    }
-    
-    // Add any remaining text after the last URL
-    result += safeText.substring(lastIndex);
-    
-    return result;
-}
+            // URL detection and conversion to clickable links
+            convertUrlsToLinks(text) {
+                if (!text) return '';
+                
+                // Escape HTML characters to prevent XSS
+                let safeText = text.replace(/[&<>"']/g, function(match) {
+                    switch (match) {
+                        case '&': return '&amp;';
+                        case '<': return '&lt;';
+                        case '>': return '&gt;';
+                        case '"': return '&quot;';
+                        case "'": return '&#39;';
+                        default: return match;
+                    }
+                });
+                
+                // Replace newlines with <br> tags
+                safeText = safeText.replace(/\n/g, '<br>');
+                
+                // Process the text to find and replace URLs with proper anchor tags
+                let result = '';
+                let lastIndex = 0;
+                
+                // More comprehensive URL regex
+                const urlRegex = /(\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
+                
+                let match;
+                while ((match = urlRegex.exec(safeText)) !== null) {
+                    // Add text before the URL
+                    result += safeText.substring(lastIndex, match.index);
+                    
+                    // Get the URL
+                    let url = match[0];
+                    
+                    // Remove any trailing punctuation that shouldn't be part of the URL
+                    url = url.replace(/[.,;:!?)]+$/, '');
+                    
+                    // Create the proper href attribute
+                    let href = url;
+                    if (url.toLowerCase().startsWith('www.')) {
+                        href = 'https://' + url;
+                    }
+                    
+                    // Add the anchor tag
+                    result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+                    
+                    // Update lastIndex to end of current match
+                    lastIndex = match.index + url.length;
+                    
+                    // Adjust the regex lastIndex if we modified the URL (removed trailing punctuation)
+                    if (url.length !== match[0].length) {
+                        urlRegex.lastIndex = lastIndex;
+                    }
+                }
+                
+                // Add any remaining text after the last URL
+                result += safeText.substring(lastIndex);
+                
+                return result;
+            }
             
             createElementDOM(elementData) {
                 // Create container for the element
@@ -1065,7 +1315,12 @@ convertUrlsToLinks(text) {
                     }
                 };
                 
-                this.model.addElement(element);
+                // Create an add element command
+                const command = new AddElementCommand(this.model, element);
+                
+                // Execute the command
+                this.model.execute(command);
+                
                 const elemDOM = this.view.createElementDOM(element);
                 
                 // Find and focus the textarea inside the container
@@ -1076,10 +1331,17 @@ convertUrlsToLinks(text) {
                     if (display) display.style.display = 'none';
                     textarea.focus();
                 }
+                
+                // Update undo/redo buttons
+                this.view.updateUndoRedoButtons();
             }
             
             updateElement(id, properties) {
-                this.model.updateElement(id, properties);
+                // Create an update element command
+                const command = new UpdateElementCommand(this.model, id, properties);
+                
+                // Execute the command
+                this.model.execute(command);
                 
                 // Check if the element has nested elements and the text has changed
                 if (properties.text !== undefined) {
@@ -1099,6 +1361,9 @@ convertUrlsToLinks(text) {
                         }
                     }
                 }
+                
+                // Update undo/redo buttons
+                this.view.updateUndoRedoButtons();
             }
             
             updateElementStyle(id, styleProperties) {
@@ -1147,8 +1412,30 @@ convertUrlsToLinks(text) {
             }
             
             deleteElement(id) {
-                if (this.model.deleteElement(id)) {
+                // Create a delete element command
+                const command = new DeleteElementCommand(this.model, id);
+                
+                // Execute the command
+                const result = this.model.execute(command);
+                
+                if (result) {
                     this.view.renderWorkspace();
+                    this.view.updateUndoRedoButtons();
+                    return true;
+                }
+                return false;
+            }
+            
+            moveElement(elementId, targetElementId) {
+                // Create a move element command
+                const command = new MoveElementCommand(this.model, elementId, targetElementId);
+                
+                // Execute the command
+                const result = this.model.execute(command);
+                
+                if (result) {
+                    this.view.renderWorkspace();
+                    this.view.updateUndoRedoButtons();
                     return true;
                 }
                 return false;
@@ -1178,8 +1465,16 @@ convertUrlsToLinks(text) {
                 return false;
             }
             
-            moveElement(elementId, targetElementId) {
-                if (this.model.moveElement(elementId, targetElementId)) {
+            undo() {
+                if (this.model.undo()) {
+                    this.view.renderWorkspace();
+                    return true;
+                }
+                return false;
+            }
+            
+            redo() {
+                if (this.model.redo()) {
                     this.view.renderWorkspace();
                     return true;
                 }
