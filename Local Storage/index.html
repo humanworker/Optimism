@@ -15,12 +15,20 @@
             --panel-width: 250px;
         }
 
+        /* Light theme */
+        .light-theme {
+            --bg-color: white;
+            --element-text-color: black;
+            --element-border-color: #ddd;
+            --selected-border-color: #555;
+        }
+
         body {
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
             background-color: var(--bg-color);
-            color: white;
+            color: var(--element-text-color);
             height: 100vh;
             width: 100vw;
             overflow: hidden;
@@ -42,11 +50,18 @@
             right: 0;
             height: 40px;
             background-color: var(--bg-color);
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--element-border-color);
             display: flex;
             align-items: center;
             padding: 0 10px;
             z-index: 100;
+            justify-content: space-between; /* Add space for theme toggle */
+        }
+
+        #nav-controls {
+            display: flex;
+            align-items: center;
+            flex: 1;
         }
 
         #breadcrumb-container {
@@ -56,17 +71,16 @@
             white-space: nowrap;
             max-width: 50%;
             margin-right: 10px;
+            padding-top: 2px;
+            padding-bottom: 0px; /* Move breadcrumb text down 2px */
         }
 
         .breadcrumb-item {
             padding: 4px 8px;
-            background-color: #333;
-            color: white;
-            border: none;
-            border-radius: 4px;
+            color: var(--element-text-color);
+            text-decoration: underline;
             margin-right: 5px;
             cursor: pointer;
-            text-decoration: none;
             font-size: 14px;
             display: inline-block;
             max-width: 120px;
@@ -77,16 +91,20 @@
 
         .breadcrumb-separator {
             margin: 0 5px;
-            color: #777;
+            color: var(--element-text-color);
+            opacity: 0.3;
         }
 
-        #title-text {
-            font-size: 18px;
-            font-weight: bold;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: calc(100% - 100px);
+        #theme-toggle {
+            cursor: pointer;
+            padding: 5px 10px;
+            border: none;
+            background-color: transparent;
+            color: var(--element-text-color);
+            font-size: 14px;
+            margin-left: 10px;
+            text-decoration: underline;
+            padding-bottom: 3px; /* Match breadcrumb text height */
         }
 
         .text-element-container {
@@ -102,7 +120,7 @@
 
         .text-element-container.selected {
             border-color: var(--selected-border-color);
-            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+            /* Shadow removed as requested */
         }
 
         .text-element {
@@ -133,25 +151,18 @@
             cursor: text;
         }
 
+        .has-children {
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         .dragging {
             opacity: 0.7;
             z-index: 20;
         }
 
         .drag-over {
-            border: 2px dashed #aaa !important;
-        }
-
-        /* Children notification dot */
-        .children-dot {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 6px;
-            height: 6px;
-            background-color: white;
-            border-radius: 50%;
-            display: none; /* Hidden by default */
+            border: 2px dashed var(--element-border-color) !important;
         }
 
         /* Resize handle - very minimal */
@@ -166,7 +177,8 @@
 
         /* Only show resize handle when hovering over the bottom-right corner */
         .text-element-container:hover .resize-handle {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: var(--element-text-color);
+            opacity: 0.2;
         }
 
         /* Style panel */
@@ -177,7 +189,6 @@
             width: var(--panel-width);
             height: calc(100vh - 40px);
             background-color: var(--bg-color);
-            border-left: 1px solid #333;
             padding: 20px;
             box-sizing: border-box;
             overflow-y: auto;
@@ -187,7 +198,7 @@
         .panel-heading {
             font-size: 16px;
             margin-bottom: 20px;
-            color: #ccc;
+            color: var(--element-text-color);
         }
 
         .style-option {
@@ -197,7 +208,7 @@
         .option-label {
             display: block;
             margin-bottom: 10px;
-            color: #aaa;
+            color: var(--element-text-color);
         }
 
         .option-values {
@@ -207,36 +218,24 @@
 
         .option-value {
             cursor: pointer;
-            color: #ddd;
+            color: var(--element-text-color);
             text-decoration: none;
         }
 
         .option-value.selected {
             text-decoration: underline;
-            color: white;
-            font-weight: bold;
-        }
-
-        .style-option-small {
-            font-size: 14px;
-        }
-
-        .style-option-large {
-            font-size: 18px;
-        }
-
-        .style-option-huge {
-            font-size: 22px;
             font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div id="title-bar">
-        <div id="breadcrumb-container">
-            <!-- Breadcrumbs will be added here dynamically -->
+        <div id="nav-controls">
+            <div id="breadcrumb-container">
+                <!-- Breadcrumbs will be added here dynamically -->
+            </div>
         </div>
-        <div id="title-text">Home</div>
+        <button id="theme-toggle">Toggle Theme</button>
     </div>
     <div id="workspace"></div>
     <div id="style-panel">
@@ -244,9 +243,9 @@
         <div class="style-option">
             <span class="option-label">Text Size:</span>
             <div class="option-values">
-                <a href="#" class="option-value style-option-small" data-size="small">Small</a>
-                <a href="#" class="option-value style-option-large" data-size="large">Large</a>
-                <a href="#" class="option-value style-option-huge" data-size="huge">Huge</a>
+                <a href="#" class="option-value" data-size="small">Small</a>
+                <a href="#" class="option-value" data-size="large">Large</a>
+                <a href="#" class="option-value" data-size="huge">Huge</a>
             </div>
         </div>
     </div>
@@ -269,6 +268,7 @@
                 // Current node is always the last in the navigation stack
                 this.currentNode = this.data;
                 this.selectedElement = null;
+                this.isDarkTheme = true; // Default to dark theme
             }
 
             loadData() {
@@ -359,12 +359,32 @@
             navigateBack() {
                 if (this.navigationStack.length <= 1) return false;
                 
+                // Get the current node ID before navigation
+                const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+                
                 // Remove the current level
                 this.navigationStack.pop();
                 
                 // Set current node to the previous level
                 this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
+                
+                // Check if the node we just left has no children anymore
+                const isEmpty = this.checkIfNodeIsEmpty(currentNodeId);
+                
                 return true;
+            }
+            
+            checkIfNodeIsEmpty(nodeId) {
+                // Find the node in the current level's children
+                const node = this.currentNode.children[nodeId];
+                
+                if (!node) return true;
+                
+                // Check if node has no elements and no children with content
+                const hasNoElements = !node.elements || node.elements.length === 0;
+                const hasNoChildren = !node.children || Object.keys(node.children).length === 0;
+                
+                return hasNoElements && hasNoChildren;
             }
 
             navigateToIndex(index) {
@@ -418,6 +438,11 @@
                 this.saveData();
                 return true;
             }
+            
+            toggleTheme() {
+                this.isDarkTheme = !this.isDarkTheme;
+                return this.isDarkTheme;
+            }
         }
 
         // View to handle UI interactions
@@ -428,8 +453,8 @@
                 this.workspace = document.getElementById('workspace');
                 this.titleBar = document.getElementById('title-bar');
                 this.breadcrumbContainer = document.getElementById('breadcrumb-container');
-                this.titleText = document.getElementById('title-text');
                 this.stylePanel = document.getElementById('style-panel');
+                this.themeToggle = document.getElementById('theme-toggle');
                 
                 this.draggedElement = null;
                 this.resizingElement = null;
@@ -446,6 +471,7 @@
                 
                 this.setupEventListeners();
                 this.setupStylePanel();
+                this.setupThemeToggle();
             }
             
             setupEventListeners() {
@@ -469,19 +495,44 @@
                     }
                 });
                 
-                // Global keyboard handlers for deletion
+                // Global keyboard handlers for deletion and navigation
                 document.addEventListener('keydown', (e) => {
+                    // Delete/Backspace to delete selected element
                     if ((e.key === 'Delete' || e.key === 'Backspace') && 
                         this.model.selectedElement && 
                         document.activeElement.tagName !== 'TEXTAREA') {
                         this.controller.deleteElement(this.model.selectedElement);
                         e.preventDefault(); // Prevent browser back navigation on backspace
                     }
+                    
+                    // Up Arrow to navigate back (zoom out)
+                    if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1) {
+                        this.controller.navigateBack();
+                        e.preventDefault();
+                    }
+                    
+                    // Down Arrow to navigate into selected element (zoom in)
+                    if (e.key === 'ArrowDown' && 
+                        this.model.selectedElement && 
+                        this.model.hasChildren(this.model.selectedElement)) {
+                        this.controller.navigateToElement(this.model.selectedElement);
+                        e.preventDefault();
+                    }
                 });
 
                 // Prevent right-click context menu
                 document.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
+                });
+                
+                // Close style panel when clicking outside
+                document.addEventListener('click', (e) => {
+                    // If clicking outside of both the style panel and any element
+                    if (!this.stylePanel.contains(e.target) && 
+                        !e.target.closest('.text-element-container') && 
+                        this.stylePanel.style.display === 'block') {
+                        this.stylePanel.style.display = 'none';
+                    }
                 });
             }
             
@@ -493,6 +544,7 @@
                 sizeOptions.forEach(option => {
                     option.addEventListener('click', (e) => {
                         e.preventDefault();
+                        e.stopPropagation(); // Prevent closing the panel
                         
                         // Only apply if an element is selected
                         if (!this.model.selectedElement) return;
@@ -510,6 +562,12 @@
                 });
             }
             
+            setupThemeToggle() {
+                this.themeToggle.addEventListener('click', () => {
+                    this.controller.toggleTheme();
+                });
+            }
+            
             isModifierKeyPressed(e) {
                 return this.isMac ? e.metaKey : e.ctrlKey;
             }
@@ -521,10 +579,6 @@
                 // Update breadcrumbs
                 this.renderBreadcrumbs();
                 
-                // Update title
-                this.titleText.textContent = this.model.navigationStack.length > 1 ? 
-                    this.model.currentNode.title : 'Home';
-                
                 // Render elements
                 if (this.model.currentNode.elements) {
                     this.model.currentNode.elements.forEach(element => {
@@ -533,37 +587,58 @@
                 }
                 
                 // Hide style panel when no element is selected
-                this.stylePanel.style.display = 'none';
+                if (!this.model.selectedElement) {
+                    this.stylePanel.style.display = 'none';
+                }
             }
             
             renderBreadcrumbs() {
                 this.breadcrumbContainer.innerHTML = '';
                 
-                // Create breadcrumb elements
-                this.model.navigationStack.forEach((navItem, index) => {
-                    // Don't add the current level as a clickable breadcrumb if it's the last one
-                    if (index < this.model.navigationStack.length - 1) {
-                        // Create breadcrumb item
-                        const breadcrumb = document.createElement('a');
-                        breadcrumb.className = 'breadcrumb-item';
-                        const title = index === 0 ? 'Home' : (navItem.nodeTitle || 'Untitled');
-                        breadcrumb.textContent = title.substring(0, 10) + (title.length > 10 ? '...' : '');
-                        breadcrumb.title = title; // Full title on hover
-                        breadcrumb.href = 'javascript:void(0);'; // Make it look like a link without page reload
-                        breadcrumb.addEventListener('click', () => {
-                            this.controller.navigateToIndex(index);
-                        });
-                        this.breadcrumbContainer.appendChild(breadcrumb);
+                // Create breadcrumb elements - only show navigable ones
+                for (let i = 0; i < this.model.navigationStack.length - 1; i++) {
+                    const navItem = this.model.navigationStack[i];
+                    
+                    // Create breadcrumb item
+                    const breadcrumb = document.createElement('span');
+                    breadcrumb.className = 'breadcrumb-item';
+                    breadcrumb.style.textDecoration = 'underline';
+                    breadcrumb.style.cursor = 'pointer';
+                    
+                    const title = i === 0 ? 'Home' : (navItem.nodeTitle || 'Untitled');
+                    breadcrumb.textContent = title.length > 10 ? 
+                        title.substring(0, 10) + '...' : title;
+                    breadcrumb.title = title; // Full title on hover
+                    
+                    breadcrumb.addEventListener('click', () => {
+                        this.controller.navigateToIndex(i);
+                    });
+                    
+                    this.breadcrumbContainer.appendChild(breadcrumb);
+                    
+                    // Add separator
+                    const separator = document.createElement('span');
+                    separator.className = 'breadcrumb-separator';
+                    separator.textContent = '➔';
+                    this.breadcrumbContainer.appendChild(separator);
+                }
+                
+                // Add current (last) item without link styling
+                if (this.model.navigationStack.length > 0) {
+                    const currentItem = this.model.navigationStack[this.model.navigationStack.length - 1];
+                    const currentBreadcrumb = document.createElement('span');
+                    currentBreadcrumb.className = 'breadcrumb-item';
+                    currentBreadcrumb.style.textDecoration = 'none';
+                    
+                    const title = this.model.navigationStack.length === 1 ? 
+                        'Home' : (currentItem.nodeTitle || 'Untitled');
                         
-                        // Add separator if not the last item
-                        if (index < this.model.navigationStack.length - 2) {
-                            const separator = document.createElement('span');
-                            separator.className = 'breadcrumb-separator';
-                            separator.textContent = '>';
-                            this.breadcrumbContainer.appendChild(separator);
-                        }
-                    }
-                });
+                    currentBreadcrumb.textContent = title.length > 10 ? 
+                        title.substring(0, 10) + '...' : title;
+                    currentBreadcrumb.title = title;
+                    
+                    this.breadcrumbContainer.appendChild(currentBreadcrumb);
+                }
             }
             
             createElementDOM(elementData) {
@@ -573,6 +648,9 @@
                 container.dataset.id = elementData.id;
                 container.style.left = `${elementData.x}px`;
                 container.style.top = `${elementData.y}px`;
+                
+                // Check if this element has children
+                const hasChildren = this.model.hasChildren(elementData.id);
                 
                 // Set dimensions if they exist in the data
                 if (elementData.width) {
@@ -590,6 +668,9 @@
                 // Create the text area element
                 const textElement = document.createElement('textarea');
                 textElement.className = 'text-element';
+                if (hasChildren) {
+                    textElement.classList.add('has-children');
+                }
                 textElement.value = elementData.text || '';
                 
                 // Apply text size if defined
@@ -599,15 +680,6 @@
                     } else if (elementData.style.textSize === 'huge') {
                         textElement.classList.add('size-huge');
                     }
-                }
-                
-                // Create children notification dot
-                const childrenDot = document.createElement('div');
-                childrenDot.className = 'children-dot';
-                
-                // Display children dot if element has children
-                if (this.model.hasChildren(elementData.id)) {
-                    childrenDot.style.display = 'block';
                 }
                 
                 // Create resize handle
@@ -631,21 +703,17 @@
                 container.addEventListener('click', (e) => {
                     this.selectElement(container, elementData);
                     
-                    // If cmd/ctrl is pressed, navigate into the element
-                    if (this.isModifierKeyPressed(e) && e.target !== textElement) {
+                    // If cmd/ctrl is pressed and the element has children, navigate into it
+                    if (this.isModifierKeyPressed(e) && hasChildren) {
                         this.controller.navigateToElement(elementData.id);
                         e.stopPropagation();
                     }
                 });
                 
+                // Handle double-click to edit text (now works for all cards)
                 container.addEventListener('dblclick', (e) => {
-                    if (this.isModifierKeyPressed(e)) {
-                        // Navigate when ctrl+double-click
-                        this.controller.navigateToElement(elementData.id);
-                    } else {
-                        // Focus the text area on double-click if not modifying
-                        textElement.focus();
-                    }
+                    // Focus the text area on double-click regardless of children status
+                    textElement.focus();
                     e.stopPropagation(); // Prevent creating a new element
                 });
                 
@@ -659,12 +727,9 @@
                     this.selectElement(container, elementData);
                     
                     // Start dragging if:
-                    // 1. The modifier key is pressed, OR
-                    // 2. We're not clicking inside the textarea, OR
-                    // 3. The textarea is not currently being edited
-                    if (this.isModifierKeyPressed(e) || 
-                        e.target !== textElement || 
-                        document.activeElement !== textElement) {
+                    // 1. We're not clicking inside the textarea, OR
+                    // 2. The textarea is not currently being edited
+                    if (e.target !== textElement || !this.isEditingText(textElement)) {
                         
                         this.draggedElement = container;
                         this.model.selectedElement = elementData.id;
@@ -699,12 +764,15 @@
                 
                 // Append all elements to the container
                 container.appendChild(textElement);
-                container.appendChild(childrenDot);
                 container.appendChild(resizeHandle);
                 
                 // Add to workspace
                 this.workspace.appendChild(container);
                 return container;
+            }
+            
+            isEditingText(textElement) {
+                return document.activeElement === textElement;
             }
             
             selectElement(element, elementData) {
@@ -836,6 +904,14 @@
                 }
                 return null;
             }
+            
+            updateTheme(isDarkTheme) {
+                if (isDarkTheme) {
+                    document.body.classList.remove('light-theme');
+                } else {
+                    document.body.classList.add('light-theme');
+                }
+            }
         }
 
         // Controller to handle user actions
@@ -848,8 +924,9 @@
             initialize() {
                 this.view.renderWorkspace();
                 this.view.setupDragListeners();
+                this.view.updateTheme(this.model.isDarkTheme);
             }
-            
+
             createElement(x, y) {
                 const element = {
                     id: crypto.randomUUID(),
@@ -873,6 +950,16 @@
             
             updateElement(id, properties) {
                 this.model.updateElement(id, properties);
+                
+                // Check if the element has nested elements and the text has changed
+                if (properties.text !== undefined) {
+                    // Update the card title in all navigation stacks
+                    const elementIndex = this.model.navigationStack.findIndex(item => item.nodeId === id);
+                    if (elementIndex !== -1) {
+                        this.model.navigationStack[elementIndex].nodeTitle = properties.text.substring(0, 60);
+                        this.view.renderBreadcrumbs();
+                    }
+                }
             }
             
             updateElementStyle(id, styleProperties) {
@@ -954,6 +1041,12 @@
                     return true;
                 }
                 return false;
+            }
+            
+            toggleTheme() {
+                const isDarkTheme = this.model.toggleTheme();
+                this.view.updateTheme(isDarkTheme);
+                return isDarkTheme;
             }
         }
 
