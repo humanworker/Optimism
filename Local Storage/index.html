@@ -13,6 +13,7 @@
             --element-border-color: #555;
             --selected-border-color: #fff;
             --panel-width: 250px;
+            --link-color: #3498db;
         }
 
         /* Light theme */
@@ -21,6 +22,7 @@
             --element-text-color: black;
             --element-border-color: #ddd;
             --selected-border-color: #555;
+            --link-color: #2980b9;
         }
 
         body {
@@ -149,6 +151,37 @@
         .text-element:focus {
             outline: none;
             cursor: text;
+        }
+
+        .text-display {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            color: var(--element-text-color);
+            border: none;
+            padding: 8px;
+            overflow: auto;
+            font-family: inherit;
+            box-sizing: border-box;
+            font-size: 14px; /* Default size - Small */
+            cursor: move;
+            line-height: 1.4;
+        }
+
+        .text-display.size-large {
+            font-size: 24px; /* Large size */
+        }
+
+        .text-display.size-huge {
+            font-size: 36px; /* Huge size */
+            font-weight: bold;
+        }
+
+        .text-display a {
+            color: var(--link-color);
+            text-decoration: underline;
+            cursor: pointer;
+            pointer-events: auto;
         }
 
         .has-children {
@@ -641,6 +674,67 @@
                 }
             }
             
+// URL detection and conversion to clickable links
+convertUrlsToLinks(text) {
+    if (!text) return '';
+    
+    // Escape HTML characters to prevent XSS
+    let safeText = text.replace(/[&<>"']/g, function(match) {
+        switch (match) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return match;
+        }
+    });
+    
+    // Replace newlines with <br> tags
+    safeText = safeText.replace(/\n/g, '<br>');
+    
+    // Process the text to find and replace URLs with proper anchor tags
+    let result = '';
+    let lastIndex = 0;
+    
+    // More comprehensive URL regex
+    const urlRegex = /(\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
+    
+    let match;
+    while ((match = urlRegex.exec(safeText)) !== null) {
+        // Add text before the URL
+        result += safeText.substring(lastIndex, match.index);
+        
+        // Get the URL
+        let url = match[0];
+        
+        // Remove any trailing punctuation that shouldn't be part of the URL
+        url = url.replace(/[.,;:!?)]+$/, '');
+        
+        // Create the proper href attribute
+        let href = url;
+        if (url.toLowerCase().startsWith('www.')) {
+            href = 'https://' + url;
+        }
+        
+        // Add the anchor tag
+        result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        
+        // Update lastIndex to end of current match
+        lastIndex = match.index + url.length;
+        
+        // Adjust the regex lastIndex if we modified the URL (removed trailing punctuation)
+        if (url.length !== match[0].length) {
+            urlRegex.lastIndex = lastIndex;
+        }
+    }
+    
+    // Add any remaining text after the last URL
+    result += safeText.substring(lastIndex);
+    
+    return result;
+}
+            
             createElementDOM(elementData) {
                 // Create container for the element
                 const container = document.createElement('div');
@@ -665,20 +759,31 @@
                     container.style.height = `100px`; // Default height
                 }
 
-                // Create the text area element
-                const textElement = document.createElement('textarea');
-                textElement.className = 'text-element';
+                // Create the text editor (hidden by default)
+                const textEditor = document.createElement('textarea');
+                textEditor.className = 'text-element';
                 if (hasChildren) {
-                    textElement.classList.add('has-children');
+                    textEditor.classList.add('has-children');
                 }
-                textElement.value = elementData.text || '';
+                textEditor.value = elementData.text || '';
+                textEditor.style.display = 'none'; // Hide by default
+                
+                // Create the text display (shown by default)
+                const textDisplay = document.createElement('div');
+                textDisplay.className = 'text-display';
+                if (hasChildren) {
+                    textDisplay.classList.add('has-children');
+                }
+                textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '');
                 
                 // Apply text size if defined
                 if (elementData.style && elementData.style.textSize) {
                     if (elementData.style.textSize === 'large') {
-                        textElement.classList.add('size-large');
+                        textEditor.classList.add('size-large');
+                        textDisplay.classList.add('size-large');
                     } else if (elementData.style.textSize === 'huge') {
-                        textElement.classList.add('size-huge');
+                        textEditor.classList.add('size-huge');
+                        textDisplay.classList.add('size-huge');
                     }
                 }
                 
@@ -687,20 +792,40 @@
                 resizeHandle.className = 'resize-handle';
                 
                 // Setup content listeners
-                textElement.addEventListener('input', () => {
+                textEditor.addEventListener('input', () => {
                     this.controller.updateElement(elementData.id, {
-                        text: textElement.value
+                        text: textEditor.value
                     });
                 });
                 
-                textElement.addEventListener('blur', () => {
+                textEditor.addEventListener('blur', () => {
+                    // Update text and switch to display mode
                     this.controller.updateElement(elementData.id, {
-                        text: textElement.value
+                        text: textEditor.value
                     });
+                    
+                    // Update display content with converted links
+                    textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
+                    
+                    // Toggle visibility
+                    textEditor.style.display = 'none';
+                    textDisplay.style.display = 'block';
+                });
+                
+                // Handle link clicks within the display div
+                textDisplay.addEventListener('click', (e) => {
+                    // Check if we clicked on a link
+                    if (e.target.tagName === 'A') {
+                        e.stopPropagation(); // Don't bubble up to select the container
+                        return true; // Allow default link behavior
+                    }
                 });
                 
                 // Setup container event listeners
                 container.addEventListener('click', (e) => {
+                    // Don't handle clicks on links
+                    if (e.target.tagName === 'A') return;
+                    
                     this.selectElement(container, elementData);
                     
                     // If cmd/ctrl is pressed and the element has children, navigate into it
@@ -710,38 +835,40 @@
                     }
                 });
                 
-                // Handle double-click to edit text (now works for all cards)
+                // Handle double-click to edit text
                 container.addEventListener('dblclick', (e) => {
-                    // Focus the text area on double-click regardless of children status
-                    textElement.focus();
+                    // Don't handle dblclicks on links
+                    if (e.target.tagName === 'A') return;
+                    
+                    // Switch to edit mode
+                    textDisplay.style.display = 'none';
+                    textEditor.style.display = 'block';
+                    textEditor.focus();
                     e.stopPropagation(); // Prevent creating a new element
                 });
                 
                 container.addEventListener('mousedown', (e) => {
-                    // Don't handle if not left mouse button
-                    if (e.button !== 0) return;
+                    // Don't handle if not left mouse button or if clicking a link
+                    if (e.button !== 0 || e.target.tagName === 'A') return;
                     
                     // Don't start drag when on resize handle
                     if (e.target === resizeHandle) return;
                     
                     this.selectElement(container, elementData);
                     
-                    // Start dragging if:
-                    // 1. We're not clicking inside the textarea, OR
-                    // 2. The textarea is not currently being edited
-                    if (e.target !== textElement || !this.isEditingText(textElement)) {
-                        
-                        this.draggedElement = container;
-                        this.model.selectedElement = elementData.id;
-                        
-                        // Calculate offset
-                        const rect = container.getBoundingClientRect();
-                        this.elemOffsetX = e.clientX - rect.left;
-                        this.elemOffsetY = e.clientY - rect.top;
-                        
-                        container.classList.add('dragging');
-                        e.preventDefault();
-                    }
+                    // Don't start dragging if we're in edit mode
+                    if (textEditor.style.display === 'block') return;
+                    
+                    this.draggedElement = container;
+                    this.model.selectedElement = elementData.id;
+                    
+                    // Calculate offset
+                    const rect = container.getBoundingClientRect();
+                    this.elemOffsetX = e.clientX - rect.left;
+                    this.elemOffsetY = e.clientY - rect.top;
+                    
+                    container.classList.add('dragging');
+                    e.preventDefault();
                 });
                 
                 // Setup resize handle event listeners
@@ -763,16 +890,13 @@
                 });
                 
                 // Append all elements to the container
-                container.appendChild(textElement);
+                container.appendChild(textEditor);
+                container.appendChild(textDisplay);
                 container.appendChild(resizeHandle);
                 
                 // Add to workspace
                 this.workspace.appendChild(container);
                 return container;
-            }
-            
-            isEditingText(textElement) {
-                return document.activeElement === textElement;
             }
             
             selectElement(element, elementData) {
@@ -943,9 +1067,14 @@
                 this.model.addElement(element);
                 const elemDOM = this.view.createElementDOM(element);
                 
-                // Focus the textarea inside the container
+                // Find and focus the textarea inside the container
                 const textarea = elemDOM.querySelector('.text-element');
-                if (textarea) textarea.focus();
+                if (textarea) {
+                    textarea.style.display = 'block';
+                    const display = elemDOM.querySelector('.text-display');
+                    if (display) display.style.display = 'none';
+                    textarea.focus();
+                }
             }
             
             updateElement(id, properties) {
@@ -958,6 +1087,15 @@
                     if (elementIndex !== -1) {
                         this.model.navigationStack[elementIndex].nodeTitle = properties.text.substring(0, 60);
                         this.view.renderBreadcrumbs();
+                    }
+                    
+                    // If this element is in the current view, update its display
+                    const container = document.querySelector(`.text-element-container[data-id="${id}"]`);
+                    if (container) {
+                        const display = container.querySelector('.text-display');
+                        if (display) {
+                            display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
+                        }
                     }
                 }
             }
@@ -986,19 +1124,23 @@
                 const container = document.querySelector(`.text-element-container[data-id="${id}"]`);
                 if (!container) return;
                 
-                // Get the textarea
+                // Get the textarea and display
                 const textarea = container.querySelector('.text-element');
-                if (!textarea) return;
+                const display = container.querySelector('.text-display');
+                if (!textarea || !display) return;
                 
                 // Reset all size classes
                 textarea.classList.remove('size-small', 'size-large', 'size-huge');
+                display.classList.remove('size-small', 'size-large', 'size-huge');
                 
                 // Apply the correct size class
                 if (element.style && element.style.textSize) {
                     if (element.style.textSize === 'large') {
                         textarea.classList.add('size-large');
+                        display.classList.add('size-large');
                     } else if (element.style.textSize === 'huge') {
                         textarea.classList.add('size-huge');
+                        display.classList.add('size-huge');
                     }
                 }
             }
