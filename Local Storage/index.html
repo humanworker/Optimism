@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas Website Builder</title>
+    <title>OPTIMISM</title>
     <style>
         :root {
             --element-width: 200px;
@@ -66,6 +66,15 @@
             flex: 1;
         }
 
+        #right-controls {
+            display: flex;
+            align-items: center;
+        }
+
+        #right-controls .nav-link {
+            margin-left: 10px;
+        }
+
         #breadcrumb-container {
             display: flex;
             align-items: center;
@@ -106,7 +115,6 @@
             font-size: 14px;
             text-decoration: underline;
             padding-bottom: 3px; /* Match breadcrumb text height */
-            margin-left: 10px;
         }
         
         .nav-link:disabled {
@@ -121,7 +129,6 @@
             background-color: transparent;
             color: var(--element-text-color);
             font-size: 14px;
-            margin-left: 10px;
             text-decoration: underline;
             padding-bottom: 3px; /* Match breadcrumb text height */
         }
@@ -154,7 +161,7 @@
             font-family: inherit;
             box-sizing: border-box;
             font-size: 14px; /* Default size - Small */
-            line-height: 1.0;
+            line-height: 1.2;
         }
 
         .text-element.size-large {
@@ -183,7 +190,7 @@
             box-sizing: border-box;
             font-size: 14px; /* Default size - Small */
             cursor: move;
-            line-height: 1.0;
+            line-height: 1.2;
         }
 
         .text-display.size-large {
@@ -235,7 +242,7 @@
         /* Style panel */
         #style-panel {
             position: fixed;
-            top: 40px;
+            top: 80px;
             right: 0;
             width: var(--panel-width);
             height: calc(100vh - 40px);
@@ -277,15 +284,6 @@
             text-decoration: underline;
             font-weight: bold;
         }
-
-        .right-controls {
-    display: flex;
-    align-items: center;
-}
-
-.right-controls .nav-link {
-    margin-left: 10px;
-}
     </style>
 </head>
 <body>
@@ -303,9 +301,9 @@
     </div>
     <div id="workspace"></div>
     <div id="style-panel">
-        <h3 class="panel-heading">Styling Options</h3>
+        
         <div class="style-option">
-            <span class="option-label">Text Size:</span>
+            
             <div class="option-values">
                 <a href="#" class="option-value" data-size="small">Small</a>
                 <a href="#" class="option-value" data-size="large">Large</a>
@@ -332,7 +330,10 @@
                 // Current node is always the last in the navigation stack
                 this.currentNode = this.data;
                 this.selectedElement = null;
-                this.isDarkTheme = true; // Default to dark theme
+                
+              // Load theme from localStorage or default to dark
+const savedTheme = this.loadThemeState();
+this.isDarkTheme = savedTheme !== null ? savedTheme : true;
                 
                 // Command history for undo/redo
                 this.undoStack = [];
@@ -347,6 +348,15 @@
 
             saveData() {
                 localStorage.setItem('canvasData', JSON.stringify(this.data));
+            }
+            
+            loadThemeState() {
+    const savedTheme = localStorage.getItem('canvasTheme');
+    return savedTheme !== null ? JSON.parse(savedTheme) : null;
+}
+            
+            saveThemeState() {
+                localStorage.setItem('canvasTheme', JSON.stringify(this.isDarkTheme));
             }
             
             // Command pattern for undo/redo
@@ -423,6 +433,14 @@
                 const element = this.findElement(id);
                 if (element) {
                     Object.assign(element, properties);
+                    
+                    // Delete element if text is empty
+                    if (properties.text !== undefined && 
+                        (properties.text === '' || properties.text === null)) {
+                        this.deleteElement(id);
+                        return;
+                    }
+                    
                     this.saveData();
                 }
             }
@@ -483,6 +501,10 @@
                 
                 // Update current node
                 this.currentNode = this.currentNode.children[elementId];
+                
+                // Clear selected element when navigating
+                this.selectedElement = null;
+                
                 this.saveData();
                 return true;
             }
@@ -501,6 +523,21 @@
                 
                 // Check if the node we just left has no children anymore
                 const isEmpty = this.checkIfNodeIsEmpty(currentNodeId);
+                
+                // Clear selected element when navigating
+                this.selectedElement = null;
+                
+                // Update hasChildren status for the card we just came out of
+                if (this.currentNode.elements) {
+                    const parentElement = this.currentNode.elements.find(el => el.id === currentNodeId);
+                    if (parentElement) {
+                        // Update the display to not show it as having children if empty
+                        if (isEmpty) {
+                            // Just save the data here, the view will handle removing underline
+                            this.saveData();
+                        }
+                    }
+                }
                 
                 return true;
             }
@@ -526,6 +563,10 @@
                 
                 // Set current node
                 this.currentNode = this.navigationStack[index].node;
+                
+                // Clear selected element when navigating
+                this.selectedElement = null;
+                
                 return true;
             }
 
@@ -572,6 +613,7 @@
             
             toggleTheme() {
                 this.isDarkTheme = !this.isDarkTheme;
+                this.saveThemeState(); // Save theme to localStorage
                 return this.isDarkTheme;
             }
         }
@@ -631,15 +673,36 @@
                     }
                 }
                 this.nodeId = model.currentNode.id;
+                
+                // Special handling for empty text - store if this might result in element deletion
+                this.mightDelete = newProperties.text !== undefined && 
+                    (newProperties.text === '' || newProperties.text === null);
+                if (this.mightDelete) {
+                    // Store the full element for potential restoration
+                    this.fullElement = JSON.parse(JSON.stringify(element));
+                }
             }
             
             execute() {
-                this.model.updateElement(this.elementId, this.newProperties);
+                // If this is a text update that will delete the element
+                if (this.mightDelete) {
+                    this.wasDeleted = true;
+                    this.model.deleteElement(this.elementId);
+                } else {
+                    this.model.updateElement(this.elementId, this.newProperties);
+                }
                 return true;
             }
             
             undo() {
-                if (this.oldProperties) {
+                if (this.wasDeleted) {
+                    // Restore the full element if it was deleted due to empty text
+                    if (!this.model.currentNode.elements) {
+                        this.model.currentNode.elements = [];
+                    }
+                    this.model.currentNode.elements.push(this.fullElement);
+                    this.model.saveData();
+                } else if (this.oldProperties) {
                     this.model.updateElement(this.elementId, this.oldProperties);
                 }
             }
@@ -1050,17 +1113,25 @@
                 });
                 
                 textEditor.addEventListener('blur', () => {
+                    // Don't process if element was deleted due to empty text
+                    if (!this.model.findElement(elementData.id)) {
+                        return;
+                    }
+                    
                     // Update text and switch to display mode
                     this.controller.updateElement(elementData.id, {
                         text: textEditor.value
                     });
                     
-                    // Update display content with converted links
-                    textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
-                    
-                    // Toggle visibility
-                    textEditor.style.display = 'none';
-                    textDisplay.style.display = 'block';
+                    // If element still exists after potential deletion
+                    if (this.model.findElement(elementData.id)) {
+                        // Update display content with converted links
+                        textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
+                        
+                        // Toggle visibility
+                        textEditor.style.display = 'none';
+                        textDisplay.style.display = 'block';
+                    }
                 });
                 
                 // Handle link clicks within the display div
@@ -1345,6 +1416,13 @@
                 
                 // Check if the element has nested elements and the text has changed
                 if (properties.text !== undefined) {
+                    // If text is empty, the element might have been deleted
+                    if (properties.text === '' || properties.text === null) {
+                        // Just update UI since the element is gone
+                        this.view.renderWorkspace();
+                        return;
+                    }
+                    
                     // Update the card title in all navigation stacks
                     const elementIndex = this.model.navigationStack.findIndex(item => item.nodeId === id);
                     if (elementIndex !== -1) {
