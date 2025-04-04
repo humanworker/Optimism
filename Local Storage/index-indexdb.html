@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OPTIMISM</title>
+    <style>
+        :root {
+            --element-width: 200px;
+            --bg-color: black;
+            --element-bg-color: transparent;
+            --element-text-color: white;
+            --element-border-color: #555;
+            --selected-border-color: #fff;
+            --panel-width: 250px;
+            --link-color: #3498db;
+            --red-text-color: #ff5555;
+            --green-text-color: #55ff55;
+        }
+
+        /* Light theme */
+        .light-theme {
+            --bg-color: white;
+            --element-text-color: black;
+            --element-border-color: #ddd;
+            --selected-border-color: #555;
+            --link-color: #2980b9;
+            --red-text-color: #ff0000;
+            --green-text-color: #008800;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--element-text-color);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #workspace {
+            width: calc(100% - var(--panel-width));
+            height: 100%;
+            position: relative;
+            padding-top: 40px; /* Add space for title bar */
+            box-sizing: border-box;
+        }
+
+        #title-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background-color: var(--bg-color);
+            border-bottom: 1px solid var(--element-border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            z-index: 100;
+            justify-content: space-between; /* Add space for theme toggle */
+        }
+
+        #nav-controls {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        #right-controls {
+            display: flex;
+            align-items: center;
+        }
+
+        #right-controls .nav-link {
+            margin-left: 10px;
+        }
+
+        #breadcrumb-container {
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            white-space: nowrap;
+            max-width: 50%;
+            margin-right: 10px;
+            padding-top: 2px;
+            padding-bottom: 0px; /* Move breadcrumb text down 2px */
+        }
+
+        .breadcrumb-item {
+            padding: 4px 8px;
+            color: var(--element-text-color);
+            text-decoration: underline;
+            margin-right: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-block;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .breadcrumb-separator {
+            margin: 0 5px;
+            color: var(--element-text-color);
+            opacity: 0.3;
+        }
+
+        .nav-link {
+            cursor: pointer;
+            padding: 5px 10px;
+            border: none;
+            background-color: transparent;
+            color: var(--element-text-color);
+            font-size: 14px;
+            text-decoration: underline;
+            padding-bottom: 3px; /* Match breadcrumb text height */
+        }
+        
+        .nav-link:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #theme-toggle {
+            cursor: pointer;
+            padding: 5px 10px;
+            border: none;
+            background-color: transparent;
+            color: var(--element-text-color);
+            font-size: 14px;
+            text-decoration: underline;
+            padding-bottom: 3px; /* Match breadcrumb text height */
+        }
+
+        .text-element-container {
+            position: absolute;
+            border: 1px solid transparent; /* Border is transparent by default */
+            border-radius: 4px;
+            background-color: var(--element-bg-color);
+            min-width: var(--element-width);
+            min-height: 30px;
+            z-index: 1;
+            cursor: move;
+        }
+
+        .text-element-container.selected {
+            border-color: var(--selected-border-color);
+            /* Shadow removed as requested */
+        }
+
+        .text-element {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            color: var(--element-text-color);
+            border: none;
+            padding: 8px;
+            resize: none;
+            overflow: auto;
+            font-family: inherit;
+            box-sizing: border-box;
+            font-size: 14px; /* Default size - Small */
+            line-height: 1.2;
+        }
+
+        .text-element.size-large {
+            font-size: 24px; /* Large size */
+        }
+
+        .text-element.size-huge {
+            font-size: 36px; /* Huge size */
+            font-weight: bold;
+        }
+
+        .text-element:focus {
+            outline: none;
+            cursor: text;
+        }
+
+        .text-display {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            color: var(--element-text-color);
+            border: none;
+            padding: 8px;
+            overflow: auto;
+            font-family: inherit;
+            box-sizing: border-box;
+            font-size: 14px; /* Default size - Small */
+            cursor: move;
+            line-height: 1.2;
+        }
+
+        .text-display.size-large {
+            font-size: 24px; /* Large size */
+        }
+
+        .text-display.size-huge {
+            font-size: 36px; /* Huge size */
+            font-weight: bold;
+        }
+
+        /* Color variations */
+        .text-element.color-default, .text-display.color-default {
+            color: var(--element-text-color);
+        }
+
+        .text-element.color-red, .text-display.color-red {
+            color: var(--red-text-color);
+        }
+
+        .text-element.color-green, .text-display.color-green {
+            color: var(--green-text-color);
+        }
+
+        .text-display a {
+            color: var(--link-color);
+            text-decoration: underline;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        .has-children {
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .dragging {
+            opacity: 0.7;
+            z-index: 20;
+        }
+
+        .drag-over {
+            border: 2px dashed var(--element-border-color) !important;
+        }
+
+        /* Resize handle - very minimal */
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            cursor: nwse-resize; /* Diagonal resize cursor */
+        }
+
+        /* Only show resize handle when hovering over the bottom-right corner */
+        .text-element-container:hover .resize-handle {
+            background-color: var(--element-text-color);
+            opacity: 0.2;
+        }
+
+        /* Style panel */
+        #style-panel {
+            position: fixed;
+            top: 80px;
+            right: 0;
+            width: var(--panel-width);
+            height: calc(100vh - 40px);
+            background-color: var(--bg-color);
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            display: none; /* Hidden by default */
+        }
+
+        .panel-heading {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: var(--element-text-color);
+        }
+
+        .style-option {
+            margin-bottom: 20px;
+        }
+
+        .option-label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--element-text-color);
+        }
+
+        .option-values {
+            display: flex;
+            gap: 10px;
+        }
+
+        .option-value {
+            cursor: pointer;
+            color: var(--element-text-color);
+            text-decoration: none;
+        }
+
+        .option-value.selected {
+            text-decoration: underline;
+            font-weight: bold;
+        }
+
+        /* Loading spinner */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    <div id="title-bar">
+        <div id="nav-controls">
+            <div id="breadcrumb-container">
+                <!-- Breadcrumbs will be added here dynamically -->
+            </div>
+        </div>
+        <div id="right-controls">
+            <button id="undo-button" class="nav-link" disabled>Undo</button>
+            <button id="redo-button" class="nav-link" disabled>Redo</button>
+            <button id="theme-toggle" class="nav-link">Toggle Theme</button>
+        </div>
+    </div>
+    <div id="workspace"></div>
+    <div id="style-panel">
+        <div class="style-option">
+            <div class="option-label">Text Size</div>
+            <div class="option-values">
+                <a href="#" class="option-value" data-size="small">Small</a>
+                <a href="#" class="option-value" data-size="large">Large</a>
+                <a href="#" class="option-value" data-size="huge">Huge</a>
+            </div>
+        </div>
+        <div class="style-option">
+            <div class="option-label">Text Color</div>
+            <div class="option-values">
+                <a href="#" class="option-value" data-color="default">Default</a>
+                <a href="#" class="option-value" data-color="red">Red</a>
+                <a href="#" class="option-value" data-color="green">Green</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Database manager to handle IndexedDB operations
+        class DbManager {
+            constructor() {
+                this.dbName = 'optimismDB';
+                this.dbVersion = 1;
+                this.db = null;
+                this.dataStore = 'canvasData';
+                this.themeStore = 'themeSettings';
+            }
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.dbVersion);
+
+                    request.onerror = event => {
+                        console.error('Database error:', event.target.error);
+                        reject(event.target.error);
+                    };
+
+                    request.onupgradeneeded = event => {
+                        const db = event.target.result;
+
+                        // Create object store for canvas data
+                        if (!db.objectStoreNames.contains(this.dataStore)) {
+                            db.createObjectStore(this.dataStore, { keyPath: 'id' });
+                        }
+
+                        // Create object store for theme settings
+                        if (!db.objectStoreNames.contains(this.themeStore)) {
+                            db.createObjectStore(this.themeStore, { keyPath: 'id' });
+                        }
+                    };
+
+                    request.onsuccess = event => {
+                        this.db = event.target.result;
+                        resolve();
+                    };
+                });
+            }
+
+            async getData(storeType, id = 'root') {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error('Database not initialized'));
+                        return;
+                    }
+
+                    const transaction = this.db.transaction(storeType, 'readonly');
+                    const store = transaction.objectStore(storeType);
+                    const request = store.get(id);
+
+                    request.onerror = event => {
+                        console.error('Error getting data:', event.target.error);
+                        reject(event.target.error);
+                    };
+
+                    request.onsuccess = event => {
+                        resolve(request.result);
+                    };
+                });
+            }
+
+            async saveData(storeType, data) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error('Database not initialized'));
+                        return;
+                    }
+
+                    const transaction = this.db.transaction(storeType, 'readwrite');
+                    const store = transaction.objectStore(storeType);
+                    const request = store.put(data);
+
+                    request.onerror = event => {
+                        console.error('Error saving data:', event.target.error);
+                        reject(event.target.error);
+                    };
+
+                    request.onsuccess = event => {
+                        resolve();
+                    };
+                });
+            }
+
+            async deleteData(storeType, id) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error('Database not initialized'));
+                        return;
+                    }
+
+                    const transaction = this.db.transaction(storeType, 'readwrite');
+                    const store = transaction.objectStore(storeType);
+                    const request = store.delete(id);
+
+                    request.onerror = event => {
+                        console.error('Error deleting data:', event.target.error);
+                        reject(event.target.error);
+                    };
+
+                    request.onsuccess = event => {
+                        resolve();
+                    };
+                });
+            }
+        }
+
+        // Model to manage data
+        class CanvasModel {
+            constructor() {
+                this.dbManager = new DbManager();
+                this.navigationStack = [{
+                    nodeId: 'root',
+                    nodeTitle: 'Home',
+                    node: null  // Root node will be populated after data load
+                }];
+                
+                this.data = null; // Will be loaded asynchronously
+                this.isDarkTheme = true; // Default theme
+                this.currentNode = null; // Will be set after data load
+                this.selectedElement = null;
+                
+                // Command history for undo/redo
+                this.undoStack = [];
+                this.redoStack = [];
+                this.maxHistorySize = 50; // Limit history size to prevent memory issues
+            }
+
+            async initialize() {
+                try {
+                    await this.dbManager.init();
+                    await this.loadData();
+                    await this.loadThemeState();
+                    return true;
+                } catch (error) {
+                    console.error('Failed to initialize model:', error);
+                    return false;
+                }
+            }
+
+            async loadData() {
+                try {
+                    let data = await this.dbManager.getData(this.dbManager.dataStore);
+                    
+                    if (!data) {
+                        // Create default data structure if none exists
+                        data = { 
+                            id: 'root', 
+                            title: 'Home', 
+                            elements: [], 
+                            children: {} 
+                        };
+                        await this.dbManager.saveData(this.dbManager.dataStore, data);
+                    }
+                    
+                    this.data = data;
+                    // Set root node reference
+                    this.navigationStack[0].node = this.data;
+                    // Current node is always the last in the navigation stack
+                    this.currentNode = this.data;
+                    
+                    return data;
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                    throw error;
+                }
+            }
+
+            async saveData() {
+                try {
+                    await this.dbManager.saveData(this.dbManager.dataStore, this.data);
+                } catch (error) {
+                    console.error('Error saving data:', error);
+                    throw error;
+                }
+            }
+            
+            async loadThemeState() {
+                try {
+                    const themeData = await this.dbManager.getData(this.dbManager.themeStore, 'theme');
+                    if (themeData) {
+                        this.isDarkTheme = themeData.isDarkTheme;
+                    }
+                } catch (error) {
+                    console.error('Error loading theme state:', error);
+                    // Continue with default theme
+                }
+            }
+            
+            async saveThemeState() {
+                try {
+                    await this.dbManager.saveData(this.dbManager.themeStore, {
+                        id: 'theme',
+                        isDarkTheme: this.isDarkTheme
+                    });
+                } catch (error) {
+                    console.error('Error saving theme state:', error);
+                }
+            }
+            
+            // Command pattern for undo/redo
+            async execute(command) {
+                try {
+                    // Execute the command and save its result
+                    const result = await command.execute();
+                    
+                    // Add to undo stack
+                    this.undoStack.push(command);
+                    
+                    // Clear redo stack when a new action is performed
+                    this.redoStack = [];
+                    
+                    // Limit undo stack size
+                    if (this.undoStack.length > this.maxHistorySize) {
+                        this.undoStack.shift(); // Remove oldest command
+                    }
+                    
+                    return result;
+                } catch (error) {
+                    console.error('Error executing command:', error);
+                    throw error;
+                }
+            }
+            
+            async undo() {
+                if (this.undoStack.length === 0) return false;
+                
+                try {
+                    // Get the last command from the undo stack
+                    const command = this.undoStack.pop();
+                    
+                    // Execute the undo action
+                    await command.undo();
+                    
+                    // Add to redo stack
+                    this.redoStack.push(command);
+                    
+                    // Limit redo stack size
+                    if (this.redoStack.length > this.maxHistorySize) {
+                        this.redoStack.shift(); // Remove oldest command
+                    }
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Error during undo:', error);
+                    return false;
+                }
+            }
+            
+            async redo() {
+                if (this.redoStack.length === 0) return false;
+                
+                try {
+                    // Get the last command from the redo stack
+                    const command = this.redoStack.pop();
+                    
+                    // Execute the command again
+                    await command.execute();
+                    
+                    // Add back to undo stack
+                    this.undoStack.push(command);
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Error during redo:', error);
+                    return false;
+                }
+            }
+            
+            canUndo() {
+                return this.undoStack.length > 0;
+            }
+            
+            canRedo() {
+                return this.redoStack.length > 0;
+            }
+
+            async addElement(element) {
+                if (!this.currentNode.elements) {
+                    this.currentNode.elements = [];
+                }
+                this.currentNode.elements.push(element);
+                await this.saveData();
+                return element;
+            }
+
+            async updateElement(id, properties) {
+                const element = this.findElement(id);
+                if (element) {
+                    Object.assign(element, properties);
+                    
+                    // Delete element if text is empty
+                    if (properties.text !== undefined && 
+                        (properties.text === '' || properties.text === null)) {
+                        await this.deleteElement(id);
+                        return;
+                    }
+                    
+                    await this.saveData();
+                }
+            }
+
+            async deleteElement(id) {
+                if (!this.currentNode.elements) return false;
+                
+                const index = this.currentNode.elements.findIndex(el => el.id === id);
+                if (index !== -1) {
+                    this.currentNode.elements.splice(index, 1);
+                    await this.saveData();
+                    return true;
+                }
+                return false;
+            }
+
+            findElement(id) {
+                return this.currentNode.elements?.find(el => el.id === id);
+            }
+
+            // Check if an element has children cards
+            hasChildren(elementId) {
+                if (!this.currentNode.children) return false;
+                return !!this.currentNode.children[elementId] && 
+                      (this.currentNode.children[elementId].elements?.length > 0 || 
+                       Object.keys(this.currentNode.children[elementId].children || {}).length > 0);
+            }
+
+            async navigateToElement(elementId) {
+                const element = this.findElement(elementId);
+                if (!element) return false;
+
+                if (!this.currentNode.children) {
+                    this.currentNode.children = {};
+                }
+
+                // Create a child node if it doesn't exist
+                if (!this.currentNode.children[elementId]) {
+                    const truncatedTitle = element.text ? 
+                        (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : 
+                        "Untitled";
+                        
+                    this.currentNode.children[elementId] = {
+                        id: elementId,
+                        parentId: this.currentNode.id,
+                        title: truncatedTitle,
+                        elements: [],
+                        children: {}
+                    };
+                }
+
+                // Add to navigation stack
+                this.navigationStack.push({
+                    nodeId: elementId,
+                    nodeTitle: this.currentNode.children[elementId].title,
+                    node: this.currentNode.children[elementId]
+                });
+                
+                // Update current node
+                this.currentNode = this.currentNode.children[elementId];
+                
+                // Clear selected element when navigating
+                this.selectedElement = null;
+                
+                await this.saveData();
+                return true;
+            }
+
+            async navigateBack() {
+                if (this.navigationStack.length <= 1) return false;
+                
+                // Get the current node ID before navigation
+                const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+                
+                // Remove the current level
+                this.navigationStack.pop();
+                
+                // Set current node to the previous level
+                this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
+                
+                // Check if the node we just left has no children anymore
+                const isEmpty = this.checkIfNodeIsEmpty(currentNodeId);
+                
+                // Clear selected element when navigating
+                this.selectedElement = null;
+                
+                // Update hasChildren status for the card we just came out of
+                if (this.currentNode.elements) {
+                    const parentElement = this.currentNode.elements.find(el => el.id === currentNodeId);
+                    if (parentElement) {
+                        // Update the display to not show it as having children if empty
+                        if (isEmpty) {
+                            // Just save the data here, the view will handle removing underline
+                            await this.saveData();
+                        }
+                    }
+                }
+                
+                return true;
+            }
+            
+            checkIfNodeIsEmpty(nodeId) {
+                // Find the node in the current level's children
+                const node = this.currentNode.children[nodeId];
+                
+                if (!node) return true;
+                
+                // Check if node has no elements and no children with content
+                const hasNoElements = !node.elements || node.elements.length === 0;
+                const hasNoChildren = !node.children || Object.keys(node.children).length === 0;
+                
+                return hasNoElements && hasNoChildren;
+            }
+
+            async navigateToIndex(index) {
+                if (index >= this.navigationStack.length || index < 0) return false;
+                
+                // Keep only up to the specified index
+                this.navigationStack = this.navigationStack.slice(0, index + 1);
+                
+                // Set current node
+                this.currentNode = this.navigationStack[index].node;
+                
+                // Clear selected element when navigating
+                this.selectedElement = null;
+                
+                return true;
+            }
+
+            async moveElement(elementId, targetElementId) {
+                try {
+                    // Find source element
+                    const sourceElement = this.findElement(elementId);
+                    if (!sourceElement) return false;
+                    
+                    // Find target element and its node
+                    const targetElement = this.findElement(targetElementId);
+                    if (!targetElement) return false;
+                    
+                    // Make sure target has children node
+                    if (!this.currentNode.children) {
+                        this.currentNode.children = {};
+                    }
+                    
+                    // Create child node for target if it doesn't exist
+                    if (!this.currentNode.children[targetElementId]) {
+                        const truncatedTitle = targetElement.text ? 
+                            (targetElement.text.trim() === "" ? "Untitled" : targetElement.text.substring(0, 60)) : 
+                            "Untitled";
+                            
+                        this.currentNode.children[targetElementId] = {
+                            id: targetElementId,
+                            parentId: this.currentNode.id,
+                            title: truncatedTitle,
+                            elements: [],
+                            children: {}
+                        };
+                    }
+                    
+                    // Add source element to target's elements
+                    const newElement = {...sourceElement};
+                    newElement.id = crypto.randomUUID();
+                    this.currentNode.children[targetElementId].elements.push(newElement);
+                    
+                    // Save data before attempting to delete
+                    await this.saveData();
+                    
+                    // Remove source element from current node
+                    const deleteResult = await this.deleteElement(elementId);
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Error in moveElement:', error);
+                    return false;
+                }
+            }
+            
+            async toggleTheme() {
+                this.isDarkTheme = !this.isDarkTheme;
+                await this.saveThemeState();
+                return this.isDarkTheme;
+            }
+        }
+        
+        // Command classes for undo/redo
+        class AddElementCommand {
+            constructor(model, element) {
+                this.model = model;
+                this.element = element;
+                this.nodeId = model.currentNode.id; // Store the current node ID
+            }
+            
+            async execute() {
+                await this.model.addElement(this.element);
+                return this.element.id;
+            }
+            
+            async undo() {
+                // Remove the element that was added
+                await this.model.deleteElement(this.element.id);
+            }
+        }
+        
+        class DeleteElementCommand {
+            constructor(model, elementId) {
+                this.model = model;
+                this.elementId = elementId;
+                this.element = {...model.findElement(elementId)}; // Store a copy of the element
+                this.nodeId = model.currentNode.id;
+            }
+            
+            async execute() {
+                return await this.model.deleteElement(this.elementId);
+            }
+            
+            async undo() {
+                if (!this.model.currentNode.elements) {
+                    this.model.currentNode.elements = [];
+                }
+                this.model.currentNode.elements.push(this.element);
+                await this.model.saveData();
+            }
+        }
+        
+        class UpdateElementCommand {
+            constructor(model, elementId, newProperties) {
+                this.model = model;
+                this.elementId = elementId;
+                this.newProperties = newProperties;
+                
+                // Store the old properties that are being changed
+                const element = model.findElement(elementId);
+                if (element) {
+                    this.oldProperties = {};
+                    for (const key in newProperties) {
+                        this.oldProperties[key] = element[key];
+                    }
+                }
+                this.nodeId = model.currentNode.id;
+                
+                // Special handling for empty text - store if this might result in element deletion
+                this.mightDelete = newProperties.text !== undefined && 
+                    (newProperties.text === '' || newProperties.text === null);
+                if (this.mightDelete) {
+                    // Store the full element for potential restoration
+                    this.fullElement = JSON.parse(JSON.stringify(element));
+                }
+            }
+            
+            async execute() {
+                // If this is a text update that will delete the element
+                if (this.mightDelete) {
+                    this.wasDeleted = true;
+                    await this.model.deleteElement(this.elementId);
+                } else {
+                    await this.model.updateElement(this.elementId, this.newProperties);
+                }
+                return true;
+            }
+            
+            async undo() {
+                if (this.wasDeleted) {
+                    // Restore the full element if it was deleted due to empty text
+                    if (!this.model.currentNode.elements) {
+                        this.model.currentNode.elements = [];
+                    }
+                    this.model.currentNode.elements.push(this.fullElement);
+                    await this.model.saveData();
+                } else if (this.oldProperties) {
+                    await this.model.updateElement(this.elementId, this.oldProperties);
+                }
+            }
+        }
+        
+        class MoveElementCommand {
+            constructor(model, sourceId, targetId) {
+                this.model = model;
+                this.sourceId = sourceId;
+                this.targetId = targetId;
+                this.sourceElement = {...model.findElement(sourceId)}; // Store a copy
+                this.nodeId = model.currentNode.id;
+            }
+            
+            async execute() {
+                // First, store the new ID that will be created in the target
+                const sourceElement = this.model.findElement(this.sourceId);
+                if (sourceElement) {
+                    // We'll need to remember this for undo
+                    this.newElementId = crypto.randomUUID();
+                    
+                    // Remember the target's children before the move
+                    const targetNode = this.model.currentNode.children[this.targetId];
+                    this.originalTargetElements = targetNode ? [...(targetNode.elements || [])] : [];
+                }
+                
+                return await this.model.moveElement(this.sourceId, this.targetId);
+            }
+            
+            async undo() {
+                // First, restore the source element in the current node
+                if (!this.model.currentNode.elements) {
+                    this.model.currentNode.elements = [];
+                }
+                this.model.currentNode.elements.push(this.sourceElement);
+                
+                // Remove the element from the target node
+                if (this.model.currentNode.children && 
+                    this.model.currentNode.children[this.targetId] && 
+                    this.model.currentNode.children[this.targetId].elements) {
+                    
+                    // We need to find and remove the moved element from the target
+                    // Since we don't know exactly which one it is (since it got a new ID),
+                    // we'll restore the target node's elements to their original state
+                    this.model.currentNode.children[this.targetId].elements = 
+                        [...this.originalTargetElements];
+                }
+                
+                await this.model.saveData();
+            }
+        }
+
+        // View to handle UI interactions
+        class CanvasView {
+            constructor(model, controller) {
+                this.model = model;
+                this.controller = controller;
+                this.workspace = document.getElementById('workspace');
+                this.titleBar = document.getElementById('title-bar');
+                this.breadcrumbContainer = document.getElementById('breadcrumb-container');
+                this.stylePanel = document.getElementById('style-panel');
+                this.themeToggle = document.getElementById('theme-toggle');
+                this.undoButton = document.getElementById('undo-button');
+                this.redoButton = document.getElementById('redo-button');
+                this.loadingOverlay = document.getElementById('loading-overlay');
+                
+                this.draggedElement = null;
+                this.resizingElement = null;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.elemOffsetX = 0;
+                this.elemOffsetY = 0;
+                
+                this.initialWidth = 0;
+                this.initialHeight = 0;
+                
+                // Detect platform
+                this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            }
+            
+            hideLoading() {
+                this.loadingOverlay.style.display = 'none';
+            }
+            
+            showLoading() {
+                this.loadingOverlay.style.display = 'flex';
+            }
+            
+            setupEventListeners() {
+                // Workspace double-click to create new elements
+                this.workspace.addEventListener('dblclick', (e) => {
+                    // Ignore if click was on an element or if modifier key is pressed
+                    if (e.target !== this.workspace || this.isModifierKeyPressed(e)) return;
+                    
+                    // Get correct coordinates relative to the workspace
+                    const rect = this.workspace.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    this.controller.createElement(x, y);
+                });
+                
+                // Single click on workspace should deselect elements
+                this.workspace.addEventListener('click', (e) => {
+                    if (e.target === this.workspace) {
+                        this.deselectAllElements();
+                    }
+                });
+                
+                // Global keyboard handlers for deletion and navigation
+                document.addEventListener('keydown', (e) => {
+                    // Delete/Backspace to delete selected element
+                    if ((e.key === 'Delete' || e.key === 'Backspace') && 
+                        this.model.selectedElement && 
+                        document.activeElement.tagName !== 'TEXTAREA') {
+                        this.controller.deleteElement(this.model.selectedElement);
+                        e.preventDefault(); // Prevent browser back navigation on backspace
+                    }
+                    
+                    // Up Arrow to navigate back (zoom out)
+                    if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1) {
+                        this.controller.navigateBack();
+                        e.preventDefault();
+                    }
+                    
+                    // Down Arrow to navigate into selected element (zoom in)
+                    if (e.key === 'ArrowDown' && 
+                        this.model.selectedElement && 
+                        this.model.hasChildren(this.model.selectedElement)) {
+                        this.controller.navigateToElement(this.model.selectedElement);
+                        e.preventDefault();
+                    }
+                    
+                    // Undo with Ctrl/Cmd+Z
+                    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                        this.controller.undo();
+                        e.preventDefault();
+                    }
+                    
+                    // Redo with Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
+                    if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+                        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) {
+                        this.controller.redo();
+                        e.preventDefault();
+                    }
+                });
+
+                // Prevent right-click context menu
+                document.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+                
+                // Close style panel when clicking outside
+                document.addEventListener('click', (e) => {
+                    // If clicking outside of both the style panel and any element
+                    if (!this.stylePanel.contains(e.target) && 
+                        !e.target.closest('.text-element-container') && 
+                        this.stylePanel.style.display === 'block') {
+                        this.stylePanel.style.display = 'none';
+                    }
+                });
+            }
+            
+            setupUndoRedoButtons() {
+                this.undoButton.addEventListener('click', () => {
+                    this.controller.undo();
+                });
+                
+                this.redoButton.addEventListener('click', () => {
+                    this.controller.redo();
+                });
+                
+                // Initially disable buttons
+                this.updateUndoRedoButtons();
+            }
+            
+            updateUndoRedoButtons() {
+                this.undoButton.disabled = !this.model.canUndo();
+                this.redoButton.disabled = !this.model.canRedo();
+            }
+            
+            setupStylePanel() {
+                // Get all size option elements
+                const sizeOptions = document.querySelectorAll('.option-value[data-size]');
+                
+                // Add click event listeners to each size option
+                sizeOptions.forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation(); // Prevent closing the panel
+                        
+                        // Only apply if an element is selected
+                        if (!this.model.selectedElement) return;
+                        
+                        // Get the selected size
+                        const size = option.dataset.size;
+                        
+                        // Update the element's style
+                        this.controller.updateElementStyle(this.model.selectedElement, { textSize: size });
+                        
+                        // Update the UI to show which option is selected
+                        sizeOptions.forEach(opt => opt.classList.remove('selected'));
+                        option.classList.add('selected');
+                    });
+                });
+                
+                // Set up color options
+                const colorOptions = document.querySelectorAll('.option-value[data-color]');
+                
+                // Add click event listeners to each color option
+                colorOptions.forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation(); // Prevent closing the panel
+                        
+                        // Only apply if an element is selected
+                        if (!this.model.selectedElement) return;
+                        
+                        // Get the selected color
+                        const color = option.dataset.color;
+                        
+                        // Update the element's style
+                        this.controller.updateElementStyle(this.model.selectedElement, { textColor: color });
+                        
+                        // Update the UI to show which option is selected
+                        colorOptions.forEach(opt => opt.classList.remove('selected'));
+                        option.classList.add('selected');
+                    });
+                });
+            }
+            
+            setupThemeToggle() {
+                this.themeToggle.addEventListener('click', () => {
+                    this.controller.toggleTheme();
+                });
+            }
+            
+            isModifierKeyPressed(e) {
+                return this.isMac ? e.metaKey : e.ctrlKey;
+            }
+            
+            renderWorkspace() {
+                // Clear workspace
+                this.workspace.innerHTML = '';
+                
+                // Update breadcrumbs
+                this.renderBreadcrumbs();
+                
+                // Render elements
+                if (this.model.currentNode.elements) {
+                    this.model.currentNode.elements.forEach(element => {
+                        this.createElementDOM(element);
+                    });
+                }
+                
+                // Hide style panel when no element is selected
+                if (!this.model.selectedElement) {
+                    this.stylePanel.style.display = 'none';
+                }
+                
+                // Update undo/redo buttons
+                this.updateUndoRedoButtons();
+                
+                // Update page title
+                this.updatePageTitle();
+            }
+            
+            updatePageTitle() {
+                if (this.model.navigationStack.length === 1) {
+                    // At root level, use default title
+                    document.title = 'OPTIMISM';
+                } else {
+                    // Get the current node title
+                    const currentNode = this.model.navigationStack[this.model.navigationStack.length - 1];
+                    let title = currentNode.nodeTitle || 'Untitled';
+                    
+                    // Truncate to 20 characters if needed
+                    if (title.length > 20) {
+                        title = title.substring(0, 20) + '...';
+                    }
+                    
+                    document.title = title;
+                }
+            }
+            
+            renderBreadcrumbs() {
+                this.breadcrumbContainer.innerHTML = '';
+                
+                // Create breadcrumb elements - only show navigable ones
+                for (let i = 0; i < this.model.navigationStack.length - 1; i++) {
+                    const navItem = this.model.navigationStack[i];
+                    
+                    // Create breadcrumb item
+                    const breadcrumb = document.createElement('span');
+                    breadcrumb.className = 'breadcrumb-item';
+                    breadcrumb.style.textDecoration = 'underline';
+                    breadcrumb.style.cursor = 'pointer';
+                    
+                    const title = i === 0 ? 'Home' : (navItem.nodeTitle || 'Untitled');
+                    breadcrumb.textContent = title.length > 10 ? 
+                        title.substring(0, 10) + '...' : title;
+                    breadcrumb.title = title; // Full title on hover
+                    
+                    breadcrumb.addEventListener('click', () => {
+                        this.controller.navigateToIndex(i);
+                    });
+                    
+                    this.breadcrumbContainer.appendChild(breadcrumb);
+                    
+                    // Add separator
+                    const separator = document.createElement('span');
+                    separator.className = 'breadcrumb-separator';
+                    separator.textContent = '➔';
+                    this.breadcrumbContainer.appendChild(separator);
+                }
+                
+                // Add current (last) item without link styling
+                if (this.model.navigationStack.length > 0) {
+                    const currentItem = this.model.navigationStack[this.model.navigationStack.length - 1];
+                    const currentBreadcrumb = document.createElement('span');
+                    currentBreadcrumb.className = 'breadcrumb-item';
+                    currentBreadcrumb.style.textDecoration = 'none';
+                    
+                    const title = this.model.navigationStack.length === 1 ? 
+                        'Home' : (currentItem.nodeTitle || 'Untitled');
+                        
+                    currentBreadcrumb.textContent = title.length > 10 ? 
+                        title.substring(0, 10) + '...' : title;
+                    currentBreadcrumb.title = title;
+                    
+                    this.breadcrumbContainer.appendChild(currentBreadcrumb);
+                }
+            }
+            
+            // URL detection and conversion to clickable links
+            convertUrlsToLinks(text) {
+                if (!text) return '';
+                
+                // Escape HTML characters to prevent XSS
+                let safeText = text.replace(/[&<>"']/g, function(match) {
+                    switch (match) {
+                        case '&': return '&amp;';
+                        case '<': return '&lt;';
+                        case '>': return '&gt;';
+                        case '"': return '&quot;';
+                        case "'": return '&#39;';
+                        default: return match;
+                    }
+                });
+                
+                // Replace newlines with <br> tags
+                safeText = safeText.replace(/\n/g, '<br>');
+                
+                // Process the text to find and replace URLs with proper anchor tags
+                let result = '';
+                let lastIndex = 0;
+                
+                // More comprehensive URL regex
+                const urlRegex = /(\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
+                
+                let match;
+                while ((match = urlRegex.exec(safeText)) !== null) {
+                    // Add text before the URL
+                    result += safeText.substring(lastIndex, match.index);
+                    
+                    // Get the URL
+                    let url = match[0];
+                    
+                    // Remove any trailing punctuation that shouldn't be part of the URL
+                    url = url.replace(/[.,;:!?)]+$/, '');
+                    
+                    // Create the proper href attribute
+                    let href = url;
+                    if (url.toLowerCase().startsWith('www.')) {
+                        href = 'https://' + url;
+                    }
+                    
+                    // Add the anchor tag
+                    result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+                    
+                    // Update lastIndex to end of current match
+                    lastIndex = match.index + url.length;
+                    
+                    // Adjust the regex lastIndex if we modified the URL (removed trailing punctuation)
+                    if (url.length !== match[0].length) {
+                        urlRegex.lastIndex = lastIndex;
+                    }
+                }
+                
+                // Add any remaining text after the last URL
+                result += safeText.substring(lastIndex);
+                
+                return result;
+            }
+            
+            createElementDOM(elementData) {
+                // Create container for the element
+                const container = document.createElement('div');
+                container.className = 'text-element-container';
+                container.dataset.id = elementData.id;
+                container.style.left = `${elementData.x}px`;
+                container.style.top = `${elementData.y}px`;
+                
+                // Check if this element has children
+                const hasChildren = this.model.hasChildren(elementData.id);
+                
+                // Set dimensions if they exist in the data
+                if (elementData.width) {
+                    container.style.width = `${elementData.width}px`;
+                } else {
+                    container.style.width = `200px`; // Default width
+                }
+                
+                if (elementData.height) {
+                    container.style.height = `${elementData.height}px`;
+                } else {
+                    container.style.height = `100px`; // Default height
+                }
+
+                // Create the text editor (hidden by default)
+                const textEditor = document.createElement('textarea');
+                textEditor.className = 'text-element';
+                if (hasChildren) {
+                    textEditor.classList.add('has-children');
+                }
+                textEditor.value = elementData.text || '';
+                textEditor.style.display = 'none'; // Hide by default
+                
+                // Create the text display (shown by default)
+                const textDisplay = document.createElement('div');
+                textDisplay.className = 'text-display';
+                if (hasChildren) {
+                    textDisplay.classList.add('has-children');
+                }
+                textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '');
+                
+                // Apply text size if defined
+                if (elementData.style && elementData.style.textSize) {
+                    if (elementData.style.textSize === 'large') {
+                        textEditor.classList.add('size-large');
+                        textDisplay.classList.add('size-large');
+                    } else if (elementData.style.textSize === 'huge') {
+                        textEditor.classList.add('size-huge');
+                        textDisplay.classList.add('size-huge');
+                    }
+                }
+                
+                // Apply text color if defined
+                if (elementData.style && elementData.style.textColor) {
+                    textEditor.classList.add(`color-${elementData.style.textColor}`);
+                    textDisplay.classList.add(`color-${elementData.style.textColor}`);
+                }
+                
+                // Create resize handle
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+                
+                // Setup content listeners
+                textEditor.addEventListener('input', () => {
+                    this.controller.updateElement(elementData.id, {
+                        text: textEditor.value
+                    });
+                });
+                
+                textEditor.addEventListener('blur', () => {
+                    // Don't process if element was deleted due to empty text
+                    if (!this.model.findElement(elementData.id)) {
+                        return;
+                    }
+                    
+                    // Update text and switch to display mode
+                    this.controller.updateElement(elementData.id, {
+                        text: textEditor.value
+                    });
+                    
+                    // If element still exists after potential deletion
+                    if (this.model.findElement(elementData.id)) {
+                        // Update display content with converted links
+                        textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
+                        
+                        // Toggle visibility
+                        textEditor.style.display = 'none';
+                        textDisplay.style.display = 'block';
+                    }
+                });
+                
+                // Handle link clicks within the display div
+                textDisplay.addEventListener('click', (e) => {
+                    // Check if we clicked on a link
+                    if (e.target.tagName === 'A') {
+                        e.stopPropagation(); // Don't bubble up to select the container
+                        return true; // Allow default link behavior
+                    }
+                });
+                
+                // Setup container event listeners
+                container.addEventListener('click', (e) => {
+                    // Don't handle clicks on links
+                    if (e.target.tagName === 'A') return;
+                    
+                    this.selectElement(container, elementData);
+                    
+                    // If cmd/ctrl is pressed and the element has children, navigate into it
+                    if (this.isModifierKeyPressed(e) && hasChildren) {
+                        this.controller.navigateToElement(elementData.id);
+                        e.stopPropagation();
+                    }
+                });
+                
+                // Handle double-click to edit text
+                container.addEventListener('dblclick', (e) => {
+                    // Don't handle dblclicks on links
+                    if (e.target.tagName === 'A') return;
+                    
+                    // Switch to edit mode
+                    textDisplay.style.display = 'none';
+                    textEditor.style.display = 'block';
+                    textEditor.focus();
+                    e.stopPropagation(); // Prevent creating a new element
+                });
+                
+                container.addEventListener('mousedown', (e) => {
+                    // Don't handle if not left mouse button or if clicking a link
+                    if (e.button !== 0 || e.target.tagName === 'A') return;
+                    
+                    // Don't start drag when on resize handle
+                    if (e.target === resizeHandle) return;
+                    
+                    this.selectElement(container, elementData);
+                    
+                    // Don't start dragging if we're in edit mode
+                    if (textEditor.style.display === 'block') return;
+                    
+                    this.draggedElement = container;
+                    this.model.selectedElement = elementData.id;
+                    
+                    // Calculate offset
+                    const rect = container.getBoundingClientRect();
+                    this.elemOffsetX = e.clientX - rect.left;
+                    this.elemOffsetY = e.clientY - rect.top;
+                    
+                    container.classList.add('dragging');
+                    e.preventDefault();
+                });
+                
+                // Setup resize handle event listeners
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation(); // Prevent other mouse handlers
+                    
+                    this.selectElement(container, elementData);
+                    this.resizingElement = container;
+                    
+                    // Save initial dimensions
+                    this.initialWidth = container.offsetWidth;
+                    this.initialHeight = container.offsetHeight;
+                    
+                    // Save initial mouse position
+                    this.dragStartX = e.clientX;
+                    this.dragStartY = e.clientY;
+                    
+                    e.preventDefault();
+                });
+                
+                // Append all elements to the container
+                container.appendChild(textEditor);
+                container.appendChild(textDisplay);
+                container.appendChild(resizeHandle);
+                
+                // Add to workspace
+                this.workspace.appendChild(container);
+                return container;
+            }
+            
+            selectElement(element, elementData) {
+                this.deselectAllElements();
+                element.classList.add('selected');
+                this.model.selectedElement = element.dataset.id;
+                
+                // Show style panel
+                this.stylePanel.style.display = 'block';
+                
+                // Update the selected option in the style panel
+                this.updateStylePanel(elementData);
+            }
+            
+            updateStylePanel(elementData) {
+                // Reset all selected options
+                document.querySelectorAll('.option-value').forEach(opt => opt.classList.remove('selected'));
+                
+                // Set the correct text size option as selected
+                let selectedSize = 'small'; // Default
+                if (elementData.style && elementData.style.textSize) {
+                    selectedSize = elementData.style.textSize;
+                }
+                
+                const sizeOption = document.querySelector(`.option-value[data-size="${selectedSize}"]`);
+                if (sizeOption) {
+                    sizeOption.classList.add('selected');
+                }
+                
+                // Set the correct text color option as selected
+                let selectedColor = 'default'; // Default
+                if (elementData.style && elementData.style.textColor) {
+                    selectedColor = elementData.style.textColor;
+                }
+                
+                const colorOption = document.querySelector(`.option-value[data-color="${selectedColor}"]`);
+                if (colorOption) {
+                    colorOption.classList.add('selected');
+                }
+            }
+            
+            deselectAllElements() {
+                document.querySelectorAll('.text-element-container.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                this.model.selectedElement = null;
+            }
+            
+            setupDragListeners() {
+                document.addEventListener('mousemove', (e) => {
+                    // Handle resizing
+                    if (this.resizingElement) {
+                        // Calculate size delta
+                        const deltaWidth = e.clientX - this.dragStartX;
+                        const deltaHeight = e.clientY - this.dragStartY;
+                        
+                        // Apply new dimensions with minimum constraints
+                        const newWidth = Math.max(100, this.initialWidth + deltaWidth);
+                        const newHeight = Math.max(30, this.initialHeight + deltaHeight);
+                        
+                        this.resizingElement.style.width = `${newWidth}px`;
+                        this.resizingElement.style.height = `${newHeight}px`;
+                        
+                        return;
+                    }
+                    
+                    // Handle dragging
+                    if (!this.draggedElement) return;
+                    
+                    // Calculate new position
+                    const newX = e.clientX - this.elemOffsetX;
+                    const newY = e.clientY - this.elemOffsetY;
+                    
+                    // Apply new position
+                    this.draggedElement.style.left = `${newX}px`;
+                    this.draggedElement.style.top = `${newY}px`;
+                    
+                    // Highlight potential drop targets
+                    this.handleDragOver(e);
+                });
+                
+                document.addEventListener('mouseup', (e) => {
+                    // Handle end of resizing
+                    if (this.resizingElement) {
+                        const id = this.resizingElement.dataset.id;
+                        const width = parseFloat(this.resizingElement.style.width);
+                        const height = parseFloat(this.resizingElement.style.height);
+                        
+                        this.controller.updateElement(id, { width, height });
+                        
+                        this.resizingElement = null;
+                        return;
+                    }
+                    
+                    // Handle end of dragging
+                    if (!this.draggedElement) return;
+                    
+                    const draggedId = this.draggedElement.dataset.id;
+                    
+                    // Check if dragged over another element
+                    const dropTarget = this.findDropTarget(e);
+                    if (dropTarget && dropTarget !== this.draggedElement) {
+                        const targetId = dropTarget.dataset.id;
+                        
+                        // Deselect all elements before moving
+                        this.deselectAllElements();
+                        
+                        this.controller.moveElement(draggedId, targetId);
+                    } else {
+                        // Update position in model
+                        const newX = parseFloat(this.draggedElement.style.left);
+                        const newY = parseFloat(this.draggedElement.style.top);
+                        this.controller.updateElement(draggedId, { x: newX, y: newY });
+                    }
+                    
+                    // Reset drag state
+                    this.draggedElement.classList.remove('dragging');
+                    this.draggedElement = null;
+                    
+                    // Remove highlights
+                    const highlighted = document.querySelectorAll('.drag-over');
+                    highlighted.forEach(el => el.classList.remove('drag-over'));
+                });
+            }
+            
+            handleDragOver(e) {
+                // Remove previous highlights
+                const highlighted = document.querySelectorAll('.drag-over');
+                highlighted.forEach(el => el.classList.remove('drag-over'));
+                
+                // Check for new target
+                const dropTarget = this.findDropTarget(e);
+                if (dropTarget && dropTarget !== this.draggedElement) {
+                    dropTarget.classList.add('drag-over');
+                }
+            }
+            
+            findDropTarget(e) {
+                const elements = document.elementsFromPoint(e.clientX, e.clientY);
+                for (const element of elements) {
+                    if (element.classList.contains('text-element-container') && element !== this.draggedElement) {
+                        return element;
+                    }
+                }
+                return null;
+            }
+            
+            updateTheme(isDarkTheme) {
+                if (isDarkTheme) {
+                    document.body.classList.remove('light-theme');
+                } else {
+                    document.body.classList.add('light-theme');
+                }
+            }
+        }
+
+        // Controller to handle user actions
+        class CanvasController {
+            constructor(model, view) {
+                this.model = model;
+                this.view = view;
+                this.isInitialized = false;
+            }
+            
+            async initialize() {
+                this.view.showLoading();
+                try {
+                    await this.model.initialize();
+                    this.view.renderWorkspace();
+                    this.view.setupEventListeners();
+                    this.view.setupDragListeners();
+                    this.view.setupStylePanel();
+                    this.view.setupThemeToggle();
+                    this.view.setupUndoRedoButtons();
+                    this.view.updateTheme(this.model.isDarkTheme);
+                    this.isInitialized = true;
+                } catch (error) {
+                    console.error('Failed to initialize application:', error);
+                    alert('Failed to initialize application. Please refresh the page and try again.');
+                } finally {
+                    this.view.hideLoading();
+                }
+            }
+
+            async createElement(x, y) {
+                if (!this.isInitialized) return;
+                
+                // Creating a card is fast, no need for loading indicator
+                try {
+                    const element = {
+                        id: crypto.randomUUID(),
+                        x: x,
+                        y: y,
+                        text: '',
+                        width: 200,
+                        height: 100,
+                        style: {
+                            textSize: 'small', // Default text size
+                            textColor: 'default' // Default text color
+                        }
+                    };
+                    
+                    // Create an add element command
+                    const command = new AddElementCommand(this.model, element);
+                    
+                    // Execute the command
+                    await this.model.execute(command);
+                    
+                    const elemDOM = this.view.createElementDOM(element);
+                    
+                    // Find and focus the textarea inside the container
+                    const textarea = elemDOM.querySelector('.text-element');
+                    if (textarea) {
+                        textarea.style.display = 'block';
+                        const display = elemDOM.querySelector('.text-display');
+                        if (display) display.style.display = 'none';
+                        textarea.focus();
+                    }
+                    
+                    // Update undo/redo buttons
+                    this.view.updateUndoRedoButtons();
+                } catch (error) {
+                    console.error('Error creating element:', error);
+                }
+            }
+            
+            async updateElement(id, properties) {
+                if (!this.isInitialized) return;
+                
+                try {
+                    // Create an update element command
+                    const command = new UpdateElementCommand(this.model, id, properties);
+                    
+                    // Execute the command
+                    await this.model.execute(command);
+                    
+                    // Check if the element has nested elements and the text has changed
+                    if (properties.text !== undefined) {
+                        // If text is empty, the element might have been deleted
+                        if (properties.text === '' || properties.text === null) {
+                            // Just update UI since the element is gone
+                            this.view.renderWorkspace();
+                            return;
+                        }
+                        
+                        const element = this.model.findElement(id);
+                        if (!element) return; // Add additional check
+                        
+                        // Update the card title in all navigation stacks
+                        const elementIndex = this.model.navigationStack.findIndex(item => item.nodeId === id);
+                        if (elementIndex !== -1) {
+                            this.model.navigationStack[elementIndex].nodeTitle = properties.text.substring(0, 60);
+                            this.view.renderBreadcrumbs();
+                            
+                            // Update page title if we're on this level
+                            if (elementIndex === this.model.navigationStack.length - 1) {
+                                this.view.updatePageTitle();
+                            }
+                        }
+                        
+                        // If this element is in the current view, update its display
+                        const container = document.querySelector(`.text-element-container[data-id="${id}"]`);
+                        if (container) {
+                            const display = container.querySelector('.text-display');
+                            if (display) {
+                                display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
+                            }
+                        }
+                    }
+                    
+                    // Update undo/redo buttons
+                    this.view.updateUndoRedoButtons();
+                } catch (error) {
+                    console.error('Error updating element:', error);
+                }
+            }
+            
+            async updateElementStyle(id, styleProperties) {
+                if (!this.isInitialized) return;
+                
+                try {
+                    const element = this.model.findElement(id);
+                    if (element) {
+                        // Ensure style object exists
+                        if (!element.style) {
+                            element.style = {};
+                        }
+                        
+                        // Update style properties
+                        Object.assign(element.style, styleProperties);
+                        
+                        // Save changes
+                        await this.model.saveData();
+                        
+                        // Update the DOM to reflect style changes
+                        this.updateElementDOM(id, element);
+                    }
+                } catch (error) {
+                    console.error('Error updating element style:', error);
+                }
+            }
+            
+            updateElementDOM(id, element) {
+                // Find the element in the DOM
+                const container = document.querySelector(`.text-element-container[data-id="${id}"]`);
+                if (!container) return;
+                
+                // Get the textarea and display
+                const textarea = container.querySelector('.text-element');
+                const display = container.querySelector('.text-display');
+                if (!textarea || !display) return;
+                
+                // Reset all size classes
+                textarea.classList.remove('size-small', 'size-large', 'size-huge');
+                display.classList.remove('size-small', 'size-large', 'size-huge');
+                
+                // Apply the correct size class
+                if (element.style && element.style.textSize) {
+                    if (element.style.textSize === 'large') {
+                        textarea.classList.add('size-large');
+                        display.classList.add('size-large');
+                    } else if (element.style.textSize === 'huge') {
+                        textarea.classList.add('size-huge');
+                        display.classList.add('size-huge');
+                    }
+                }
+                
+                // Reset all color classes
+                textarea.classList.remove('color-default', 'color-red', 'color-green');
+                display.classList.remove('color-default', 'color-red', 'color-green');
+                
+                // Apply the correct color class
+                if (element.style && element.style.textColor) {
+                    textarea.classList.add(`color-${element.style.textColor}`);
+                    display.classList.add(`color-${element.style.textColor}`);
+                } else {
+                    // Default to default color if no color specified
+                    textarea.classList.add('color-default');
+                    display.classList.add('color-default');
+                }
+            }
+            
+            async deleteElement(id) {
+                if (!this.isInitialized) return;
+                
+                this.view.showLoading();
+                try {
+                    // Create a delete element command
+                    const command = new DeleteElementCommand(this.model, id);
+                    
+                    // Execute the command
+                    const result = await this.model.execute(command);
+                    
+                    if (result) {
+                        this.view.renderWorkspace();
+                        this.view.updateUndoRedoButtons();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error deleting element:', error);
+                    return false;
+                } finally {
+                    this.view.hideLoading();
+                }
+            }
+            
+            async moveElement(elementId, targetElementId) {
+                if (!this.isInitialized) return;
+                
+                try {
+                    // Create a move element command
+                    const command = new MoveElementCommand(this.model, elementId, targetElementId);
+                    
+                    // Execute the command
+                    const result = await this.model.execute(command);
+
+                    if (result) {
+                        this.view.renderWorkspace();
+                        this.view.updateUndoRedoButtons();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error moving element:', error);
+                    return false;
+                }
+            }
+            
+            async navigateToElement(id) {
+                if (!this.isInitialized) return;
+                
+                // Navigation is fast, no need for loading indicator
+                try {
+                    if (await this.model.navigateToElement(id)) {
+                        this.view.renderWorkspace();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error navigating to element:', error);
+                    return false;
+                }
+            }
+
+            async navigateBack() {
+                if (!this.isInitialized) return;
+                
+                // Navigation is fast, no need for loading indicator
+                try {
+                    if (await this.model.navigateBack()) {
+                        this.view.renderWorkspace();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error navigating back:', error);
+                    return false;
+                }
+            }
+
+            async navigateToIndex(index) {
+                if (!this.isInitialized) return;
+                
+                // Navigation is fast, no need for loading indicator
+                try {
+                    if (await this.model.navigateToIndex(index)) {
+                        this.view.renderWorkspace();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error navigating to index:', error);
+                    return false;
+                }
+            }
+            
+            async undo() {
+                if (!this.isInitialized) return;
+                
+                // Undo is usually fast, no need for loading indicator
+                try {
+                    if (await this.model.undo()) {
+                        this.view.renderWorkspace();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error during undo:', error);
+                    return false;
+                }
+            }
+
+            async redo() {
+                if (!this.isInitialized) return;
+                
+                // Redo is usually fast, no need for loading indicator
+                try {
+                    if (await this.model.redo()) {
+                        this.view.renderWorkspace();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error during redo:', error);
+                    return false;
+                }
+            }
+            
+            async toggleTheme() {
+                if (!this.isInitialized) return;
+                
+                try {
+                    const isDarkTheme = await this.model.toggleTheme();
+                    this.view.updateTheme(isDarkTheme);
+                    return isDarkTheme;
+                } catch (error) {
+                    console.error('Error toggling theme:', error);
+                    return this.model.isDarkTheme;
+                }
+            }
+        }
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const model = new CanvasModel();
+                const view = new CanvasView(model, null);
+                const controller = new CanvasController(model, view);
+                
+                view.controller = controller;
+                
+                // Initialize the application
+                await controller.initialize();
+            } catch (error) {
+                console.error('Failed to start application:', error);
+                alert('Error initializing application. Please refresh and try again.');
+                document.getElementById('loading-overlay').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
