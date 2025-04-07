@@ -11,44 +11,46 @@ class ExportImportManager {
     }
 
     /**
-     * Exports all application data to a JSON file
-     */
-    async exportData() {
-        try {
-            this.view.showProgress('Preparing export...', 0);
+ * Exports all application data to a JSON file, with an option to exclude images
+ * @param {boolean} includeImages - Whether to include images in the export
+ */
+async exportData(includeImages = true) {
+    try {
+        this.view.showProgress('Preparing export...', 0);
 
-            // Create the base export structure with version and timestamp
-// In export-import.js, in the exportData method, make sure we're exporting these values
-const exportData = {
-    version: this.exportVersion,
-    timestamp: new Date().toISOString(),
-    data: {
-        nodes: {},
-        theme: await this.model.db.getTheme(),
-        images: {},
-        editCounter: this.model.editCounter,
-        lastBackupReminder: this.model.lastBackupReminder
-    }
-};
+        // Create the base export structure with version and timestamp
+        const exportData = {
+            version: this.exportVersion,
+            timestamp: new Date().toISOString(),
+            data: {
+                nodes: {},
+                theme: await this.model.db.getTheme(),
+                images: {},
+                editCounter: this.model.editCounter,
+                lastBackupReminder: this.model.lastBackupReminder
+            }
+        };
 
-            // Get all node keys
-            const nodeKeys = await this.model.db.getAllKeys('canvasData');
-            const totalNodes = nodeKeys.length;
+        // Get all node keys
+        const nodeKeys = await this.model.db.getAllKeys('canvasData');
+        const totalNodes = nodeKeys.length;
+        
+        // Export each node
+        for (let i = 0; i < nodeKeys.length; i++) {
+            const nodeId = nodeKeys[i];
+            const nodeData = await this.model.db.getData('canvasData', nodeId);
             
-            // Export each node
-            for (let i = 0; i < nodeKeys.length; i++) {
-                const nodeId = nodeKeys[i];
-                const nodeData = await this.model.db.getData('canvasData', nodeId);
-                
-                if (nodeData) {
-                    exportData.data.nodes[nodeId] = nodeData;
-                }
-                
-                // Update progress for nodes (0-50%)
-                const nodeProgress = Math.floor((i / totalNodes) * 50);
-                this.view.showProgress('Exporting nodes...', nodeProgress);
+            if (nodeData) {
+                exportData.data.nodes[nodeId] = nodeData;
             }
             
+            // Update progress for nodes (0-50%)
+            const nodeProgress = Math.floor((i / totalNodes) * 50);
+            this.view.showProgress('Exporting nodes...', nodeProgress);
+        }
+        
+        // Only include images if specified
+        if (includeImages) {
             // Get all image keys
             const imageKeys = await this.model.db.getAllKeys('imageData');
             const totalImages = imageKeys.length;
@@ -66,47 +68,54 @@ const exportData = {
                 const imageProgress = 50 + Math.floor((i / totalImages) * 45);
                 this.view.showProgress('Exporting images...', imageProgress);
             }
-            
-            // Convert the export data to a JSON string
-            const jsonData = JSON.stringify(exportData);
-            
-            // Create a blob and link for downloading
-            const blob = new Blob([jsonData], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            
-            // Generate a filename based on the current date
-            const date = new Date();
-            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            const filename = `optimism_backup_${formattedDate}.json`;
-            
-           // Create a download link and trigger the download
-           const link = document.createElement('a');
-           link.href = url;
-           link.download = filename;
-           link.style.display = 'none';
-           document.body.appendChild(link);
-           
-           // Update progress to 100%
-           this.view.showProgress('Finalizing export...', 100);
-           
-           // Trigger the download after a small delay to show 100% progress
-           setTimeout(() => {
-               link.click();
-               document.body.removeChild(link);
-               URL.revokeObjectURL(url);
-               this.view.hideLoading();
-           }, 500);
+        } else {
+            // Skip image export, but update progress
+            this.view.showProgress('Skipping images...', 95);
+        }
+        
+        // Convert the export data to a JSON string
+        const jsonData = JSON.stringify(exportData);
+        
+        // Create a blob and link for downloading
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        // Generate a filename based on the current date
+        const date = new Date();
+        const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        // Modify filename to indicate if images are excluded
+        const filename = includeImages ? 
+            `optimism_backup_${formattedDate}.json` : 
+            `optimism_backup_no_images_${formattedDate}.json`;
+        
+        // Create a download link and trigger the download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        
+        // Update progress to 100%
+        this.view.showProgress('Finalizing export...', 100);
+        
+        // Trigger the download after a small delay to show 100% progress
+        setTimeout(() => {
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            this.view.hideLoading();
+        }, 500);
 
-           // Reset backup reminder after successful export
-this.model.resetBackupReminder();
-           
-           return true;
-       } catch (error) {
-           logError('Error during export:', error);
-           this.view.hideLoading();
-           return false;
-       }
-   }
+        // Reset backup reminder after successful export
+        this.model.resetBackupReminder();
+        
+        return true;
+    } catch (error) {
+        logError('Error during export:', error);
+        this.view.hideLoading();
+        return false;
+    }
+}
 
   /**
  * Imports application data from a JSON file

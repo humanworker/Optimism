@@ -258,6 +258,14 @@ else if (e.key === '6') {
             this.controller.exportData();
         });
         
+        // Export without images button
+        const exportNoImagesButton = document.getElementById('export-no-images-button');
+        if (exportNoImagesButton) {
+            exportNoImagesButton.addEventListener('click', () => {
+                this.controller.exportDataWithoutImages();
+            });
+        }
+        
         // Import button
         this.importButton.addEventListener('click', () => {
             // Show confirmation dialog

@@ -531,6 +531,22 @@ if (styleProperties.isHighlighted !== undefined) {
             alert('Failed to export data. Please try again.');
         }
     }
+
+    async exportDataWithoutImages() {
+        if (!this.isInitialized || !this.exportImportManager) {
+            OPTIMISM.logError('Cannot export data: application not initialized');
+            return;
+        }
+        
+        try {
+            OPTIMISM.log('Starting data export without images');
+            await this.exportImportManager.exportData(false); // Pass false to exclude images
+            OPTIMISM.log('Data export without images complete');
+        } catch (error) {
+            OPTIMISM.logError('Error exporting data without images:', error);
+            alert('Failed to export data. Please try again.');
+        }
+    }
     
     async importData(file) {
         if (!this.isInitialized || !this.exportImportManager) {
@@ -671,6 +687,8 @@ if (styleProperties.isHighlighted !== undefined) {
                     }
                 }
             }
+
+            
             
             // If dimensions were updated
             if (newProperties.width !== undefined || newProperties.height !== undefined) {
@@ -697,4 +715,5 @@ if (styleProperties.isHighlighted !== undefined) {
             OPTIMISM.logError('Error updating element:', error);
         }
     }
+
 }
