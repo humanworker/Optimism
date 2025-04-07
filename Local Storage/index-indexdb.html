@@ -317,38 +317,30 @@
     margin-bottom: 50px; /* Increased from 20px to 30px for more spacing */
 }
 
-/* For the reset option row - to align items properly */
-.style-option:last-child {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px; /* Less bottom margin for the last item */
-}
 
-.style-option:last-child .option-values {
-    display: flex;
-    align-items: center;
-    margin-bottom: 0; /* No extra margin for the last option values */
-}
 
-.option-value.reset-style {
-    margin-right: 8px;
+.option-label {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--element-text-color);
+    font-size: 18px; /* Match the small text size from cards */
 }
-
-        .option-label {
-            display: block;
-            margin-bottom: 10px;
-            color: var(--element-text-color);
-        }
 
         .option-values {
-    margin-bottom: 10px; /* Add extra space below options */
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* Alternative way to add spacing between items */
 }
 
-        .option-value {
-            cursor: pointer;
-            color: var(--element-text-color);
-            text-decoration: none;
-        }
+.option-value {
+    cursor: pointer;
+    color: var(--element-text-color);
+    text-decoration: none;
+    font-size: 14px; /* Match the small text size from cards */
+    margin-right: 15px; /* Add horizontal spacing between options */
+    display: inline-block; /* Ensure the margin works properly */
+}
 
         .option-value.selected {
             text-decoration: underline;
@@ -708,14 +700,7 @@
                 <a href="#" class="option-value" data-header="true">Yes</a>
             </div>
         </div>
-        <div class="style-option">
-            <div class="option-values">
-                <a href="#" class="option-value reset-style">Reset Style</a>
-                <span class="shortcut-badges">
-                    <span class="shortcut-badge" title="Reset Style">0</span>
-                </span>
-            </div>
-        </div>
+        
     </div>
     <div id="debug-panel"></div>
     <div id="status-message">Memory Mode</div>
