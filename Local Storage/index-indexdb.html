@@ -47,6 +47,9 @@
             position: relative;
             padding-top: 40px; /* Add space for title bar */
             box-sizing: border-box;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
 
         #title-bar {
@@ -57,11 +60,12 @@
             height: 40px;
             background-color: var(--bg-color);
             border-bottom: 1px solid var(--element-border-color);
-            display: flex;
+            display: flex !important;
             align-items: center;
             padding: 0 10px;
             z-index: 100;
             justify-content: space-between; /* Add space for theme toggle */
+            visibility: visible !important;
         }
 
         #nav-controls {
@@ -137,7 +141,7 @@
             padding-bottom: 3px; /* Match breadcrumb text height */
         }
 
-        .text-element-container {
+        .element-container {
             position: absolute;
             border: 1px solid transparent; /* Border is transparent by default */
             border-radius: 4px;
@@ -148,7 +152,32 @@
             cursor: move;
         }
 
-        .text-element-container.selected {
+        .text-element-container {
+            z-index: 2; /* Text elements appear above images */
+        }
+
+        .image-element-container {
+            z-index: 1; /* Images appear below text */
+        }
+
+        .image-element-container.has-children {
+            padding: 4px; /* Space for the border */
+        }
+
+        .image-element-container.has-children::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 2px solid var(--element-text-color);
+            margin: 2px;
+            pointer-events: none;
+            border-radius: 2px;
+        }
+
+        .element-container.selected {
             border-color: var(--selected-border-color);
             /* Shadow removed as requested */
         }
@@ -206,6 +235,13 @@
             font-weight: bold;
         }
 
+        .image-element {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            cursor: move;
+        }
+
         /* Color variations */
         .text-element.color-default, .text-display.color-default {
             color: var(--element-text-color);
@@ -251,7 +287,7 @@
         }
 
         /* Only show resize handle when hovering over the bottom-right corner */
-        .text-element-container:hover .resize-handle {
+        .element-container:hover .resize-handle {
             background-color: var(--element-text-color);
             opacity: 0.2;
         }
@@ -302,6 +338,34 @@
             font-weight: bold;
         }
 
+        /* Drop zone indicator for images */
+        #drop-zone-indicator {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            pointer-events: none;
+            border: 5px dashed white;
+            box-sizing: border-box;
+        }
+
+        /* Message to show when dragging an image */
+        #drop-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
         /* Loading spinner */
         #loading-overlay {
             position: fixed;
@@ -314,6 +378,13 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            flex-direction: column;
+        }
+
+        .loading-status {
+            color: white;
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
         }
 
         .spinner {
@@ -325,6 +396,52 @@
             animation: spin 1s linear infinite;
         }
 
+        /* Debug panel for showing errors */
+        #debug-panel {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            width: 80%;
+            max-height: 200px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            z-index: 2000;
+        }
+
+        /* Reset database button */
+        #reset-db-button {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 10px;
+            background-color: #ff5555;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 2000;
+            display: none;
+        }
+
+        /* Status message */
+        #status-message {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 2000;
+            display: none;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -334,6 +451,10 @@
 <body>
     <div id="loading-overlay">
         <div class="spinner"></div>
+        <div class="loading-status" id="loading-status">Initializing application...</div>
+    </div>
+    <div id="drop-zone-indicator">
+        <div id="drop-message">Drop image to add to canvas</div>
     </div>
     <div id="title-bar">
         <div id="nav-controls">
@@ -366,119 +487,374 @@
             </div>
         </div>
     </div>
+    <div id="debug-panel"></div>
+    <div id="status-message">Memory Mode</div>
+    <button id="reset-db-button">Reset Database & Reload</button>
 
     <script>
-        // Database manager to handle IndexedDB operations
-        class DbManager {
+        // Simple logging utility
+        const log = (message) => {
+            console.log(message);
+            const debugPanel = document.getElementById('debug-panel');
+            if (debugPanel) {
+                const entry = document.createElement('div');
+                entry.textContent = message;
+                debugPanel.appendChild(entry);
+                debugPanel.scrollTop = debugPanel.scrollHeight;
+            }
+            
+            // Also update loading status
+            const loadingStatus = document.getElementById('loading-status');
+            if (loadingStatus) {
+                loadingStatus.textContent = message;
+            }
+        };
+        
+        // Error logging
+        const logError = (message, error) => {
+            const errorMsg = `ERROR: ${message} ${error ? error.toString() : ''}`;
+            console.error(errorMsg);
+            const debugPanel = document.getElementById('debug-panel');
+            if (debugPanel) {
+                const entry = document.createElement('div');
+                entry.textContent = errorMsg;
+                entry.style.color = '#ff5555';
+                debugPanel.appendChild(entry);
+                debugPanel.scrollTop = debugPanel.scrollHeight;
+            }
+        };
+
+        // Setup global error handlers
+        window.addEventListener('error', (event) => {
+            logError('Uncaught error:', event.error);
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            logError('Unhandled promise rejection:', event.reason);
+        });
+        
+        // Reset database function
+        function resetDatabase() {
+            localStorage.setItem('optimism_db_reset', 'true');
+            window.location.reload();
+        }
+        
+        // Show memory mode indicator
+        function showMemoryMode() {
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.style.display = 'block';
+            
+            const resetButton = document.getElementById('reset-db-button');
+            resetButton.style.display = 'block';
+            resetButton.addEventListener('click', resetDatabase);
+        }
+        
+        // Memory store for fallback when IndexedDB fails
+        class MemoryStore {
             constructor() {
-                this.dbName = 'optimismDB';
-                this.dbVersion = 1;
+                this.data = {};
+                this.images = {};
+                this.theme = { isDarkTheme: true };
+            }
+            
+            async getData(id = 'root') {
+                if (id === 'root' && !this.data.root) {
+                    this.data.root = { 
+                        id: 'root', 
+                        title: 'Home', 
+                        elements: [], 
+                        children: {} 
+                    };
+                }
+                return this.data[id] || null;
+            }
+            
+            async saveData(data) {
+                this.data[data.id] = data;
+            }
+            
+            async getTheme() {
+                return this.theme;
+            }
+            
+            async saveTheme(theme) {
+                this.theme = theme;
+            }
+            
+            async saveImage(id, data) {
+                this.images[id] = data;
+            }
+            
+            async getImage(id) {
+                return this.images[id] || null;
+            }
+            
+            async deleteImage(id) {
+                delete this.images[id];
+            }
+        }
+        
+        // Simple IndexedDB wrapper with memory fallback
+        class SimpleDB {
+            constructor(dbName) {
+                this.dbName = dbName;
                 this.db = null;
-                this.dataStore = 'canvasData';
-                this.themeStore = 'themeSettings';
+                this.memoryFallback = new MemoryStore();
+                this.useMemory = false;
             }
-
-            async init() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this.dbName, this.dbVersion);
-
-                    request.onerror = event => {
-                        console.error('Database error:', event.target.error);
-                        reject(event.target.error);
-                    };
-
-                    request.onupgradeneeded = event => {
-                        const db = event.target.result;
-
-                        // Create object store for canvas data
-                        if (!db.objectStoreNames.contains(this.dataStore)) {
-                            db.createObjectStore(this.dataStore, { keyPath: 'id' });
-                        }
-
-                        // Create object store for theme settings
-                        if (!db.objectStoreNames.contains(this.themeStore)) {
-                            db.createObjectStore(this.themeStore, { keyPath: 'id' });
-                        }
-                    };
-
-                    request.onsuccess = event => {
-                        this.db = event.target.result;
+            
+            async open() {
+                log('Opening database...');
+                
+                // Try to reset database if needed
+                try {
+                    const needsReset = localStorage.getItem('optimism_db_reset') === 'true';
+                    
+                    if (needsReset) {
+                        log('Database reset requested, deleting old database...');
+                        await new Promise((resolve) => {
+                            const deleteRequest = indexedDB.deleteDatabase(this.dbName);
+                            deleteRequest.onsuccess = () => {
+                                log('Database deleted successfully');
+                                localStorage.removeItem('optimism_db_reset');
+                                resolve();
+                            };
+                            deleteRequest.onerror = () => {
+                                log('Error deleting database, continuing anyway');
+                                localStorage.removeItem('optimism_db_reset');
+                                resolve();
+                            };
+                        });
+                    }
+                } catch (error) {
+                    logError('Error in database reset:', error);
+                }
+                
+                // Now try to open the database
+                return new Promise((resolve) => {
+                    try {
+                        const request = indexedDB.open(this.dbName, 1);
+                        
+                        // Set timeout for database opening
+                        const timeout = setTimeout(() => {
+                            log('Database open timed out, using memory store');
+                            this.useMemory = true;
+                            showMemoryMode();
+                            resolve();
+                        }, 3000);
+                        
+                        request.onupgradeneeded = (event) => {
+                            log('Database upgrade needed');
+                            const db = event.target.result;
+                            
+                            // Create necessary stores
+                            if (!db.objectStoreNames.contains('canvasData')) {
+                                db.createObjectStore('canvasData', { keyPath: 'id' });
+                            }
+                            
+                            if (!db.objectStoreNames.contains('themeSettings')) {
+                                db.createObjectStore('themeSettings', { keyPath: 'id' });
+                            }
+                            
+                            if (!db.objectStoreNames.contains('imageData')) {
+                                db.createObjectStore('imageData', { keyPath: 'id' });
+                            }
+                        };
+                        
+                        request.onsuccess = (event) => {
+                            clearTimeout(timeout);
+                            this.db = event.target.result;
+                            log('Database opened successfully');
+                            resolve();
+                        };
+                        
+                        request.onerror = (event) => {
+                            clearTimeout(timeout);
+                            logError('Error opening database:', event.target.error);
+                            
+                            // Fall back to memory mode
+                            this.useMemory = true;
+                            showMemoryMode();
+                            resolve();
+                        };
+                    } catch (error) {
+                        logError('Exception in database open:', error);
+                        this.useMemory = true;
+                        showMemoryMode();
                         resolve();
-                    };
+                    }
                 });
             }
-
-            async getData(storeType, id = 'root') {
-                return new Promise((resolve, reject) => {
+            
+            // Get data from database or memory fallback
+            async getData(storeName, id) {
+                if (this.useMemory) {
+                    return this.memoryFallback.getData(id);
+                }
+                
+                log(`Getting data from ${storeName}`);
+                return new Promise((resolve) => {
                     if (!this.db) {
-                        reject(new Error('Database not initialized'));
+                        this.useMemory = true;
+                        showMemoryMode();
+                        resolve(this.memoryFallback.getData(id));
                         return;
                     }
-
-                    const transaction = this.db.transaction(storeType, 'readonly');
-                    const store = transaction.objectStore(storeType);
-                    const request = store.get(id);
-
-                    request.onerror = event => {
-                        console.error('Error getting data:', event.target.error);
-                        reject(event.target.error);
-                    };
-
-                    request.onsuccess = event => {
-                        resolve(request.result);
-                    };
+                    
+                    try {
+                        const transaction = this.db.transaction(storeName, 'readonly');
+                        const store = transaction.objectStore(storeName);
+                        const request = store.get(id);
+                        
+                        request.onsuccess = () => {
+                            resolve(request.result);
+                        };
+                        
+                        request.onerror = (event) => {
+                            logError(`Error getting data from ${storeName}:`, event.target.error);
+                            this.useMemory = true;
+                            showMemoryMode();
+                            resolve(this.memoryFallback.getData(id));
+                        };
+                    } catch (error) {
+                        logError(`Exception in get from ${storeName}:`, error);
+                        this.useMemory = true;
+                        showMemoryMode();
+                        resolve(this.memoryFallback.getData(id));
+                    }
                 });
             }
-
-            async saveData(storeType, data) {
-                return new Promise((resolve, reject) => {
+            
+            // Save data to database or memory fallback
+            async put(storeName, data) {
+                if (this.useMemory) {
+                    return this.memoryFallback.saveData(data);
+                }
+                
+                log(`Saving data to ${storeName}`);
+                return new Promise((resolve) => {
                     if (!this.db) {
-                        reject(new Error('Database not initialized'));
+                        this.useMemory = true;
+                        showMemoryMode();
+                        resolve(this.memoryFallback.saveData(data));
                         return;
                     }
-
-                    const transaction = this.db.transaction(storeType, 'readwrite');
-                    const store = transaction.objectStore(storeType);
-                    const request = store.put(data);
-
-                    request.onerror = event => {
-                        console.error('Error saving data:', event.target.error);
-                        reject(event.target.error);
-                    };
-
-                    request.onsuccess = event => {
-                        resolve();
-                    };
+                    
+                    try {
+                        const transaction = this.db.transaction(storeName, 'readwrite');
+                        const store = transaction.objectStore(storeName);
+                        const request = store.put(data);
+                        
+                        request.onsuccess = () => {
+                            resolve();
+                        };
+                        
+                        request.onerror = (event) => {
+                            logError(`Error saving data to ${storeName}:`, event.target.error);
+                            this.useMemory = true;
+                            showMemoryMode();
+                            resolve(this.memoryFallback.saveData(data));
+                        };
+                    } catch (error) {
+                        logError(`Exception in put to ${storeName}:`, error);
+                        this.useMemory = true;
+                        showMemoryMode();
+                        resolve(this.memoryFallback.saveData(data));
+                    }
                 });
             }
-
-            async deleteData(storeType, id) {
-                return new Promise((resolve, reject) => {
+            
+            // Delete data from database or memory fallback
+            async delete(storeName, id) {
+                if (this.useMemory) {
+                    if (storeName === 'imageData') {
+                        return this.memoryFallback.deleteImage(id);
+                    }
+                    return;
+                }
+                
+                log(`Deleting data from ${storeName}`);
+                return new Promise((resolve) => {
                     if (!this.db) {
-                        reject(new Error('Database not initialized'));
+                        this.useMemory = true;
+                        showMemoryMode();
+                        resolve();
                         return;
                     }
-
-                    const transaction = this.db.transaction(storeType, 'readwrite');
-                    const store = transaction.objectStore(storeType);
-                    const request = store.delete(id);
-
-                    request.onerror = event => {
-                        console.error('Error deleting data:', event.target.error);
-                        reject(event.target.error);
-                    };
-
-                    request.onsuccess = event => {
+                    
+                    try {
+                        const transaction = this.db.transaction(storeName, 'readwrite');
+                        const store = transaction.objectStore(storeName);
+                        const request = store.delete(id);
+                        
+                        request.onsuccess = () => {
+                            resolve();
+                        };
+                        
+                        request.onerror = (event) => {
+                            logError(`Error deleting data from ${storeName}:`, event.target.error);
+                            this.useMemory = true;
+                            showMemoryMode();
+                            resolve();
+                        };
+                    } catch (error) {
+                        logError(`Exception in delete from ${storeName}:`, error);
+                        this.useMemory = true;
+                        showMemoryMode();
                         resolve();
-                    };
+                    }
                 });
+            }
+            
+            // Specialized methods for theme
+            async getTheme() {
+                if (this.useMemory) {
+                    return this.memoryFallback.getTheme();
+                }
+                
+                const result = await this.getData('themeSettings', 'theme');
+                return result || { id: 'theme', isDarkTheme: true };
+            }
+            
+            async saveTheme(theme) {
+                if (this.useMemory) {
+                    return this.memoryFallback.saveTheme(theme);
+                }
+                
+                return this.put('themeSettings', theme);
+            }
+            
+            // Specialized methods for images
+            async saveImage(id, imageData) {
+                if (this.useMemory) {
+                    return this.memoryFallback.saveImage(id, imageData);
+                }
+                
+                return this.put('imageData', { id, data: imageData });
+            }
+            
+            async getImage(id) {
+                if (this.useMemory) {
+                    return this.memoryFallback.getImage(id);
+                }
+                
+                const result = await this.getData('imageData', id);
+                return result ? result.data : null;
+            }
+            
+            async deleteImage(id) {
+                if (this.useMemory) {
+                    return this.memoryFallback.deleteImage(id);
+                }
+                
+                return this.delete('imageData', id);
             }
         }
 
         // Model to manage data
         class CanvasModel {
             constructor() {
-                this.dbManager = new DbManager();
+                this.db = new SimpleDB('optimismDB');
                 this.navigationStack = [{
                     nodeId: 'root',
                     nodeTitle: 'Home',
@@ -498,79 +874,129 @@
 
             async initialize() {
                 try {
-                    await this.dbManager.init();
+                    log('Initializing database...');
+                    await this.db.open();
+                    
+                    log('Loading data...');
                     await this.loadData();
-                    await this.loadThemeState();
+                    
+                    log('Loading theme...');
+                    await this.loadTheme();
+                    
+                    log('Model initialization complete');
                     return true;
                 } catch (error) {
-                    console.error('Failed to initialize model:', error);
-                    return false;
+                    logError('Failed to initialize model:', error);
+                    
+                    // Fallback to memory-only mode
+                    log('Falling back to memory-only mode');
+                    this.data = { 
+                        id: 'root', 
+                        title: 'Home', 
+                        elements: [], 
+                        children: {} 
+                    };
+                    this.navigationStack[0].node = this.data;
+                    this.currentNode = this.data;
+                    
+                    showMemoryMode();
+                    return true; // Still return true to let the app load
                 }
             }
-
+            
             async loadData() {
                 try {
-                    let data = await this.dbManager.getData(this.dbManager.dataStore);
+                    let data = await this.db.getData('canvasData', 'root');
                     
                     if (!data) {
-                        // Create default data structure if none exists
+                        log('No existing data, creating default structure');
                         data = { 
                             id: 'root', 
                             title: 'Home', 
                             elements: [], 
                             children: {} 
                         };
-                        await this.dbManager.saveData(this.dbManager.dataStore, data);
+                        await this.db.put('canvasData', data);
                     }
                     
                     this.data = data;
-                    // Set root node reference
                     this.navigationStack[0].node = this.data;
-                    // Current node is always the last in the navigation stack
                     this.currentNode = this.data;
                     
                     return data;
                 } catch (error) {
-                    console.error('Error loading data:', error);
+                    logError('Error loading data:', error);
                     throw error;
                 }
             }
 
             async saveData() {
                 try {
-                    await this.dbManager.saveData(this.dbManager.dataStore, this.data);
+                    await this.db.put('canvasData', this.data);
                 } catch (error) {
-                    console.error('Error saving data:', error);
+                    logError('Error saving data:', error);
                     throw error;
                 }
             }
             
-            async loadThemeState() {
+            async loadTheme() {
                 try {
-                    const themeData = await this.dbManager.getData(this.dbManager.themeStore, 'theme');
+                    const themeData = await this.db.getTheme();
                     if (themeData) {
                         this.isDarkTheme = themeData.isDarkTheme;
                     }
                 } catch (error) {
-                    console.error('Error loading theme state:', error);
+                    logError('Error loading theme:', error);
                     // Continue with default theme
                 }
             }
             
-            async saveThemeState() {
+            async saveTheme() {
                 try {
-                    await this.dbManager.saveData(this.dbManager.themeStore, {
+                    await this.db.saveTheme({
                         id: 'theme',
                         isDarkTheme: this.isDarkTheme
                     });
                 } catch (error) {
-                    console.error('Error saving theme state:', error);
+                    logError('Error saving theme:', error);
+                }
+            }
+
+            // Save image data
+            async saveImageData(imageId, imageData) {
+                try {
+                    await this.db.saveImage(imageId, imageData);
+                } catch (error) {
+                    logError('Error saving image data:', error);
+                    throw error;
+                }
+            }
+
+            // Get image data
+            async getImageData(imageId) {
+                try {
+                    const result = await this.db.getImage(imageId);
+                    return result;
+                } catch (error) {
+                    logError('Error getting image data:', error);
+                    throw error;
+                }
+            }
+
+           // Delete image data
+           async deleteImageData(imageId) {
+                try {
+                    await this.db.deleteImage(imageId);
+                } catch (error) {
+                    logError('Error deleting image data:', error);
+                    throw error;
                 }
             }
             
             // Command pattern for undo/redo
             async execute(command) {
                 try {
+                    log(`Executing ${command.constructor.name}`);
                     // Execute the command and save its result
                     const result = await command.execute();
                     
@@ -587,7 +1013,7 @@
                     
                     return result;
                 } catch (error) {
-                    console.error('Error executing command:', error);
+                    logError('Error executing command:', error);
                     throw error;
                 }
             }
@@ -596,6 +1022,7 @@
                 if (this.undoStack.length === 0) return false;
                 
                 try {
+                    log('Undoing last action');
                     // Get the last command from the undo stack
                     const command = this.undoStack.pop();
                     
@@ -612,7 +1039,7 @@
                     
                     return true;
                 } catch (error) {
-                    console.error('Error during undo:', error);
+                    logError('Error during undo:', error);
                     return false;
                 }
             }
@@ -621,6 +1048,7 @@
                 if (this.redoStack.length === 0) return false;
                 
                 try {
+                    log('Redoing last undone action');
                     // Get the last command from the redo stack
                     const command = this.redoStack.pop();
                     
@@ -632,7 +1060,7 @@
                     
                     return true;
                 } catch (error) {
-                    console.error('Error during redo:', error);
+                    logError('Error during redo:', error);
                     return false;
                 }
             }
@@ -659,8 +1087,9 @@
                 if (element) {
                     Object.assign(element, properties);
                     
-                    // Delete element if text is empty
-                    if (properties.text !== undefined && 
+                    // Delete element if text is empty (for text elements only)
+                    if (element.type === 'text' && 
+                        properties.text !== undefined && 
                         (properties.text === '' || properties.text === null)) {
                         await this.deleteElement(id);
                         return;
@@ -675,8 +1104,19 @@
                 
                 const index = this.currentNode.elements.findIndex(el => el.id === id);
                 if (index !== -1) {
+                    const element = this.currentNode.elements[index];
+                    
+                    // If it's an image element, also delete the stored image data
+                    if (element.type === 'image') {
+                        await this.deleteImageData(element.imageDataId);
+                    }
+                    
+                    // Remove element from array
                     this.currentNode.elements.splice(index, 1);
+                    
+                    // Save canvas data
                     await this.saveData();
+                    
                     return true;
                 }
                 return false;
@@ -704,14 +1144,20 @@
 
                 // Create a child node if it doesn't exist
                 if (!this.currentNode.children[elementId]) {
-                    const truncatedTitle = element.text ? 
-                        (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : 
-                        "Untitled";
+                    let nodeTitle = "Untitled";
+                    
+                    if (element.type === 'text') {
+                        nodeTitle = element.text ? 
+                            (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : 
+                            "Untitled";
+                    } else if (element.type === 'image') {
+                        nodeTitle = "Image";
+                    }
                         
                     this.currentNode.children[elementId] = {
                         id: elementId,
                         parentId: this.currentNode.id,
-                        title: truncatedTitle,
+                        title: nodeTitle,
                         elements: [],
                         children: {}
                     };
@@ -812,14 +1258,20 @@
                     
                     // Create child node for target if it doesn't exist
                     if (!this.currentNode.children[targetElementId]) {
-                        const truncatedTitle = targetElement.text ? 
-                            (targetElement.text.trim() === "" ? "Untitled" : targetElement.text.substring(0, 60)) : 
-                            "Untitled";
+                        let nodeTitle = "Untitled";
+                        
+                        if (targetElement.type === 'text') {
+                            nodeTitle = targetElement.text ? 
+                                (targetElement.text.trim() === "" ? "Untitled" : targetElement.text.substring(0, 60)) : 
+                                "Untitled";
+                        } else if (targetElement.type === 'image') {
+                            nodeTitle = "Image";
+                        }
                             
                         this.currentNode.children[targetElementId] = {
                             id: targetElementId,
                             parentId: this.currentNode.id,
-                            title: truncatedTitle,
+                            title: nodeTitle,
                             elements: [],
                             children: {}
                         };
@@ -828,6 +1280,22 @@
                     // Add source element to target's elements
                     const newElement = {...sourceElement};
                     newElement.id = crypto.randomUUID();
+                    
+                    // For image elements, we need to handle the image data separately
+                    if (sourceElement.type === 'image') {
+                        // Generate a new image data ID
+                        const newImageDataId = crypto.randomUUID();
+                        
+                        // Get the original image data
+                        const imageData = await this.getImageData(sourceElement.imageDataId);
+                        
+                        // Save with the new ID
+                        await this.saveImageData(newImageDataId, imageData);
+                        
+                        // Update the reference in the new element
+                        newElement.imageDataId = newImageDataId;
+                    }
+                    
                     this.currentNode.children[targetElementId].elements.push(newElement);
                     
                     // Save data before attempting to delete
@@ -838,14 +1306,14 @@
                     
                     return true;
                 } catch (error) {
-                    console.error('Error in moveElement:', error);
+                    logError('Error in moveElement:', error);
                     return false;
                 }
             }
             
             async toggleTheme() {
                 this.isDarkTheme = !this.isDarkTheme;
-                await this.saveThemeState();
+                await this.saveTheme();
                 return this.isDarkTheme;
             }
         }
@@ -856,9 +1324,17 @@
                 this.model = model;
                 this.element = element;
                 this.nodeId = model.currentNode.id; // Store the current node ID
+                this.isImage = element.type === 'image';
+                this.imageData = null; // Will store image data if needed
             }
             
             async execute() {
+                // If this is an image, save the image data first
+                if (this.isImage && this.imageData) {
+                    log('Saving image data for new element');
+                    await this.model.saveImageData(this.element.imageDataId, this.imageData);
+                }
+                
                 await this.model.addElement(this.element);
                 return this.element.id;
             }
@@ -867,24 +1343,64 @@
                 // Remove the element that was added
                 await this.model.deleteElement(this.element.id);
             }
+            
+            // Set image data for later saving
+            setImageData(imageData) {
+                this.imageData = imageData;
+            }
         }
         
         class DeleteElementCommand {
             constructor(model, elementId) {
                 this.model = model;
                 this.elementId = elementId;
-                this.element = {...model.findElement(elementId)}; // Store a copy of the element
-                this.nodeId = model.currentNode.id;
+                const element = model.findElement(elementId);
+                if (element) {
+                    this.element = {...element}; // Store a copy of the element
+                    this.nodeId = model.currentNode.id;
+                    this.isImage = element.type === 'image';
+                    this.imageData = null; // Will store image data if needed
+                } else {
+                    log(`Element ${elementId} not found for DeleteElementCommand`);
+                    this.element = null;
+                    this.nodeId = model.currentNode.id;
+                    this.isImage = false;
+                }
             }
             
             async execute() {
+                if (!this.element) return false;
+                
+                // If this is an image, we need to save the image data first
+                if (this.isImage && !this.imageData) {
+                    try {
+                        this.imageData = await this.model.getImageData(this.element.imageDataId);
+                    } catch (error) {
+                        logError('Failed to get image data for undo:', error);
+                        // Continue with deletion even if we can't get the image data
+                    }
+                }
+                
                 return await this.model.deleteElement(this.elementId);
             }
             
             async undo() {
+                // Remove the element that was added
+                if (!this.element) return;
+                
                 if (!this.model.currentNode.elements) {
                     this.model.currentNode.elements = [];
                 }
+                
+                // If this is an image, restore the image data first
+                if (this.isImage && this.imageData) {
+                    try {
+                        await this.model.saveImageData(this.element.imageDataId, this.imageData);
+                    } catch (error) {
+                        logError('Failed to restore image data on undo:', error);
+                    }
+                }
+                
                 this.model.currentNode.elements.push(this.element);
                 await this.model.saveData();
             }
@@ -903,19 +1419,28 @@
                     for (const key in newProperties) {
                         this.oldProperties[key] = element[key];
                     }
+                    
+                    this.isText = element.type === 'text';
+                } else {
+                    log(`Element ${elementId} not found for UpdateElementCommand`);
+                    this.oldProperties = null;
+                    this.isText = false;
                 }
                 this.nodeId = model.currentNode.id;
                 
-                // Special handling for empty text - store if this might result in element deletion
-                this.mightDelete = newProperties.text !== undefined && 
+                // Special handling for empty text (text elements only)
+                this.mightDelete = this.isText && 
+                    newProperties.text !== undefined && 
                     (newProperties.text === '' || newProperties.text === null);
-                if (this.mightDelete) {
+                if (this.mightDelete && element) {
                     // Store the full element for potential restoration
                     this.fullElement = JSON.parse(JSON.stringify(element));
                 }
             }
             
             async execute() {
+                if (!this.oldProperties) return false;
+                
                 // If this is a text update that will delete the element
                 if (this.mightDelete) {
                     this.wasDeleted = true;
@@ -945,16 +1470,37 @@
                 this.model = model;
                 this.sourceId = sourceId;
                 this.targetId = targetId;
-                this.sourceElement = {...model.findElement(sourceId)}; // Store a copy
+                const sourceElement = model.findElement(sourceId);
+                if (sourceElement) {
+                    this.sourceElement = {...sourceElement}; // Store a copy
+                } else {
+                    log(`Source element ${sourceId} not found for MoveElementCommand`);
+                    this.sourceElement = null;
+                }
                 this.nodeId = model.currentNode.id;
+                this.isImage = this.sourceElement && this.sourceElement.type === 'image';
+                this.imageData = null; // Will store image data if needed
+                this.newImageDataId = null;
             }
             
             async execute() {
+                if (!this.sourceElement) return false;
+                
                 // First, store the new ID that will be created in the target
                 const sourceElement = this.model.findElement(this.sourceId);
                 if (sourceElement) {
                     // We'll need to remember this for undo
                     this.newElementId = crypto.randomUUID();
+                    
+                    // If this is an image, save the image data first
+                    if (this.isImage && !this.imageData) {
+                        try {
+                            this.imageData = await this.model.getImageData(sourceElement.imageDataId);
+                            this.newImageDataId = crypto.randomUUID();
+                        } catch (error) {
+                            logError('Failed to get image data for move:', error);
+                        }
+                    }
                     
                     // Remember the target's children before the move
                     const targetNode = this.model.currentNode.children[this.targetId];
@@ -965,10 +1511,28 @@
             }
             
             async undo() {
+                if (!this.sourceElement) return;
+                
                 // First, restore the source element in the current node
                 if (!this.model.currentNode.elements) {
                     this.model.currentNode.elements = [];
                 }
+                
+                // If this is an image, restore the original image data
+                if (this.isImage && this.imageData) {
+                    try {
+                        // Delete the new image data that was created during the move
+                        if (this.newImageDataId) {
+                            await this.model.deleteImageData(this.newImageDataId);
+                        }
+                        
+                        // Ensure the original image data exists
+                        await this.model.saveImageData(this.sourceElement.imageDataId, this.imageData);
+                    } catch (error) {
+                        logError('Failed to restore image data on move undo:', error);
+                    }
+                }
+                
                 this.model.currentNode.elements.push(this.sourceElement);
                 
                 // Remove the element from the target node
@@ -987,6 +1551,84 @@
             }
         }
 
+        // Helper function to resize an image while maintaining aspect ratio
+        async function resizeImage(file, maxDimension = 800) {
+            log('Resizing image...');
+            
+            return new Promise((resolve, reject) => {
+                try {
+                    const img = new Image();
+                    const reader = new FileReader();
+                    
+                    // Set timeout in case the image loading hangs
+                    const timeout = setTimeout(() => {
+                        logError('Image loading timed out', new Error('Timeout'));
+                        reject(new Error('Image loading timed out'));
+                    }, 10000);
+                    
+                    reader.onload = function(e) {
+                        img.onload = function() {
+                            clearTimeout(timeout);
+                            
+                            try {
+                                // Calculate dimensions
+                                let width = img.width;
+                                let height = img.height;
+                                
+                                if (width > height && width > maxDimension) {
+                                    height = Math.round(height * (maxDimension / width));
+                                    width = maxDimension;
+                                } else if (height > maxDimension) {
+                                    width = Math.round(width * (maxDimension / height));
+                                    height = maxDimension;
+                                }
+                                
+                                // Create canvas for resizing
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+                                
+                                // Convert to JPEG data URL with moderate quality
+                                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                                
+                                log(`Image resized to ${width}x${height}`);
+                                resolve({
+                                    data: dataUrl,
+                                    width: width,
+                                    height: height
+                                });
+                            } catch (error) {
+                                logError('Error processing image:', error);
+                                reject(error);
+                            }
+                        };
+                        
+                        img.onerror = function() {
+                            clearTimeout(timeout);
+                            logError('Failed to load image', new Error('Image load error'));
+                            reject(new Error('Failed to load image'));
+                        };
+                        
+                        img.src = e.target.result;
+                    };
+                    
+                    reader.onerror = function() {
+                        clearTimeout(timeout);
+                        logError('Failed to read file', new Error('File read error'));
+                        reject(new Error('Failed to read file'));
+                    };
+                    
+                    reader.readAsDataURL(file);
+                } catch (error) {
+                    logError('Error in image resize setup:', error);
+                    reject(error);
+                }
+            });
+        }
+
         // View to handle UI interactions
         class CanvasView {
             constructor(model, controller) {
@@ -1000,6 +1642,7 @@
                 this.undoButton = document.getElementById('undo-button');
                 this.redoButton = document.getElementById('redo-button');
                 this.loadingOverlay = document.getElementById('loading-overlay');
+                this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
                 
                 this.draggedElement = null;
                 this.resizingElement = null;
@@ -1016,6 +1659,7 @@
             }
             
             hideLoading() {
+                log('Application loaded');
                 this.loadingOverlay.style.display = 'none';
             }
             
@@ -1024,6 +1668,8 @@
             }
             
             setupEventListeners() {
+                log('Setting up event listeners');
+                
                 // Workspace double-click to create new elements
                 this.workspace.addEventListener('dblclick', (e) => {
                     // Ignore if click was on an element or if modifier key is pressed
@@ -1091,14 +1737,71 @@
                 document.addEventListener('click', (e) => {
                     // If clicking outside of both the style panel and any element
                     if (!this.stylePanel.contains(e.target) && 
-                        !e.target.closest('.text-element-container') && 
+                        !e.target.closest('.element-container') && 
                         this.stylePanel.style.display === 'block') {
                         this.stylePanel.style.display = 'none';
                     }
                 });
+                
+                // Setup drag and drop for images
+                this.setupImageDropZone();
+                
+                log('Event listeners set up successfully');
+            }
+            
+            setupImageDropZone() {
+                log('Setting up image drop zone');
+                const dropZoneIndicator = this.dropZoneIndicator;
+                
+                // Show drop zone when dragging over the document
+                document.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropZoneIndicator.style.display = 'block';
+                });
+                
+                // Hide drop zone when leaving the document
+                document.addEventListener('dragleave', (e) => {
+                    if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
+                        dropZoneIndicator.style.display = 'none';
+                    }
+                });
+                
+                // Handle drop events
+                document.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    dropZoneIndicator.style.display = 'none';
+                    
+                    if (e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        
+                        // Only handle image files
+                        if (file.type.startsWith('image/')) {
+                            log(`Image dropped: ${file.name} (${file.type})`);
+                            this.showLoading();
+                            
+                            try {
+                                // Get correct coordinates relative to the workspace
+                                const rect = this.workspace.getBoundingClientRect();
+                                const x = e.clientX - rect.left;
+                                const y = e.clientY - rect.top;
+                                
+                                // Process and add the image
+                                await this.controller.addImage(file, x, y);
+                            } catch (error) {
+                                logError('Error adding image:', error);
+                                alert('Failed to add image. Please try again.');
+                            } finally {
+                                this.hideLoading();
+                            }
+                        }
+                    }
+                });
+                
+                log('Image drop zone set up successfully');
             }
             
             setupUndoRedoButtons() {
+                log('Setting up undo/redo buttons');
                 this.undoButton.addEventListener('click', () => {
                     this.controller.undo();
                 });
@@ -1109,6 +1812,7 @@
                 
                 // Initially disable buttons
                 this.updateUndoRedoButtons();
+                log('Undo/redo buttons set up successfully');
             }
             
             updateUndoRedoButtons() {
@@ -1117,6 +1821,7 @@
             }
             
             setupStylePanel() {
+                log('Setting up style panel');
                 // Get all size option elements
                 const sizeOptions = document.querySelectorAll('.option-value[data-size]');
                 
@@ -1164,12 +1869,16 @@
                         option.classList.add('selected');
                     });
                 });
+                
+                log('Style panel set up successfully');
             }
             
             setupThemeToggle() {
+                log('Setting up theme toggle');
                 this.themeToggle.addEventListener('click', () => {
                     this.controller.toggleTheme();
                 });
+                log('Theme toggle set up successfully');
             }
             
             isModifierKeyPressed(e) {
@@ -1177,6 +1886,7 @@
             }
             
             renderWorkspace() {
+                log('Rendering workspace');
                 // Clear workspace
                 this.workspace.innerHTML = '';
                 
@@ -1185,9 +1895,31 @@
                 
                 // Render elements
                 if (this.model.currentNode.elements) {
-                    this.model.currentNode.elements.forEach(element => {
-                        this.createElementDOM(element);
+                    const elementsCount = this.model.currentNode.elements.length;
+                    log(`Rendering ${elementsCount} element(s)`);
+                    
+                    // Sort elements so images are rendered before text (lower z-index)
+                    const sortedElements = [...this.model.currentNode.elements].sort((a, b) => {
+                        if (a.type === 'image' && b.type === 'text') return -1;
+                        if (a.type === 'text' && b.type === 'image') return 1;
+                        return 0;
                     });
+                    
+                    sortedElements.forEach(element => {
+                        try {
+                            if (element.type === 'text') {
+                                this.createTextElementDOM(element);
+                            } else if (element.type === 'image') {
+                                this.createImageElementDOM(element);
+                            } else {
+                                logError(`Unknown element type: ${element.type}`);
+                            }
+                        } catch (error) {
+                            logError(`Error rendering element ${element.id}:`, error);
+                        }
+                    });
+                } else {
+                    log('No elements to render');
                 }
                 
                 // Hide style panel when no element is selected
@@ -1200,6 +1932,8 @@
                 
                 // Update page title
                 this.updatePageTitle();
+                
+                log('Workspace rendering complete');
             }
             
             updatePageTitle() {
@@ -1221,6 +1955,7 @@
             }
             
             renderBreadcrumbs() {
+                log('Rendering breadcrumbs');
                 this.breadcrumbContainer.innerHTML = '';
                 
                 // Create breadcrumb elements - only show navigable ones
@@ -1267,6 +2002,8 @@
                     
                     this.breadcrumbContainer.appendChild(currentBreadcrumb);
                 }
+                
+                log('Breadcrumbs rendered successfully');
             }
             
             // URL detection and conversion to clickable links
@@ -1330,11 +2067,14 @@
                 return result;
             }
             
-            createElementDOM(elementData) {
+            createTextElementDOM(elementData) {
+                log(`Creating text element DOM for ${elementData.id}`);
+                
                 // Create container for the element
                 const container = document.createElement('div');
-                container.className = 'text-element-container';
+                container.className = 'element-container text-element-container';
                 container.dataset.id = elementData.id;
+                container.dataset.type = 'text';
                 container.style.left = `${elementData.x}px`;
                 container.style.top = `${elementData.y}px`;
                 
@@ -1508,19 +2248,138 @@
                 return container;
             }
             
+            async createImageElementDOM(elementData) {
+                log(`Creating image element DOM for ${elementData.id}`);
+                
+                // Create container for the element
+                const container = document.createElement('div');
+                container.className = 'element-container image-element-container';
+                container.dataset.id = elementData.id;
+                container.dataset.type = 'image';
+                container.style.left = `${elementData.x}px`;
+                container.style.top = `${elementData.y}px`;
+                
+                // Check if this element has children
+                const hasChildren = this.model.hasChildren(elementData.id);
+                if (hasChildren) {
+                    container.classList.add('has-children');
+                }
+                
+                // Set dimensions if they exist in the data
+                if (elementData.width) {
+                    container.style.width = `${elementData.width}px`;
+                }
+                
+                if (elementData.height) {
+                    container.style.height = `${elementData.height}px`;
+                }
+
+                // Create the image element
+                const imageElement = document.createElement('img');
+                imageElement.className = 'image-element';
+                
+                // Load image data
+                try {
+                    log(`Loading image data for ${elementData.imageDataId}`);
+                    const imageData = await this.model.getImageData(elementData.imageDataId);
+                    if (imageData) {
+                        imageElement.src = imageData;
+                        log('Image data loaded successfully');
+                    } else {
+                        logError(`Image data not found for ${elementData.imageDataId}`);
+                        imageElement.alt = 'Image could not be loaded';
+                    }
+                } catch (error) {
+                    logError('Error loading image data:', error);
+                    imageElement.alt = 'Error loading image';
+                }
+                
+                // Create resize handle
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+                
+                // Setup container event listeners
+                container.addEventListener('click', (e) => {
+                    this.selectElement(container, elementData);
+                    
+                    // If cmd/ctrl is pressed and the element has children, navigate into it
+                    if (this.isModifierKeyPressed(e) && hasChildren) {
+                        this.controller.navigateToElement(elementData.id);
+                        e.stopPropagation();
+                    }
+                });
+                
+                container.addEventListener('mousedown', (e) => {
+                    // Don't handle if not left mouse button
+                    if (e.button !== 0) return;
+                    
+                    // Don't start drag when on resize handle
+                    if (e.target === resizeHandle) return;
+                    
+                    this.selectElement(container, elementData);
+                    
+                    this.draggedElement = container;
+                    this.model.selectedElement = elementData.id;
+                    
+                    // Calculate offset
+                    const rect = container.getBoundingClientRect();
+                    this.elemOffsetX = e.clientX - rect.left;
+                    this.elemOffsetY = e.clientY - rect.top;
+                    
+                    container.classList.add('dragging');
+                    e.preventDefault();
+                });
+                
+                // Setup resize handle event listeners
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation(); // Prevent other mouse handlers
+                    
+                    this.selectElement(container, elementData);
+                    this.resizingElement = container;
+                    
+                    // Save initial dimensions
+                    this.initialWidth = container.offsetWidth;
+                    this.initialHeight = container.offsetHeight;
+                    
+                    // Save initial mouse position
+                    this.dragStartX = e.clientX;
+                    this.dragStartY = e.clientY;
+                    
+                    e.preventDefault();
+                });
+                
+                // Append all elements to the container
+                container.appendChild(imageElement);
+                container.appendChild(resizeHandle);
+                
+                // Add to workspace
+                this.workspace.appendChild(container);
+                return container;
+            }
+            
             selectElement(element, elementData) {
+                log(`Selecting element ${elementData.id} of type ${elementData.type}`);
                 this.deselectAllElements();
                 element.classList.add('selected');
                 this.model.selectedElement = element.dataset.id;
                 
-                // Show style panel
-                this.stylePanel.style.display = 'block';
-                
-                // Update the selected option in the style panel
-                this.updateStylePanel(elementData);
+                // Show style panel only for text elements
+                if (element.dataset.type === 'text') {
+                    this.stylePanel.style.display = 'block';
+                    
+                    // Update the selected option in the style panel
+                    this.updateStylePanel(elementData);
+                } else {
+                    this.stylePanel.style.display = 'none';
+                }
             }
             
             updateStylePanel(elementData) {
+                // Only update style panel for text elements
+                if (elementData.type !== 'text') return;
+                
+                log('Updating style panel');
+                
                 // Reset all selected options
                 document.querySelectorAll('.option-value').forEach(opt => opt.classList.remove('selected'));
                 
@@ -1548,13 +2407,15 @@
             }
             
             deselectAllElements() {
-                document.querySelectorAll('.text-element-container.selected').forEach(el => {
+                document.querySelectorAll('.element-container.selected').forEach(el => {
                     el.classList.remove('selected');
                 });
                 this.model.selectedElement = null;
             }
             
             setupDragListeners() {
+                log('Setting up drag listeners');
+                
                 document.addEventListener('mousemove', (e) => {
                     // Handle resizing
                     if (this.resizingElement) {
@@ -1562,9 +2423,21 @@
                         const deltaWidth = e.clientX - this.dragStartX;
                         const deltaHeight = e.clientY - this.dragStartY;
                         
-                        // Apply new dimensions with minimum constraints
-                        const newWidth = Math.max(100, this.initialWidth + deltaWidth);
-                        const newHeight = Math.max(30, this.initialHeight + deltaHeight);
+                        // Get element type
+                        const elementType = this.resizingElement.dataset.type;
+                        
+                        // Apply new dimensions with constraints based on element type
+                        let newWidth, newHeight;
+                        
+                        if (elementType === 'image') {
+                            // For images, limit max size to 800px
+                            newWidth = Math.min(800, Math.max(50, this.initialWidth + deltaWidth));
+                            newHeight = Math.min(800, Math.max(50, this.initialHeight + deltaHeight));
+                        } else {
+                            // For text elements, use original constraints
+                            newWidth = Math.max(100, this.initialWidth + deltaWidth);
+                            newHeight = Math.max(30, this.initialHeight + deltaHeight);
+                        }
                         
                         this.resizingElement.style.width = `${newWidth}px`;
                         this.resizingElement.style.height = `${newHeight}px`;
@@ -1594,6 +2467,7 @@
                         const width = parseFloat(this.resizingElement.style.width);
                         const height = parseFloat(this.resizingElement.style.height);
                         
+                        log(`Resize complete for element ${id}: ${width}x${height}`);
                         this.controller.updateElement(id, { width, height });
                         
                         this.resizingElement = null;
@@ -1610,6 +2484,8 @@
                     if (dropTarget && dropTarget !== this.draggedElement) {
                         const targetId = dropTarget.dataset.id;
                         
+                        log(`Element ${draggedId} dropped onto ${targetId}`);
+                        
                         // Deselect all elements before moving
                         this.deselectAllElements();
                         
@@ -1618,6 +2494,8 @@
                         // Update position in model
                         const newX = parseFloat(this.draggedElement.style.left);
                         const newY = parseFloat(this.draggedElement.style.top);
+                        
+                        log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
                         this.controller.updateElement(draggedId, { x: newX, y: newY });
                     }
                     
@@ -1629,6 +2507,8 @@
                     const highlighted = document.querySelectorAll('.drag-over');
                     highlighted.forEach(el => el.classList.remove('drag-over'));
                 });
+                
+                log('Drag listeners set up successfully');
             }
             
             handleDragOver(e) {
@@ -1646,7 +2526,7 @@
             findDropTarget(e) {
                 const elements = document.elementsFromPoint(e.clientX, e.clientY);
                 for (const element of elements) {
-                    if (element.classList.contains('text-element-container') && element !== this.draggedElement) {
+                    if (element.classList.contains('element-container') && element !== this.draggedElement) {
                         return element;
                     }
                 }
@@ -1654,6 +2534,7 @@
             }
             
             updateTheme(isDarkTheme) {
+                log(`Updating theme to ${isDarkTheme ? 'dark' : 'light'}`);
                 if (isDarkTheme) {
                     document.body.classList.remove('light-theme');
                 } else {
@@ -1671,6 +2552,7 @@
             }
             
             async initialize() {
+                log('Initializing controller');
                 this.view.showLoading();
                 try {
                     await this.model.initialize();
@@ -1682,8 +2564,9 @@
                     this.view.setupUndoRedoButtons();
                     this.view.updateTheme(this.model.isDarkTheme);
                     this.isInitialized = true;
+                    log('Controller initialized successfully');
                 } catch (error) {
-                    console.error('Failed to initialize application:', error);
+                    logError('Failed to initialize controller:', error);
                     alert('Failed to initialize application. Please refresh the page and try again.');
                 } finally {
                     this.view.hideLoading();
@@ -1691,12 +2574,16 @@
             }
 
             async createElement(x, y) {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot create element: application not initialized');
+                    return;
+                }
                 
-                // Creating a card is fast, no need for loading indicator
                 try {
+                    log(`Creating text element at position (${x}, ${y})`);
                     const element = {
                         id: crypto.randomUUID(),
+                        type: 'text',
                         x: x,
                         y: y,
                         text: '',
@@ -1714,7 +2601,7 @@
                     // Execute the command
                     await this.model.execute(command);
                     
-                    const elemDOM = this.view.createElementDOM(element);
+                    const elemDOM = this.view.createTextElementDOM(element);
                     
                     // Find and focus the textarea inside the container
                     const textarea = elemDOM.querySelector('.text-element');
@@ -1727,37 +2614,94 @@
                     
                     // Update undo/redo buttons
                     this.view.updateUndoRedoButtons();
+                    log('Text element created successfully');
                 } catch (error) {
-                    console.error('Error creating element:', error);
+                    logError('Error creating element:', error);
+                }
+            }
+            
+            async addImage(file, x, y) {
+                if (!this.isInitialized) {
+                    logError('Cannot add image: application not initialized');
+                    return;
+                }
+                
+                try {
+                    log(`Adding image at position (${x}, ${y})`);
+                    // Compress and resize the image
+                    const processedImage = await resizeImage(file, 800);
+                    
+                    // Create unique IDs
+                    const elementId = crypto.randomUUID();
+                    const imageDataId = crypto.randomUUID();
+                    
+                    // Create element data
+                    const element = {
+                        id: elementId,
+                        type: 'image',
+                        imageDataId: imageDataId,
+                        x: x,
+                        y: y,
+                        width: processedImage.width,
+                        height: processedImage.height
+                    };
+                    
+                    // Create an add element command
+                    const command = new AddElementCommand(this.model, element);
+                    
+                    // Set the image data for the command
+                    command.setImageData(processedImage.data);
+                    
+                    // Execute the command
+                    await this.model.execute(command);
+                    
+                    // Create the DOM element
+                    await this.view.createImageElementDOM(element);
+                    
+                    // Update undo/redo buttons
+                    this.view.updateUndoRedoButtons();
+                    log('Image added successfully');
+                    
+                    return element.id;
+                } catch (error) {
+                    logError('Error adding image:', error);
+                    throw error;
                 }
             }
             
             async updateElement(id, properties) {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot update element: application not initialized');
+                    return;
+                }
                 
                 try {
+                    log(`Updating element ${id} with properties:`, properties);
                     // Create an update element command
                     const command = new UpdateElementCommand(this.model, id, properties);
                     
                     // Execute the command
                     await this.model.execute(command);
                     
-                    // Check if the element has nested elements and the text has changed
-                    if (properties.text !== undefined) {
+                    const element = this.model.findElement(id);
+                    if (!element) return; // Element might have been deleted
+                    
+                    // Handle additional updates based on element type
+                    if (element.type === 'text' && properties.text !== undefined) {
                         // If text is empty, the element might have been deleted
                         if (properties.text === '' || properties.text === null) {
+                            log('Text was empty, element likely deleted');
                             // Just update UI since the element is gone
                             this.view.renderWorkspace();
                             return;
                         }
                         
-                        const element = this.model.findElement(id);
-                        if (!element) return; // Add additional check
-                        
                         // Update the card title in all navigation stacks
                         const elementIndex = this.model.navigationStack.findIndex(item => item.nodeId === id);
                         if (elementIndex !== -1) {
-                            this.model.navigationStack[elementIndex].nodeTitle = properties.text.substring(0, 60);
+                            const newTitle = properties.text.substring(0, 60);
+                            log(`Updating navigation title to: ${newTitle}`);
+                            this.model.navigationStack[elementIndex].nodeTitle = newTitle;
                             this.view.renderBreadcrumbs();
                             
                             // Update page title if we're on this level
@@ -1767,8 +2711,8 @@
                         }
                         
                         // If this element is in the current view, update its display
-                        const container = document.querySelector(`.text-element-container[data-id="${id}"]`);
-                        if (container) {
+                        const container = document.querySelector(`.element-container[data-id="${id}"]`);
+                        if (container && container.dataset.type === 'text') {
                             const display = container.querySelector('.text-display');
                             if (display) {
                                 display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
@@ -1776,19 +2720,37 @@
                         }
                     }
                     
+                    // If dimensions were updated
+                    if (properties.width !== undefined || properties.height !== undefined) {
+                        const container = document.querySelector(`.element-container[data-id="${id}"]`);
+                        if (container) {
+                            if (properties.width !== undefined) {
+                                container.style.width = `${properties.width}px`;
+                            }
+                            if (properties.height !== undefined) {
+                                container.style.height = `${properties.height}px`;
+                            }
+                            log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
+                        }
+                    }
+                    
                     // Update undo/redo buttons
                     this.view.updateUndoRedoButtons();
                 } catch (error) {
-                    console.error('Error updating element:', error);
+                    logError('Error updating element:', error);
                 }
             }
             
             async updateElementStyle(id, styleProperties) {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot update element style: application not initialized');
+                    return;
+                }
                 
                 try {
+                    log(`Updating element ${id} style:`, styleProperties);
                     const element = this.model.findElement(id);
-                    if (element) {
+                    if (element && element.type === 'text') {
                         // Ensure style object exists
                         if (!element.style) {
                             element.style = {};
@@ -1801,58 +2763,54 @@
                         await this.model.saveData();
                         
                         // Update the DOM to reflect style changes
-                        this.updateElementDOM(id, element);
+                        const container = document.querySelector(`.element-container[data-id="${id}"]`);
+                        if (!container || container.dataset.type !== 'text') return;
+                        
+                        const textarea = container.querySelector('.text-element');
+                        const display = container.querySelector('.text-display');
+                        if (!textarea || !display) return;
+                        
+                        // Reset all size classes
+                        textarea.classList.remove('size-small', 'size-large', 'size-huge');
+                        display.classList.remove('size-small', 'size-large', 'size-huge');
+                        
+                        // Apply the correct size class
+                        if (element.style.textSize === 'large') {
+                            textarea.classList.add('size-large');
+                            display.classList.add('size-large');
+                        } else if (element.style.textSize === 'huge') {
+                            textarea.classList.add('size-huge');
+                            display.classList.add('size-huge');
+                        }
+                        
+                        // Reset all color classes
+                        textarea.classList.remove('color-default', 'color-red', 'color-green');
+                        display.classList.remove('color-default', 'color-red', 'color-green');
+                        
+                        // Apply the correct color class
+                        if (element.style.textColor) {
+                            textarea.classList.add(`color-${element.style.textColor}`);
+                            display.classList.add(`color-${element.style.textColor}`);
+                        } else {
+                            textarea.classList.add('color-default');
+                            display.classList.add('color-default');
+                        }
+                        
+                        log('Element style updated successfully');
                     }
                 } catch (error) {
-                    console.error('Error updating element style:', error);
-                }
-            }
-            
-            updateElementDOM(id, element) {
-                // Find the element in the DOM
-                const container = document.querySelector(`.text-element-container[data-id="${id}"]`);
-                if (!container) return;
-                
-                // Get the textarea and display
-                const textarea = container.querySelector('.text-element');
-                const display = container.querySelector('.text-display');
-                if (!textarea || !display) return;
-                
-                // Reset all size classes
-                textarea.classList.remove('size-small', 'size-large', 'size-huge');
-                display.classList.remove('size-small', 'size-large', 'size-huge');
-                
-                // Apply the correct size class
-                if (element.style && element.style.textSize) {
-                    if (element.style.textSize === 'large') {
-                        textarea.classList.add('size-large');
-                        display.classList.add('size-large');
-                    } else if (element.style.textSize === 'huge') {
-                        textarea.classList.add('size-huge');
-                        display.classList.add('size-huge');
-                    }
-                }
-                
-                // Reset all color classes
-                textarea.classList.remove('color-default', 'color-red', 'color-green');
-                display.classList.remove('color-default', 'color-red', 'color-green');
-                
-                // Apply the correct color class
-                if (element.style && element.style.textColor) {
-                    textarea.classList.add(`color-${element.style.textColor}`);
-                    display.classList.add(`color-${element.style.textColor}`);
-                } else {
-                    // Default to default color if no color specified
-                    textarea.classList.add('color-default');
-                    display.classList.add('color-default');
+                    logError('Error updating element style:', error);
                 }
             }
             
             async deleteElement(id) {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot delete element: application not initialized');
+                    return false;
+                }
                 
-                this.view.showLoading();
                 try {
+                    log(`Deleting element ${id}`);
                     // Create a delete element command
                     const command = new DeleteElementCommand(this.model, id);
                     
@@ -1860,23 +2818,27 @@
                     const result = await this.model.execute(command);
                     
                     if (result) {
+                        log('Element deleted successfully');
                         this.view.renderWorkspace();
                         this.view.updateUndoRedoButtons();
                         return true;
                     }
+                    log('Element deletion failed or element not found');
                     return false;
                 } catch (error) {
-                    console.error('Error deleting element:', error);
+                    logError('Error deleting element:', error);
                     return false;
-                } finally {
-                    this.view.hideLoading();
                 }
             }
             
             async moveElement(elementId, targetElementId) {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot move element: application not initialized');
+                    return false;
+                }
                 
                 try {
+                    log(`Moving element ${elementId} to target ${targetElementId}`);
                     // Create a move element command
                     const command = new MoveElementCommand(this.model, elementId, targetElementId);
                     
@@ -1884,113 +2846,162 @@
                     const result = await this.model.execute(command);
 
                     if (result) {
+                        log('Element moved successfully');
                         this.view.renderWorkspace();
                         this.view.updateUndoRedoButtons();
                         return true;
                     }
+                    log('Element move failed');
                     return false;
                 } catch (error) {
-                    console.error('Error moving element:', error);
+                    logError('Error moving element:', error);
                     return false;
                 }
             }
             
             async navigateToElement(id) {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot navigate: application not initialized');
+                    return false;
+                }
                 
-                // Navigation is fast, no need for loading indicator
                 try {
+                    log(`Navigating to element ${id}`);
                     if (await this.model.navigateToElement(id)) {
+                        log('Navigation successful');
                         this.view.renderWorkspace();
                         return true;
                     }
+                    log('Navigation failed');
                     return false;
                 } catch (error) {
-                    console.error('Error navigating to element:', error);
+                    logError('Error navigating to element:', error);
                     return false;
                 }
             }
 
             async navigateBack() {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot navigate back: application not initialized');
+                    return false;
+                }
                 
-                // Navigation is fast, no need for loading indicator
                 try {
+                    log('Navigating back');
                     if (await this.model.navigateBack()) {
+                        log('Navigation back successful');
                         this.view.renderWorkspace();
                         return true;
                     }
+                    log('Navigation back failed');
                     return false;
                 } catch (error) {
-                    console.error('Error navigating back:', error);
+                    logError('Error navigating back:', error);
                     return false;
                 }
             }
 
             async navigateToIndex(index) {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot navigate to index: application not initialized');
+                    return false;
+                }
                 
-                // Navigation is fast, no need for loading indicator
                 try {
+                    log(`Navigating to index ${index}`);
                     if (await this.model.navigateToIndex(index)) {
+                        log('Navigation to index successful');
                         this.view.renderWorkspace();
                         return true;
                     }
+                    log('Navigation to index failed');
                     return false;
                 } catch (error) {
-                    console.error('Error navigating to index:', error);
+                    logError('Error navigating to index:', error);
                     return false;
                 }
             }
             
             async undo() {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot undo: application not initialized');
+                    return false;
+                }
                 
-                // Undo is usually fast, no need for loading indicator
                 try {
+                    log('Performing undo');
                     if (await this.model.undo()) {
+                        log('Undo successful');
                         this.view.renderWorkspace();
                         return true;
                     }
+                    log('Nothing to undo');
                     return false;
                 } catch (error) {
-                    console.error('Error during undo:', error);
+                    logError('Error during undo:', error);
                     return false;
                 }
             }
 
             async redo() {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot redo: application not initialized');
+                    return false;
+                }
                 
-                // Redo is usually fast, no need for loading indicator
                 try {
+                    log('Performing redo');
                     if (await this.model.redo()) {
+                        log('Redo successful');
                         this.view.renderWorkspace();
                         return true;
                     }
+                    log('Nothing to redo');
                     return false;
                 } catch (error) {
-                    console.error('Error during redo:', error);
+                    logError('Error during redo:', error);
                     return false;
                 }
             }
             
             async toggleTheme() {
-                if (!this.isInitialized) return;
+                if (!this.isInitialized) {
+                    logError('Cannot toggle theme: application not initialized');
+                    return this.model.isDarkTheme;
+                }
                 
                 try {
+                    log('Toggling theme');
                     const isDarkTheme = await this.model.toggleTheme();
                     this.view.updateTheme(isDarkTheme);
+                    log(`Theme set to ${isDarkTheme ? 'dark' : 'light'}`);
                     return isDarkTheme;
                 } catch (error) {
-                    console.error('Error toggling theme:', error);
+                    logError('Error toggling theme:', error);
                     return this.model.isDarkTheme;
                 }
             }
         }
 
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', async () => {
+        // Application initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Application starting...');
+            
+            // Check for IndexedDB support
+            if (!window.indexedDB) {
+                logError('IndexedDB not supported', new Error('Browser does not support IndexedDB'));
+                document.getElementById('loading-status').textContent = 'Your browser does not support IndexedDB. Using memory-only mode.';
+                showMemoryMode();
+            }
+
+            // Set timeout to force error if initialization takes too long
+            const initTimeout = setTimeout(() => {
+                logError('Initialization timed out', new Error('Application did not initialize within 10 seconds'));
+                document.getElementById('loading-status').textContent = 'Initialization timed out. Please reset database and reload.';
+                document.getElementById('reset-db-button').style.display = 'block';
+                document.getElementById('reset-db-button').addEventListener('click', resetDatabase);
+            }, 10000);
+            
             try {
                 const model = new CanvasModel();
                 const view = new CanvasView(model, null);
@@ -1998,12 +3009,17 @@
                 
                 view.controller = controller;
                 
-                // Initialize the application
-                await controller.initialize();
+                // Initialize application
+                controller.initialize().finally(() => {
+                    clearTimeout(initTimeout);
+                });
             } catch (error) {
-                console.error('Failed to start application:', error);
+                clearTimeout(initTimeout);
+                logError('Fatal error starting application:', error);
                 alert('Error initializing application. Please refresh and try again.');
                 document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('reset-db-button').style.display = 'block';
+                document.getElementById('reset-db-button').addEventListener('click', resetDatabase);
             }
         });
     </script>
