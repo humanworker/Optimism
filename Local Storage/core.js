@@ -54,83 +54,85 @@ const OPTIMISM = {
         resetButton.addEventListener('click', OPTIMISM.resetDatabase);
     },
     
-    // Helper function to resize an image while maintaining aspect ratio
-    resizeImage: async function(file, maxDimension = 800) {
-        OPTIMISM.log('Resizing image...');
-        
-        return new Promise((resolve, reject) => {
-            try {
-                const img = new Image();
-                const reader = new FileReader();
-                
-                // Set timeout in case the image loading hangs
-                const timeout = setTimeout(() => {
-                    OPTIMISM.logError('Image loading timed out', new Error('Timeout'));
-                    reject(new Error('Image loading timed out'));
-                }, 10000);
-                
-                reader.onload = function(e) {
-                    img.onload = function() {
-                        clearTimeout(timeout);
-                        
-                        try {
-                            // Calculate dimensions
-                            let width = img.width;
-                            let height = img.height;
-                            
-                            if (width > height && width > maxDimension) {
-                                height = Math.round(height * (maxDimension / width));
-                                width = maxDimension;
-                            } else if (height > maxDimension) {
-                                width = Math.round(width * (maxDimension / height));
-                                height = maxDimension;
-                            }
-                            
-                            // Create canvas for resizing
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-                            
-                            // Convert to JPEG data URL with moderate quality
-                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                            
-                            OPTIMISM.log(`Image resized to ${width}x${height}`);
-                            resolve({
-                                data: dataUrl,
-                                width: width,
-                                height: height
-                            });
-                        } catch (error) {
-                            OPTIMISM.logError('Error processing image:', error);
-                            reject(error);
-                        }
-                    };
-                    
-                    img.onerror = function() {
-                        clearTimeout(timeout);
-                        OPTIMISM.logError('Failed to load image', new Error('Image load error'));
-                        reject(new Error('Failed to load image'));
-                    };
-                    
-                    img.src = e.target.result;
-                };
-                
-                reader.onerror = function() {
+   // Helper function to resize an image while maintaining aspect ratio
+resizeImage: async function(file, maxDimension = 600, quality = 0.5) {
+    OPTIMISM.log(`Resizing image with max dimension ${maxDimension} and quality ${quality}...`);
+    
+    return new Promise((resolve, reject) => {
+        try {
+            const img = new Image();
+            const reader = new FileReader();
+            
+            // Set timeout in case the image loading hangs
+            const timeout = setTimeout(() => {
+                OPTIMISM.logError('Image loading timed out', new Error('Timeout'));
+                reject(new Error('Image loading timed out'));
+            }, 10000);
+            
+            reader.onload = function(e) {
+                img.onload = function() {
                     clearTimeout(timeout);
-                    OPTIMISM.logError('Failed to read file', new Error('File read error'));
-                    reject(new Error('Failed to read file'));
+                    
+                    try {
+                        // Calculate dimensions
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Determine which dimension is longer and resize to maxDimension
+                        if (width > height && width > maxDimension) {
+                            height = Math.round(height * (maxDimension / width));
+                            width = maxDimension;
+                        } else if (height > maxDimension) {
+                            width = Math.round(width * (maxDimension / height));
+                            height = maxDimension;
+                        }
+                        
+                        // Create canvas for resizing
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Convert to JPEG data URL with specified quality
+                        // Quality is between 0 and 1, where 1 is highest quality
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        
+                        OPTIMISM.log(`Image resized to ${width}x${height} with quality ${quality}`);
+                        resolve({
+                            data: dataUrl,
+                            width: width,
+                            height: height
+                        });
+                    } catch (error) {
+                        OPTIMISM.logError('Error processing image:', error);
+                        reject(error);
+                    }
                 };
                 
-                reader.readAsDataURL(file);
-            } catch (error) {
-                OPTIMISM.logError('Error in image resize setup:', error);
-                reject(error);
-            }
-        });
-    },
+                img.onerror = function() {
+                    clearTimeout(timeout);
+                    OPTIMISM.logError('Failed to load image', new Error('Image load error'));
+                    reject(new Error('Failed to load image'));
+                };
+                
+                img.src = e.target.result;
+            };
+            
+            reader.onerror = function() {
+                clearTimeout(timeout);
+                OPTIMISM.logError('Failed to read file', new Error('File read error'));
+                reject(new Error('Failed to read file'));
+            };
+            
+            reader.readAsDataURL(file);
+        } catch (error) {
+            OPTIMISM.logError('Error in image resize setup:', error);
+            reject(error);
+        }
+    });
+},
     
     // Initialize the application
     init: function() {

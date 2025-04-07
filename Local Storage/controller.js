@@ -97,8 +97,8 @@ class CanvasController {
         
         try {
             OPTIMISM.log(`Adding image at position (${x}, ${y})`);
-            // Compress and resize the image
-            const processedImage = await OPTIMISM.resizeImage(file, 800);
+            // Compress and resize the image to 600px max dimension with 0.5 quality
+            const processedImage = await OPTIMISM.resizeImage(file, 600, 0.7);
             
             // Create unique IDs
             const elementId = crypto.randomUUID();

@@ -805,10 +805,14 @@ container.addEventListener('click', (e) => {
         if (elementData.height) {
             container.style.height = `${elementData.height}px`;
         }
-
+    
         // Create the image element
         const imageElement = document.createElement('img');
         imageElement.className = 'image-element';
+        // Make the image take up the full container size while maintaining aspect ratio
+        imageElement.style.width = '100%';
+        imageElement.style.height = '100%';
+        imageElement.style.objectFit = 'contain';
         
         // Load image data
         try {
@@ -829,17 +833,17 @@ container.addEventListener('click', (e) => {
         // Create resize handle
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'resize-handle';
-
-       // In createImageElementDOM method, update the click handler
-container.addEventListener('click', (e) => {
-    this.selectElement(container, elementData);
     
-    // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
-    if (this.isModifierKeyPressed(e)) {
-        this.controller.navigateToElement(elementData.id);
-        e.stopPropagation();
-    }
-});
+        // In createImageElementDOM method, update the click handler
+        container.addEventListener('click', (e) => {
+            this.selectElement(container, elementData);
+            
+            // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
+            if (this.isModifierKeyPressed(e)) {
+                this.controller.navigateToElement(elementData.id);
+                e.stopPropagation();
+            }
+        });
         
         container.addEventListener('mousedown', (e) => {
             // Don't handle if not left mouse button
@@ -969,9 +973,27 @@ container.addEventListener('click', (e) => {
                 let newWidth, newHeight;
                 
                 if (elementType === 'image') {
-                    // For images, limit max size to 800px
-                    newWidth = Math.min(800, Math.max(50, this.initialWidth + deltaWidth));
-                    newHeight = Math.min(800, Math.max(50, this.initialHeight + deltaHeight));
+                    // For images, limit max size to 600px while maintaining aspect ratio
+                    const aspectRatio = this.initialHeight / this.initialWidth;
+                    
+                    // Calculate new dimensions without enforcing aspect ratio yet
+                    newWidth = Math.max(50, this.initialWidth + deltaWidth);
+                    newHeight = Math.max(50, this.initialHeight + deltaHeight);
+                    
+                    // Now enforce the 600px max dimension
+                    if (newWidth > newHeight) {
+                        // Width is longest dimension
+                        if (newWidth > 600) {
+                            newWidth = 600;
+                            newHeight = Math.round(newWidth * aspectRatio);
+                        }
+                    } else {
+                        // Height is longest dimension
+                        if (newHeight > 600) {
+                            newHeight = 600;
+                            newWidth = Math.round(newHeight / aspectRatio);
+                        }
+                    }
                 } else {
                     // For text elements, use original constraints
                     newWidth = Math.max(100, this.initialWidth + deltaWidth);
@@ -983,6 +1005,8 @@ container.addEventListener('click', (e) => {
                 
                 return;
             }
+            
+            // Handle dragging code continues below...
             
             // Handle dragging
             if (!this.draggedElement) return;
