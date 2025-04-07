@@ -666,6 +666,9 @@ async execute() {
             deleteAtCounter: deleteAtCounter
         });
         OPTIMISM.log(`Added image ${this.element.imageDataId} to deletion queue (will delete after edit #${deleteAtCounter})`);
+        
+        // Save the app state to persist the queue update
+        await this.model.saveAppState();
     }
     
     return await this.model.deleteElement(this.elementId);

@@ -221,11 +221,18 @@ async execute(command) {
     }
 }
     
-    async undo() {
-        if (this.undoStack.length === 0) return false;
+async undo() {
+    if (this.undoStack.length === 0) return false;
+    
+    try {
+        OPTIMISM.log('Undoing last two actions (if available)');
         
-        try {
-            OPTIMISM.log('Undoing last action');
+        // Create a counter to track how many actions we've undone
+        let actionsUndone = 0;
+        const maxActionsToUndo = 2;
+        
+        // Keep undoing until we reach our limit or run out of actions
+        while (actionsUndone < maxActionsToUndo && this.undoStack.length > 0) {
             // Get the last command from the undo stack
             const command = this.undoStack.pop();
             
@@ -240,18 +247,30 @@ async execute(command) {
                 this.redoStack.shift(); // Remove oldest command
             }
             
-            return true;
-        } catch (error) {
-            OPTIMISM.logError('Error during undo:', error);
-            return false;
+            // Increment our counter
+            actionsUndone++;
         }
-    }
-    
-    async redo() {
-        if (this.redoStack.length === 0) return false;
         
-        try {
-            OPTIMISM.log('Redoing last undone action');
+        OPTIMISM.log(`Undid ${actionsUndone} action(s)`);
+        return true;
+    } catch (error) {
+        OPTIMISM.logError('Error during undo:', error);
+        return false;
+    }
+}
+
+async redo() {
+    if (this.redoStack.length === 0) return false;
+    
+    try {
+        OPTIMISM.log('Redoing last two actions (if available)');
+        
+        // Create a counter to track how many actions we've redone
+        let actionsRedone = 0;
+        const maxActionsToRedo = 2;
+        
+        // Keep redoing until we reach our limit or run out of actions
+        while (actionsRedone < maxActionsToRedo && this.redoStack.length > 0) {
             // Get the last command from the redo stack
             const command = this.redoStack.pop();
             
@@ -261,12 +280,17 @@ async execute(command) {
             // Add back to undo stack
             this.undoStack.push(command);
             
-            return true;
-        } catch (error) {
-            OPTIMISM.logError('Error during redo:', error);
-            return false;
+            // Increment our counter
+            actionsRedone++;
         }
+        
+        OPTIMISM.log(`Redid ${actionsRedone} action(s)`);
+        return true;
+    } catch (error) {
+        OPTIMISM.logError('Error during redo:', error);
+        return false;
     }
+}
     
     canUndo() {
         return this.undoStack.length > 0;
@@ -654,45 +678,45 @@ resetBackupReminder() {
 }
 
     // In model.js, modify the cleanupDeletedImages method
-async cleanupDeletedImages() {
-    const imagesToDelete = [];
-    const remainingImages = [];
-    
-    // Separate images into ones to delete now vs. keep for later
-    for (const item of this.deletedImageQueue) {
-        if (this.editCounter >= item.deleteAtCounter) {
-            imagesToDelete.push(item.imageId);
-        } else {
-            remainingImages.push(item);
-        }
-    }
-    
-    // Update the queue
-    this.deletedImageQueue = remainingImages;
-    
-    // Save the updated queue
-    await this.saveAppState();
-    
-    // Actually delete the images that are old enough
-    if (imagesToDelete.length > 0) {
-        OPTIMISM.log(`Cleaning up ${imagesToDelete.length} old deleted images`);
+    async cleanupDeletedImages() {
+        const imagesToDelete = [];
+        const remainingImages = [];
         
-        for (const imageId of imagesToDelete) {
-            try {
-                await this.deleteImageData(imageId);
-                OPTIMISM.log(`Deleted old image data: ${imageId}`);
-            } catch (error) {
-                OPTIMISM.logError(`Failed to delete old image data ${imageId}:`, error);
+        // Separate images into ones to delete now vs. keep for later
+        for (const item of this.deletedImageQueue) {
+            if (this.editCounter >= item.deleteAtCounter) {
+                imagesToDelete.push(item.imageId);
+            } else {
+                remainingImages.push(item);
             }
         }
+        
+        // Update the queue
+        this.deletedImageQueue = remainingImages;
+        
+        // Save the updated queue immediately after modification
+        await this.saveAppState();
+        
+        // Actually delete the images that are old enough
+        if (imagesToDelete.length > 0) {
+            OPTIMISM.log(`Cleaning up ${imagesToDelete.length} old deleted images`);
+            
+            for (const imageId of imagesToDelete) {
+                try {
+                    await this.deleteImageData(imageId);
+                    OPTIMISM.log(`Deleted old image data: ${imageId}`);
+                } catch (error) {
+                    OPTIMISM.logError(`Failed to delete old image data ${imageId}:`, error);
+                }
+            }
+        }
+        
+        // Log the remaining queue status
+        if (this.deletedImageQueue.length > 0) {
+            const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
+            OPTIMISM.log(`${this.deletedImageQueue.length} images remain in deletion queue (next at edit #${nextDeletion})`);
+        }
     }
-    
-    // Log the remaining queue status
-    if (this.deletedImageQueue.length > 0) {
-        const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
-        OPTIMISM.log(`${this.deletedImageQueue.length} images remain in deletion queue (next at edit #${nextDeletion})`);
-    }
-}
 
     // In model.js, update the saveAppState method
 async saveAppState() {
@@ -751,7 +775,7 @@ queueImagesForDeletion(node) {
             OPTIMISM.log(`Added image ${image.imageDataId} to deletion queue (will delete after edit #${deleteAtCounter})`);
         }
         
-        // Save the updated queue
+        // Always save the app state whenever the queue is modified
         this.saveAppState();
     }
 }
