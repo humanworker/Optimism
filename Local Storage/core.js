@@ -633,30 +633,32 @@ class DeleteElementCommand extends Command {
         }
     }
     
-    async execute() {
-        if (!this.element) return false;
-        
-        // If this is an image, we need to save the image data first
-        if (this.isImage && !this.imageData) {
-            try {
-                this.imageData = await this.model.getImageData(this.element.imageDataId);
-            } catch (error) {
-                OPTIMISM.logError('Failed to get image data for undo:', error);
-                // Continue with deletion even if we can't get the image data
-            }
+    // In core.js, modify the DeleteElementCommand's execute method
+async execute() {
+    if (!this.element) return false;
+    
+    // If this is an image, we need to save the image data first
+    if (this.isImage && !this.imageData) {
+        try {
+            this.imageData = await this.model.getImageData(this.element.imageDataId);
+        } catch (error) {
+            OPTIMISM.logError('Failed to get image data for undo:', error);
+            // Continue with deletion even if we can't get the image data
         }
-        
-        // If this is an image, add it to the deleted image queue
-        if (this.isImage && this.element.imageDataId) {
-            this.model.deletedImageQueue.push({
-                imageId: this.element.imageDataId,
-                deleteAtCounter: this.model.editCounter + 10
-            });
-            OPTIMISM.log(`Added image ${this.element.imageDataId} to deletion queue (will delete after edit ${this.model.editCounter + 10})`);
-        }
-        
-        return await this.model.deleteElement(this.elementId);
     }
+    
+    // If this is an image, add it to the deleted image queue
+    if (this.isImage && this.element.imageDataId) {
+        const deleteAtCounter = this.model.editCounter + 10;
+        this.model.deletedImageQueue.push({
+            imageId: this.element.imageDataId,
+            deleteAtCounter: deleteAtCounter
+        });
+        OPTIMISM.log(`Added image ${this.element.imageDataId} to deletion queue (will delete after edit #${deleteAtCounter})`);
+    }
+    
+    return await this.model.deleteElement(this.elementId);
+}
     
     async undo() {
         // Remove the element that was added

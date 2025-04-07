@@ -18,6 +18,7 @@ class ExportImportManager {
             this.view.showProgress('Preparing export...', 0);
 
             // Create the base export structure with version and timestamp
+// In export-import.js, in the exportData method, make sure we're exporting these values
 const exportData = {
     version: this.exportVersion,
     timestamp: new Date().toISOString(),
@@ -107,107 +108,112 @@ this.model.resetBackupReminder();
        }
    }
 
-   /**
-    * Imports application data from a JSON file
-    * @param {File} file - The JSON file to import
-    */
-   async importData(file) {
-       try {
-           this.view.showProgress('Preparing import...', 0);
-           
-           // Read the file content
-           const fileContent = await this.readFileAsText(file);
-           
-           // Parse the JSON data
-           let importData;
-           try {
-               importData = JSON.parse(fileContent);
-           } catch (error) {
-               logError('Error parsing import file:', error);
-               throw new Error('Invalid JSON format');
-           }
-           
-           // Validate the import data
-           if (!this.validateImportData(importData)) {
-               throw new Error('Invalid import data format');
-           }
-           
-           // Clear existing data
-           this.view.showProgress('Clearing existing data...', 10);
-           await this.clearExistingData();
-           
-           // Import theme data
-           this.view.showProgress('Importing theme settings...', 15);
-           if (importData.data.theme) {
-               await this.model.db.saveTheme(importData.data.theme);
-               this.model.isDarkTheme = importData.data.theme.isDarkTheme;
-               this.view.updateTheme(this.model.isDarkTheme);
-           }
-           
-           // Import nodes
-           const nodeIds = Object.keys(importData.data.nodes);
-           const totalNodes = nodeIds.length;
-           
-           this.view.showProgress('Importing nodes...', 20);
-           for (let i = 0; i < nodeIds.length; i++) {
-               const nodeId = nodeIds[i];
-               const nodeData = importData.data.nodes[nodeId];
-               
-               if (nodeData) {
-                   await this.model.db.put('canvasData', nodeData);
-               }
-               
-               // Update progress for nodes (20-70%)
-               const nodeProgress = 20 + Math.floor((i / totalNodes) * 50);
-               this.view.showProgress('Importing nodes...', nodeProgress);
-           }
-           
-           // Import images
-           const imageIds = Object.keys(importData.data.images);
-           const totalImages = imageIds.length;
-           
-           this.view.showProgress('Importing images...', 70);
-           for (let i = 0; i < imageIds.length; i++) {
-               const imageId = imageIds[i];
-               const imageData = importData.data.images[imageId];
-               
-               if (imageData) {
-                   await this.model.db.saveImage(imageId, imageData);
-               }
-               
-               // Update progress for images (70-95%)
-               const imageProgress = 70 + Math.floor((i / totalImages) * 25);
-               this.view.showProgress('Importing images...', imageProgress);
-           }
+  /**
+ * Imports application data from a JSON file
+ * @param {File} file - The JSON file to import
+ */
+async importData(file) {
+    try {
+        this.view.showProgress('Preparing import...', 0);
+        
+        // Read the file content
+        const fileContent = await this.readFileAsText(file);
+        
+        // Parse the JSON data
+        let importData;
+        try {
+            importData = JSON.parse(fileContent);
+        } catch (error) {
+            logError('Error parsing import file:', error);
+            throw new Error('Invalid JSON format');
+        }
+        
+        // Validate the import data
+        if (!this.validateImportData(importData)) {
+            throw new Error('Invalid import data format');
+        }
+        
+        // Clear existing data
+        this.view.showProgress('Clearing existing data...', 10);
+        await this.clearExistingData();
+        
+        // Import theme data
+        this.view.showProgress('Importing theme settings...', 15);
+        if (importData.data.theme) {
+            await this.model.db.saveTheme(importData.data.theme);
+            this.model.isDarkTheme = importData.data.theme.isDarkTheme;
+            this.view.updateTheme(this.model.isDarkTheme);
+        }
+        
+        // Import nodes
+        const nodeIds = Object.keys(importData.data.nodes);
+        const totalNodes = nodeIds.length;
+        
+        this.view.showProgress('Importing nodes...', 20);
+        for (let i = 0; i < nodeIds.length; i++) {
+            const nodeId = nodeIds[i];
+            const nodeData = importData.data.nodes[nodeId];
+            
+            if (nodeData) {
+                await this.model.db.put('canvasData', nodeData);
+            }
+            
+            // Update progress for nodes (20-70%)
+            const nodeProgress = 20 + Math.floor((i / totalNodes) * 50);
+            this.view.showProgress('Importing nodes...', nodeProgress);
+        }
+        
+        // Import images
+        const imageIds = Object.keys(importData.data.images);
+        const totalImages = imageIds.length;
+        
+        this.view.showProgress('Importing images...', 70);
+        for (let i = 0; i < imageIds.length; i++) {
+            const imageId = imageIds[i];
+            const imageData = importData.data.images[imageId];
+            
+            if (imageData) {
+                await this.model.db.saveImage(imageId, imageData);
+            }
+            
+            // Update progress for images (70-95%)
+            const imageProgress = 70 + Math.floor((i / totalImages) * 25);
+            this.view.showProgress('Importing images...', imageProgress);
+        }
 
-           // Import edit counter and backup reminder state
-this.view.showProgress('Importing application state...', 90);
-if (importData.data.editCounter !== undefined) {
-    this.model.editCounter = importData.data.editCounter;
+        // Import edit counter and backup reminder state
+        this.view.showProgress('Importing application state...', 90);
+        if (importData.data.editCounter !== undefined) {
+            this.model.editCounter = importData.data.editCounter;
+            OPTIMISM.log(`Imported edit counter: ${this.model.editCounter}`);
+        }
+        if (importData.data.lastBackupReminder !== undefined) {
+            this.model.lastBackupReminder = importData.data.lastBackupReminder;
+            OPTIMISM.log(`Imported last backup reminder: ${this.model.lastBackupReminder}`);
+        }
+        
+        // Save the app state after import to ensure it persists
+        await this.model.saveAppState();
+        
+        // Reload the data
+        this.view.showProgress('Finalizing import...', 95);
+        await this.model.loadData();
+        
+        // Update progress to 100%
+        this.view.showProgress('Import complete!', 100);
+        
+        // Hide the loading overlay after a short delay
+        setTimeout(() => {
+            this.view.hideLoading();
+        }, 500);
+        
+        return true;
+    } catch (error) {
+        logError('Error during import:', error);
+        this.view.hideLoading();
+        return false;
+    }
 }
-if (importData.data.lastBackupReminder !== undefined) {
-    this.model.lastBackupReminder = importData.data.lastBackupReminder;
-}
-           
-           // Reload the data
-           this.view.showProgress('Finalizing import...', 95);
-           await this.model.loadData();
-           
-           // Update progress to 100%
-           this.view.showProgress('Import complete!', 100);
-           
-           // Hide the loading overlay after a short delay
-           setTimeout(() => {
-               this.view.hideLoading();
-           }, 500);
-           
-           return true;
-       } catch (error) {
-           logError('Error during import:', error);
-           this.view.hideLoading();
-           return false;
-       }
-   }
 
    /**
     * Validates the import data structure

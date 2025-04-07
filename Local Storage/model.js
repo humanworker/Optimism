@@ -28,75 +28,101 @@ this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         this.isDebugVisible = false;
     }
 
-    async initialize() {
-        try {
-            OPTIMISM.log('Initializing database...');
-            await this.db.open();
-            
-            OPTIMISM.log('Loading data...');
-            await this.loadData();
-            
-            OPTIMISM.log('Loading theme...');
-            await this.loadTheme();
-            
-            OPTIMISM.log('Model initialization complete');
-            return true;
-        } catch (error) {
-            OPTIMISM.logError('Failed to initialize model:', error);
-            
-            // Fallback to memory-only mode
-            OPTIMISM.log('Falling back to memory-only mode');
-            this.data = { 
+    // In model.js, modify the initialize method to add edit counter logging
+async initialize() {
+    try {
+        OPTIMISM.log('Initializing database...');
+        await this.db.open();
+        
+        OPTIMISM.log('Loading data...');
+        await this.loadData();
+        
+        OPTIMISM.log('Loading theme...');
+        await this.loadTheme();
+        
+        // Add logging for initial edit counter state
+        OPTIMISM.log(`Current edit counter: #${this.editCounter}`);
+        const editsUntilBackup = this.backupReminderThreshold - (this.editCounter - this.lastBackupReminder);
+        OPTIMISM.log(`Backup reminder will appear in ${editsUntilBackup} edits`);
+        
+        if (this.deletedImageQueue.length > 0) {
+            const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
+            const editsUntilDeletion = nextDeletion - this.editCounter;
+            OPTIMISM.log(`${this.deletedImageQueue.length} images in deletion queue (next in ${editsUntilDeletion} edits)`);
+        }
+        
+        OPTIMISM.log('Model initialization complete');
+        return true;
+    } catch (error) {
+        OPTIMISM.logError('Failed to initialize model:', error);
+        
+        // Fallback to memory-only mode
+        OPTIMISM.log('Falling back to memory-only mode');
+        this.data = { 
+            id: 'root', 
+            title: 'Home', 
+            elements: [], 
+            children: {} 
+        };
+        this.navigationStack[0].node = this.data;
+        this.currentNode = this.data;
+        
+        OPTIMISM.showMemoryMode();
+        return true; // Still return true to let the app load
+    }
+}
+    
+    // In model.js, modify the loadData method
+async loadData() {
+    try {
+        let data = await this.db.getData('canvasData', 'root');
+        
+        if (!data) {
+            OPTIMISM.log('No existing data, creating default structure');
+            data = { 
                 id: 'root', 
                 title: 'Home', 
                 elements: [], 
                 children: {} 
             };
-            this.navigationStack[0].node = this.data;
-            this.currentNode = this.data;
-            
-            OPTIMISM.showMemoryMode();
-            return true; // Still return true to let the app load
+            await this.db.put('canvasData', data);
         }
-    }
-    
-    async loadData() {
+        
+        this.data = data;
+        this.navigationStack[0].node = this.data;
+        this.currentNode = this.data;
+        
+        // Load app state (including edit counter and backup reminder)
         try {
-            let data = await this.db.getData('canvasData', 'root');
-            
-            if (!data) {
-                OPTIMISM.log('No existing data, creating default structure');
-                data = { 
-                    id: 'root', 
-                    title: 'Home', 
-                    elements: [], 
-                    children: {} 
-                };
-                await this.db.put('canvasData', data);
-            }
-            
-            this.data = data;
-            this.navigationStack[0].node = this.data;
-            this.currentNode = this.data;
-            
-            // Add this to load the deleted image queue if it exists
-            try {
-                const appState = await this.db.getData('canvasData', 'appState');
-                if (appState && appState.deletedImageQueue) {
+            const appState = await this.db.getData('canvasData', 'appState');
+            if (appState) {
+                if (appState.deletedImageQueue) {
                     this.deletedImageQueue = appState.deletedImageQueue;
                     OPTIMISM.log(`Loaded deleted image queue with ${this.deletedImageQueue.length} entries`);
                 }
-            } catch (error) {
-                OPTIMISM.logError('Error loading app state:', error);
-                // Continue with empty queue
+                
+                // Load edit counter and backup reminder
+                if (appState.editCounter !== undefined) {
+                    this.editCounter = appState.editCounter;
+                    OPTIMISM.log(`Loaded edit counter: ${this.editCounter}`);
+                }
+                
+                if (appState.lastBackupReminder !== undefined) {
+                    this.lastBackupReminder = appState.lastBackupReminder;
+                    OPTIMISM.log(`Loaded last backup reminder: ${this.lastBackupReminder}`);
+                }
             }
-            
-            return data;
         } catch (error) {
-            OPTIMISM.logError('Error loading data:', error);
-            throw error;
+            OPTIMISM.logError('Error loading app state:', error);
+            // Continue with default values
         }
+        
+        return data;
+    } catch (error) {
+        OPTIMISM.logError('Error loading data:', error);
+        throw error;
     }
+}
 
     async saveData() {
         try {
@@ -167,32 +193,33 @@ this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         return this.isDebugVisible;
     }
     
-    async execute(command) {
-        try {
-            OPTIMISM.log(`Executing ${command.constructor.name}`);
-            // Execute the command and save its result
-            const result = await command.execute();
-            
-            // Add to undo stack
-            this.undoStack.push(command);
-            
-            // Clear redo stack when a new action is performed
-            this.redoStack = [];
-            
-            // Limit undo stack size
-            if (this.undoStack.length > this.maxHistorySize) {
-                this.undoStack.shift(); // Remove oldest command
-            }
-            
-            // Increment edit counter and check if backup reminder is needed
-            const showBackupReminder = this.incrementEditCounter();
-            
-            return { result, showBackupReminder };
-        } catch (error) {
-            OPTIMISM.logError('Error executing command:', error);
-            throw error;
+    // In model.js, add a log to the execute method
+async execute(command) {
+    try {
+        OPTIMISM.log(`Executing ${command.constructor.name}`);
+        // Execute the command and save its result
+        const result = await command.execute();
+        
+        // Add to undo stack
+        this.undoStack.push(command);
+        
+        // Clear redo stack when a new action is performed
+        this.redoStack = [];
+        
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxHistorySize) {
+            this.undoStack.shift(); // Remove oldest command
         }
+        
+        // Increment edit counter and check if backup reminder is needed
+        const showBackupReminder = this.incrementEditCounter();
+        
+        return { result, showBackupReminder };
+    } catch (error) {
+        OPTIMISM.logError('Error executing command:', error);
+        throw error;
     }
+}
     
     async undo() {
         if (this.undoStack.length === 0) return false;
@@ -582,69 +609,100 @@ this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         return this.isDarkTheme;
     }
 
-    incrementEditCounter() {
-        this.editCounter++;
-        
-        // Check if there are any images to clean up
-        if (this.deletedImageQueue.length > 0) {
-            this.cleanupDeletedImages();
-        }
-        
-        // Check if we need to show a backup reminder
-        if (this.editCounter - this.lastBackupReminder >= this.backupReminderThreshold) {
-            return true; // Signal to show backup reminder
-        }
-        
-        return false;
+    // In model.js, modify the incrementEditCounter method:
+// In model.js, modify the incrementEditCounter method
+incrementEditCounter() {
+    this.editCounter++;
+    
+    // Add logging for edit counter and thresholds
+    const editsUntilBackup = this.backupReminderThreshold - (this.editCounter - this.lastBackupReminder);
+    OPTIMISM.log(`Edit #${this.editCounter} (${editsUntilBackup} until backup reminder)`);
+    
+    // If there are deleted images in the queue, log information about them
+    if (this.deletedImageQueue.length > 0) {
+        const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
+        const editsUntilDeletion = nextDeletion - this.editCounter;
+        OPTIMISM.log(`Images pending deletion: ${this.deletedImageQueue.length} (next in ${editsUntilDeletion} edits)`);
     }
     
-    resetBackupReminder() {
-        this.lastBackupReminder = this.editCounter;
+    // Check if there are any images to clean up
+    if (this.deletedImageQueue.length > 0) {
+        this.cleanupDeletedImages();
     }
+    
+    // Save the app state after incrementing edit counter
+    this.saveAppState();
+    
+    // Check if we need to show a backup reminder
+    if (this.editCounter - this.lastBackupReminder >= this.backupReminderThreshold) {
+        return true; // Signal to show backup reminder
+    }
+    
+    return false;
+}
+    
+    // In model.js, modify the resetBackupReminder method
+resetBackupReminder() {
+    this.lastBackupReminder = this.editCounter;
+    OPTIMISM.log(`Reset backup reminder (next at edit #${this.editCounter + this.backupReminderThreshold})`);
+    this.saveAppState();
+}
 
-    async cleanupDeletedImages() {
-        const imagesToDelete = [];
-        const remainingImages = [];
+    // In model.js, modify the cleanupDeletedImages method
+async cleanupDeletedImages() {
+    const imagesToDelete = [];
+    const remainingImages = [];
+    
+    // Separate images into ones to delete now vs. keep for later
+    for (const item of this.deletedImageQueue) {
+        if (this.editCounter >= item.deleteAtCounter) {
+            imagesToDelete.push(item.imageId);
+        } else {
+            remainingImages.push(item);
+        }
+    }
+    
+    // Update the queue
+    this.deletedImageQueue = remainingImages;
+    
+    // Save the updated queue
+    await this.saveAppState();
+    
+    // Actually delete the images that are old enough
+    if (imagesToDelete.length > 0) {
+        OPTIMISM.log(`Cleaning up ${imagesToDelete.length} old deleted images`);
         
-        // Separate images into ones to delete now vs. keep for later
-        for (const item of this.deletedImageQueue) {
-            if (this.editCounter >= item.deleteAtCounter) {
-                imagesToDelete.push(item.imageId);
-            } else {
-                remainingImages.push(item);
+        for (const imageId of imagesToDelete) {
+            try {
+                await this.deleteImageData(imageId);
+                OPTIMISM.log(`Deleted old image data: ${imageId}`);
+            } catch (error) {
+                OPTIMISM.logError(`Failed to delete old image data ${imageId}:`, error);
             }
         }
-        
-        // Update the queue
-        this.deletedImageQueue = remainingImages;
-        
-        // Save the updated queue
-        await this.saveAppState();
-        
-        // Actually delete the images that are old enough
-        if (imagesToDelete.length > 0) {
-            OPTIMISM.log(`Cleaning up ${imagesToDelete.length} old deleted images`);
-            
-            for (const imageId of imagesToDelete) {
-                try {
-                    await this.deleteImageData(imageId);
-                    OPTIMISM.log(`Deleted old image data: ${imageId}`);
-                } catch (error) {
-                    OPTIMISM.logError(`Failed to delete old image data ${imageId}:`, error);
-                }
-            }
-        }
     }
+    
+    // Log the remaining queue status
+    if (this.deletedImageQueue.length > 0) {
+        const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
+        OPTIMISM.log(`${this.deletedImageQueue.length} images remain in deletion queue (next at edit #${nextDeletion})`);
+    }
+}
 
-    async saveAppState() {
-        try {
-            const appState = {
-                id: 'appState',
-                deletedImageQueue: this.deletedImageQueue
-            };
-            await this.db.put('canvasData', appState);
-        } catch (error) {
-            OPTIMISM.logError('Error saving app state:', error);
-        }
+    // In model.js, update the saveAppState method
+async saveAppState() {
+    try {
+        const appState = {
+            id: 'appState',
+            deletedImageQueue: this.deletedImageQueue,
+            editCounter: this.editCounter,
+            lastBackupReminder: this.lastBackupReminder
+        };
+        
+        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder})`);
+        await this.db.put('canvasData', appState);
+    } catch (error) {
+        OPTIMISM.logError('Error saving app state:', error);
     }
+}
 }
