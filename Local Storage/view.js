@@ -462,9 +462,6 @@ class CanvasView {
                 title.substring(0, 10) + '...' : title;
             breadcrumb.title = title; // Full title on hover
             
-            // Add data attribute for navigation level
-            breadcrumb.dataset.navIndex = i;
-            
             breadcrumb.addEventListener('click', () => {
                 this.controller.navigateToIndex(i);
             });
@@ -484,9 +481,6 @@ class CanvasView {
             const currentBreadcrumb = document.createElement('span');
             currentBreadcrumb.className = 'breadcrumb-item';
             currentBreadcrumb.style.textDecoration = 'none';
-            
-            // The current breadcrumb is not a drop target, but we still need the data attribute
-            currentBreadcrumb.dataset.navIndex = this.model.navigationStack.length - 1;
             
             const title = this.model.navigationStack.length === 1 ? 
                 'Home' : (currentItem.nodeTitle || 'Untitled');
@@ -651,38 +645,43 @@ class CanvasView {
         
         // Setup content listeners
         textEditor.addEventListener('input', () => {
-            this.controller.updateElement(elementData.id, {
-                text: textEditor.value
-            });
+            // We don't immediately update the model on every keystroke anymore
+            // Just update display for immediate feedback if needed
         });
         
         textEditor.addEventListener('blur', () => {
+            // Get the original element's text before any changes
+            const element = this.model.findElement(elementData.id);
+            const originalText = element ? element.text : '';
+            const newText = textEditor.value;
+            
+            // Only create an undo command if the text actually changed
+            if (originalText !== newText) {
+                this.controller.updateElementWithUndo(elementData.id, {
+                    text: newText
+                }, {
+                    text: originalText
+                });
+            }
+            
             // Don't process if element was deleted due to empty text
             if (!this.model.findElement(elementData.id)) {
                 return;
             }
             
-            // Update text and switch to display mode
-            this.controller.updateElement(elementData.id, {
-                text: textEditor.value
-            });
+            // Update display content with converted links and header format if needed
+            const updatedElement = this.model.findElement(elementData.id);
+            const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
             
-            // If element still exists after potential deletion
-            if (this.model.findElement(elementData.id)) {
-                // Update display content with converted links and header format if needed
-                const element = this.model.findElement(elementData.id);
-                const hasHeader = element.style && element.style.hasHeader;
-                
-                if (hasHeader) {
-                    textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true);
-                } else {
-                    textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
-                }
-                
-                // Toggle visibility
-                textEditor.style.display = 'none';
-                textDisplay.style.display = 'block';
+            if (hasHeader) {
+                textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true);
+            } else {
+                textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
             }
+            
+            // Toggle visibility
+            textEditor.style.display = 'none';
+            textDisplay.style.display = 'block';
         });
         
         // Handle link clicks within the display div
@@ -821,7 +820,7 @@ class CanvasView {
         // Create resize handle
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'resize-handle';
-        
+
         // Setup container event listeners
         container.addEventListener('click', (e) => {
             this.selectElement(container, elementData);
@@ -944,28 +943,6 @@ class CanvasView {
         this.model.selectedElement = null;
     }
     
-    // Add this method to handle drag over breadcrumbs
-    handleDragOverBreadcrumb(e) {
-        if (!this.draggedElement) return null;
-        
-        // Find breadcrumb elements from point
-        const elements = document.elementsFromPoint(e.clientX, e.clientY);
-        for (const element of elements) {
-            if (element.classList.contains('breadcrumb-item') && 
-                element.dataset.navIndex !== undefined) {
-                
-                // Don't allow dropping on the current level
-                const navIndex = parseInt(element.dataset.navIndex);
-                const currentIndex = this.model.navigationStack.length - 1;
-                
-                if (navIndex !== currentIndex) {
-                    return element;
-                }
-            }
-        }
-        return null;
-    }
-    
     setupDragListeners() {
         OPTIMISM.log('Setting up drag listeners');
         
@@ -1032,37 +1009,24 @@ class CanvasView {
             
             const draggedId = this.draggedElement.dataset.id;
             
-            // Check if dragged over a breadcrumb
-            const breadcrumbTarget = this.handleDragOverBreadcrumb(e);
-            if (breadcrumbTarget) {
-                const navIndex = parseInt(breadcrumbTarget.dataset.navIndex);
+            // Check if dragged over another element
+            const dropTarget = this.findDropTarget(e);
+            if (dropTarget && dropTarget !== this.draggedElement) {
+                const targetId = dropTarget.dataset.id;
                 
-                OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
+                OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
                 
                 // Deselect all elements before moving
                 this.deselectAllElements();
                 
-                this.controller.moveElementToBreadcrumb(draggedId, navIndex);
+                this.controller.moveElement(draggedId, targetId);
             } else {
-                // Check if dragged over another element
-                const dropTarget = this.findDropTarget(e);
-                if (dropTarget && dropTarget !== this.draggedElement) {
-                    const targetId = dropTarget.dataset.id;
-                    
-                    OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
-                    
-                    // Deselect all elements before moving
-                    this.deselectAllElements();
-                    
-                    this.controller.moveElement(draggedId, targetId);
-                } else {
-                    // Update position in model
-                    const newX = parseFloat(this.draggedElement.style.left);
-                    const newY = parseFloat(this.draggedElement.style.top);
-                    
-                    OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-                    this.controller.updateElement(draggedId, { x: newX, y: newY });
-                }
+                // Update position in model
+                const newX = parseFloat(this.draggedElement.style.left);
+                const newY = parseFloat(this.draggedElement.style.top);
+                
+                OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
+                this.controller.updateElement(draggedId, { x: newX, y: newY });
             }
             
             // Reset drag state
@@ -1082,14 +1046,7 @@ class CanvasView {
         const highlighted = document.querySelectorAll('.drag-over');
         highlighted.forEach(el => el.classList.remove('drag-over'));
         
-        // Check for breadcrumb target
-        const breadcrumbTarget = this.handleDragOverBreadcrumb(e);
-        if (breadcrumbTarget) {
-            breadcrumbTarget.classList.add('drag-over');
-            return;
-        }
-        
-        // Check for element target
+        // Check for new target
         const dropTarget = this.findDropTarget(e);
         if (dropTarget && dropTarget !== this.draggedElement) {
             dropTarget.classList.add('drag-over');

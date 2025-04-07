@@ -246,13 +246,15 @@ class CanvasModel {
             // Delete element if text is empty (for text elements only)
             if (element.type === 'text' && 
                 properties.text !== undefined && 
-                (properties.text === '' || properties.text === null)) {
+                (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
                 await this.deleteElement(id);
-                return;
+                return null; // Return null to indicate the element was deleted
             }
             
             await this.saveData();
+            return element; // Return the updated element
         }
+        return null; // Element not found
     }
 
     async deleteElement(id) {

@@ -670,31 +670,44 @@ class DeleteElementCommand extends Command {
 }
 
 class UpdateElementCommand extends Command {
-    constructor(model, elementId, newProperties) {
+    constructor(model, elementId, newProperties, explicitOldProperties = null) {
         super(model);
         this.elementId = elementId;
         this.newProperties = newProperties;
         
-        // Store the old properties that are being changed
-        const element = model.findElement(elementId);
-        if (element) {
-            this.oldProperties = {};
-            for (const key in newProperties) {
-                this.oldProperties[key] = element[key];
-            }
+        // Use explicitly provided old properties if available, otherwise fetch them
+        if (explicitOldProperties) {
+            this.oldProperties = explicitOldProperties;
             
-            this.isText = element.type === 'text';
+            // Determine if this is a text element
+            const element = model.findElement(elementId);
+            this.isText = element ? element.type === 'text' : false;
         } else {
-            OPTIMISM.log(`Element ${elementId} not found for UpdateElementCommand`);
-            this.oldProperties = null;
-            this.isText = false;
+            // Store the old properties that are being changed
+            const element = model.findElement(elementId);
+            if (element) {
+                this.oldProperties = {};
+                for (const key in newProperties) {
+                    this.oldProperties[key] = element[key];
+                }
+                
+                this.isText = element.type === 'text';
+            } else {
+                OPTIMISM.log(`Element ${elementId} not found for UpdateElementCommand`);
+                this.oldProperties = null;
+                this.isText = false;
+            }
         }
+        
         this.nodeId = model.currentNode.id;
         
         // Special handling for empty text (text elements only)
         this.mightDelete = this.isText && 
             newProperties.text !== undefined && 
-            (newProperties.text === '' || newProperties.text === null);
+            (newProperties.text === '' || newProperties.text === null || newProperties.text.trim() === '');
+            
+        // Get the original element for potential restoration
+        const element = model.findElement(elementId);
         if (this.mightDelete && element) {
             // Store the full element for potential restoration
             this.fullElement = JSON.parse(JSON.stringify(element));
@@ -704,10 +717,18 @@ class UpdateElementCommand extends Command {
     async execute() {
         if (!this.oldProperties) return false;
         
-        // If this is a text update that will delete the element
+        // Special case: If this is a text update that would make the text empty
         if (this.mightDelete) {
+            OPTIMISM.log('Text update would make text empty, element will be deleted');
             this.wasDeleted = true;
-            await this.model.deleteElement(this.elementId);
+            
+            // Get the full element before deletion for potential restoration
+            const element = this.model.findElement(this.elementId);
+            if (element) {
+                this.fullElement = JSON.parse(JSON.stringify(element));
+                await this.model.deleteElement(this.elementId);
+                return true;
+            }
         } else {
             await this.model.updateElement(this.elementId, this.newProperties);
         }
