@@ -699,71 +699,78 @@ else if (e.key === '6') {
         return `<span class="first-line">${formattedHeader}</span>${formattedText}`;
     }
     
-    // URL detection and conversion to clickable links
-    convertUrlsToLinks(text, isHighlighted = false) {
-        if (!text) return '';
+    // In view.js, update the convertUrlsToLinks method
+convertUrlsToLinks(text, isHighlighted = false) {
+    if (!text) return '';
+    
+    // Escape HTML characters to prevent XSS
+    let safeText = text.replace(/[&<>"']/g, function(match) {
+        switch (match) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return match;
+        }
+    });
+    
+    // Replace newlines with <br> tags
+    safeText = safeText.replace(/\n/g, '<br>');
+    
+    // Process the text to find and replace URLs with proper anchor tags
+    let result = '';
+    let lastIndex = 0;
+    
+    // Updated regex to handle file URLs with encoded spaces (%20), email addresses, and hash symbols
+    const urlRegex = /(\bfile:\/\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=%\\\s]+[a-z0-9\-_~:/[\]@!$&'()*+,;=%\\#]|\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
+    
+    let match;
+    while ((match = urlRegex.exec(safeText)) !== null) {
+        // Add text before the URL
+        result += safeText.substring(lastIndex, match.index);
         
-        // Escape HTML characters to prevent XSS
-        let safeText = text.replace(/[&<>"']/g, function(match) {
-            switch (match) {
-                case '&': return '&amp;';
-                case '<': return '&lt;';
-                case '>': return '&gt;';
-                case '"': return '&quot;';
-                case "'": return '&#39;';
-                default: return match;
-            }
-        });
+        // Get the URL
+        let url = match[0];
         
-        // Replace newlines with <br> tags
-        safeText = safeText.replace(/\n/g, '<br>');
-        
-        // Process the text to find and replace URLs with proper anchor tags
-        let result = '';
-        let lastIndex = 0;
-        
-        // More comprehensive URL regex
-        const urlRegex = /(\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
-        
-        let match;
-        while ((match = urlRegex.exec(safeText)) !== null) {
-            // Add text before the URL
-            result += safeText.substring(lastIndex, match.index);
-            
-            // Get the URL
-            let url = match[0];
-            
-            // Remove any trailing punctuation that shouldn't be part of the URL
+        // Different handling for different URL types
+        if (url.toLowerCase().startsWith('file:///')) {
+            // For file URLs, keep everything including hash
+            // But remove trailing punctuation except when part of valid characters
             url = url.replace(/[.,;:!?)]+$/, '');
-            
-            // Create the proper href attribute
-            let href = url;
-            if (url.toLowerCase().startsWith('www.')) {
-                href = 'https://' + url;
-            }
-            
-            // Add the anchor tag
-            result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-            
-            // Update lastIndex to end of current match
-            lastIndex = match.index + url.length;
-            
-            // Adjust the regex lastIndex if we modified the URL (removed trailing punctuation)
-            if (url.length !== match[0].length) {
-                urlRegex.lastIndex = lastIndex;
-            }
+        } else {
+            // For other URLs, remove any trailing punctuation that shouldn't be part of the URL
+            url = url.replace(/[.,;:!?)]+$/, '');
         }
         
-        // Add any remaining text after the last URL
-        result += safeText.substring(lastIndex);
-        
-        // Apply highlighting if needed
-        if (isHighlighted) {
-            result = `<mark>${result}</mark>`;
+        // Create the proper href attribute
+        let href = url;
+        if (url.toLowerCase().startsWith('www.')) {
+            href = 'https://' + url;
         }
         
-        return result;
+        // Add the anchor tag
+        result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        
+        // Update lastIndex to end of current match
+        lastIndex = match.index + url.length;
+        
+        // Adjust the regex lastIndex if we modified the URL
+        if (url.length !== match[0].length) {
+            urlRegex.lastIndex = lastIndex;
+        }
     }
+    
+    // Add any remaining text after the last URL
+    result += safeText.substring(lastIndex);
+    
+    // Apply highlighting if needed
+    if (isHighlighted) {
+        result = `<mark>${result}</mark>`;
+    }
+    
+    return result;
+}
     
     createTextElementDOM(elementData) {
         OPTIMISM.log(`Creating text element DOM for ${elementData.id}`);

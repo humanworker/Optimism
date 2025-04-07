@@ -7,7 +7,7 @@ class CanvasController {
         this.exportImportManager = null;
     }
     
-    // In controller.js, update the initialize method to set the initial URL hash
+// In controller.js, remove the updateUrlHash from initialize
 async initialize() {
     OPTIMISM.log('Initializing controller');
     this.view.showLoading();
@@ -28,8 +28,8 @@ async initialize() {
         this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
         this.isInitialized = true;
         
-        // Set initial URL hash based on current navigation
-        this.model.updateUrlHash();
+        // Don't update URL hash on initialization
+        // Let the core init function handle it
         
         OPTIMISM.log('Controller initialized successfully');
     } catch (error) {

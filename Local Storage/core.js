@@ -136,6 +136,7 @@ resizeImage: async function(file, maxDimension = 600, quality = 0.5) {
     
     // Initialize the application
    // Add this to core.js, in the OPTIMISM.init function
+// Update the init function in core.js
 init: function() {
     OPTIMISM.log('Application starting...');
     
@@ -147,6 +148,10 @@ init: function() {
     window.addEventListener('unhandledrejection', (event) => {
         OPTIMISM.logError('Unhandled promise rejection:', event.reason);
     });
+    
+    // Store the initial hash for later navigation
+    const initialHash = window.location.hash;
+    OPTIMISM.log(`Initial URL hash: ${initialHash}`);
     
     // Check for IndexedDB support
     if (!window.indexedDB) {
@@ -171,13 +176,42 @@ init: function() {
         OPTIMISM.view.controller = OPTIMISM.controller;
         
         // Initialize application
-        OPTIMISM.controller.initialize().finally(() => {
+        OPTIMISM.controller.initialize().then(() => {
             clearTimeout(initTimeout);
             
+            // Handle browser back/forward buttons
+            window.addEventListener('popstate', (event) => {
+                OPTIMISM.log('Popstate event triggered', event.state);
+                let nodeId = 'root';
+                
+                if (event.state && event.state.nodeId) {
+                    nodeId = event.state.nodeId;
+                } else if (window.location.hash && window.location.hash !== '#') {
+                    // If no state but we have a hash, try to navigate by hash
+                    OPTIMISM.model.navigateToNodeByHash(window.location.hash)
+                        .then(success => {
+                            if (success) {
+                                OPTIMISM.view.renderWorkspace();
+                            }
+                        });
+                    return; // Skip the rest as we're handling via hash
+                }
+                
+                OPTIMISM.model.navigateToNode(nodeId)
+                    .then(success => {
+                        if (success) {
+                            OPTIMISM.view.renderWorkspace();
+                        }
+                    })
+                    .catch(error => {
+                        OPTIMISM.logError('Error handling popstate event:', error);
+                    });
+            });
+            
             // After initialization, check URL hash for direct linking
-            if (window.location.hash && window.location.hash !== '#') {
-                OPTIMISM.log(`Found hash in URL: ${window.location.hash}`);
-                OPTIMISM.model.navigateToNodeByHash(window.location.hash)
+            if (initialHash && initialHash !== '#') {
+                OPTIMISM.log(`Navigating to initial hash: ${initialHash}`);
+                OPTIMISM.model.navigateToNodeByHash(initialHash)
                     .then(success => {
                         if (success) {
                             OPTIMISM.log('Successfully navigated to node from URL hash');
@@ -189,35 +223,15 @@ init: function() {
                     .catch(error => {
                         OPTIMISM.logError('Error navigating to node from URL hash:', error);
                     });
+            } else {
+                // If we don't have a hash, let's set the initial state for the root
+                window.history.replaceState({ nodeId: 'root' }, '', '#');
             }
+        }).catch(error => {
+            clearTimeout(initTimeout);
+            OPTIMISM.logError('Error during initialization:', error);
         });
         
-        // Handle browser back/forward buttons
-        window.addEventListener('popstate', (event) => {
-            if (event.state && event.state.nodeId) {
-                OPTIMISM.log(`Popstate event triggered for node: ${event.state.nodeId}`);
-                OPTIMISM.model.navigateToNode(event.state.nodeId)
-                    .then(success => {
-                        if (success) {
-                            OPTIMISM.view.renderWorkspace();
-                        }
-                    })
-                    .catch(error => {
-                        OPTIMISM.logError('Error handling popstate event:', error);
-                    });
-            } else {
-                // Default to root if no state
-                OPTIMISM.model.navigateToNode('root')
-                    .then(success => {
-                        if (success) {
-                            OPTIMISM.view.renderWorkspace();
-                        }
-                    })
-                    .catch(error => {
-                        OPTIMISM.logError('Error handling popstate event:', error);
-                    });
-            }
-        });
     } catch (error) {
         clearTimeout(initTimeout);
         OPTIMISM.logError('Fatal error starting application:', error);

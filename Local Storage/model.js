@@ -28,7 +28,7 @@ this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         this.isDebugVisible = false;
     }
 
-    // In model.js, modify the initialize method to add edit counter logging
+    // In model.js, update the initialize method
 async initialize() {
     try {
         OPTIMISM.log('Initializing database...');
