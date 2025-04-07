@@ -87,42 +87,114 @@ class CanvasView {
         });
         
         // Global keyboard handlers for deletion and navigation
-        document.addEventListener('keydown', (e) => {
-            // Delete/Backspace to delete selected element
-            if ((e.key === 'Delete' || e.key === 'Backspace') && 
-                this.model.selectedElement && 
-                document.activeElement.tagName !== 'TEXTAREA') {
-                this.controller.deleteElement(this.model.selectedElement);
-                e.preventDefault(); // Prevent browser back navigation on backspace
-            }
-            
-            // Up Arrow to navigate back (zoom out)
-            if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1) {
-                this.controller.navigateBack();
+       // Global keyboard handlers for deletion and navigation
+document.addEventListener('keydown', (e) => {
+    // Delete/Backspace to delete selected element
+    if ((e.key === 'Delete' || e.key === 'Backspace') && 
+        this.model.selectedElement && 
+        document.activeElement.tagName !== 'TEXTAREA') {
+        this.controller.deleteElement(this.model.selectedElement);
+        e.preventDefault(); // Prevent browser back navigation on backspace
+    }
+    
+    // Up Arrow to navigate back (zoom out) - but not when editing text
+    if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1 && 
+        document.activeElement.tagName !== 'TEXTAREA') {
+        this.controller.navigateBack();
+        e.preventDefault();
+    }
+    
+    // Down Arrow to navigate into selected element (zoom in)
+    if (e.key === 'ArrowDown' && 
+        this.model.selectedElement && 
+        this.model.hasChildren(this.model.selectedElement)) {
+        this.controller.navigateToElement(this.model.selectedElement);
+        e.preventDefault();
+    }
+    
+    // Undo with Ctrl/Cmd+Z
+    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        this.controller.undo();
+        e.preventDefault();
+    }
+    
+    // Redo with Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
+    if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) {
+        this.controller.redo();
+        e.preventDefault();
+    }
+    
+    // Style shortcuts (only when an element is selected and not in edit mode)
+    if (this.model.selectedElement && 
+        document.activeElement.tagName !== 'TEXTAREA') {
+        
+        const element = this.model.findElement(this.model.selectedElement);
+        
+        // Only apply styling to text elements
+        if (element && element.type === 'text') {
+            // 0 = reset to default (small text, black, no header)
+            if (e.key === '0') {
+                this.controller.updateElementStyle(this.model.selectedElement, { 
+                    textSize: 'small', 
+                    textColor: 'default', 
+                    hasHeader: false 
+                });
                 e.preventDefault();
             }
             
-            // Down Arrow to navigate into selected element (zoom in)
-            if (e.key === 'ArrowDown' && 
-                this.model.selectedElement && 
-                this.model.hasChildren(this.model.selectedElement)) {
-                this.controller.navigateToElement(this.model.selectedElement);
+            // 1 = small text size
+            else if (e.key === '1') {
+                // Only apply if not already small (small is default)
+                if (element.style && element.style.textSize !== 'small') {
+                    this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'small' });
+                }
                 e.preventDefault();
             }
             
-            // Undo with Ctrl/Cmd+Z
-            if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-                this.controller.undo();
+            // 2 = large text size
+            else if (e.key === '2') {
+                // Only apply if not already large
+                if (!element.style || element.style.textSize !== 'large') {
+                    this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'large' });
+                }
                 e.preventDefault();
             }
             
-            // Redo with Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
-            if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
-                ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) {
-                this.controller.redo();
+            // 3 = huge text size
+            else if (e.key === '3') {
+                // Only apply if not already huge
+                if (!element.style || element.style.textSize !== 'huge') {
+                    this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'huge' });
+                }
                 e.preventDefault();
             }
-        });
+            
+            // 4 = cycle through text colors (default -> red -> green -> default)
+            else if (e.key === '4') {
+                // Get current color
+                const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
+                let nextColor;
+                
+                // Determine next color
+                if (currentColor === 'default') nextColor = 'red';
+                else if (currentColor === 'red') nextColor = 'green';
+                else nextColor = 'default'; // green or any other color goes back to default
+                
+                this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
+                e.preventDefault();
+            }
+            
+            // 5 = toggle header
+            else if (e.key === '5') {
+                // Toggle current header setting
+                const hasHeader = element.style && element.style.hasHeader ? true : false;
+                this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
+                e.preventDefault();
+            }
+        }
+    }
+});
 
         // Prevent right-click context menu
         document.addEventListener('contextmenu', (e) => {
