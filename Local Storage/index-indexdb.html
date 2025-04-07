@@ -630,9 +630,22 @@
     cursor: default;
 }
 
-/* Highlighted text */
+/* Highlighted text - both display and edit mode */
 .text-element.is-highlighted, .text-display.is-highlighted {
-    background-color: rgb(255, 255, 169); /* Semi-transparent yellow */
+    
+    color: black !important; /* Force text to black regardless of theme */
+}
+
+/* Override color for elements within display */
+.text-display.is-highlighted a {
+    color: #0000EE !important; /* Standard link color */
+}
+
+/* Add this to your CSS - styling for the mark tag */
+mark {
+    background-color: rgb(255, 255, 176); /* Yellow highlighter color */
+    color: black !important; /* Force text to black regardless of theme */
+    padding: 0 2px; /* Small padding around highlighted text */
 }
     </style>
 </head>

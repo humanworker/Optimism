@@ -647,8 +647,8 @@ else if (e.key === '6') {
     }
     
     // Format text with header if needed
-    formatTextWithHeader(text, hasHeader) {
-        if (!text || !hasHeader) return this.convertUrlsToLinks(text || '');
+    formatTextWithHeader(text, hasHeader, isHighlighted = false) {
+        if (!text || !hasHeader) return this.convertUrlsToLinks(text || '', isHighlighted);
         
         const lines = text.split('\n');
         if (lines.length === 0) return '';
@@ -657,11 +657,14 @@ else if (e.key === '6') {
         const headerLine = lines[0];
         const restOfText = lines.slice(1).join('\n');
         
-        return `<span class="first-line">${this.convertUrlsToLinks(headerLine)}</span>${this.convertUrlsToLinks(restOfText)}`;
+        let formattedHeader = this.convertUrlsToLinks(headerLine, isHighlighted);
+        let formattedText = this.convertUrlsToLinks(restOfText, isHighlighted);
+        
+        return `<span class="first-line">${formattedHeader}</span>${formattedText}`;
     }
     
     // URL detection and conversion to clickable links
-    convertUrlsToLinks(text) {
+    convertUrlsToLinks(text, isHighlighted = false) {
         if (!text) return '';
         
         // Escape HTML characters to prevent XSS
@@ -718,6 +721,11 @@ else if (e.key === '6') {
         // Add any remaining text after the last URL
         result += safeText.substring(lastIndex);
         
+        // Apply highlighting if needed
+        if (isHighlighted) {
+            result = `<mark>${result}</mark>`;
+        }
+        
         return result;
     }
     
@@ -766,12 +774,14 @@ else if (e.key === '6') {
         
         // Apply header formatting if set
         const hasHeader = elementData.style && elementData.style.hasHeader;
-        if (hasHeader) {
-            textDisplay.classList.add('has-header');
-            textDisplay.innerHTML = this.formatTextWithHeader(elementData.text || '', true);
-        } else {
-            textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '');
-        }
+const isHighlighted = elementData.style && elementData.style.isHighlighted;
+
+if (hasHeader) {
+    textDisplay.classList.add('has-header');
+    textDisplay.innerHTML = this.formatTextWithHeader(elementData.text || '', true, isHighlighted);
+} else {
+    textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '', isHighlighted);
+}
         
         // Apply text size if defined
         if (elementData.style && elementData.style.textSize) {
@@ -836,11 +846,12 @@ if (elementData.style && elementData.style.isHighlighted) {
             // Update display content with converted links and header format if needed
             const updatedElement = this.model.findElement(elementData.id);
             const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
+            const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
             
             if (hasHeader) {
-                textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true);
+                textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
             } else {
-                textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
+                textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
             }
             
             // Toggle visibility

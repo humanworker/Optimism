@@ -305,6 +305,7 @@ class CanvasController {
                 }
 
                 // Handle highlight formatting
+// Handle highlight formatting in controller.js
 if (styleProperties.isHighlighted !== undefined) {
     if (styleProperties.isHighlighted) {
         textarea.classList.add('is-highlighted');
@@ -312,6 +313,16 @@ if (styleProperties.isHighlighted !== undefined) {
     } else {
         textarea.classList.remove('is-highlighted');
         display.classList.remove('is-highlighted');
+    }
+    
+    // Update the display content to add or remove highlighting
+    const hasHeader = element.style && element.style.hasHeader;
+    const isHighlighted = styleProperties.isHighlighted;
+    
+    if (hasHeader) {
+        display.innerHTML = this.view.formatTextWithHeader(element.text || '', true, isHighlighted);
+    } else {
+        display.innerHTML = this.view.convertUrlsToLinks(element.text || '', isHighlighted);
     }
 }
                 
