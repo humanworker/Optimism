@@ -607,6 +607,7 @@ else if (e.key === '6') {
             breadcrumb.className = 'breadcrumb-item';
             breadcrumb.style.textDecoration = 'underline';
             breadcrumb.style.cursor = 'pointer';
+            breadcrumb.dataset.index = i; // Add index attribute for drag and drop
             
             const title = i === 0 ? 'Home' : (navItem.nodeTitle || 'Untitled');
             breadcrumb.textContent = title.length > 10 ? 
@@ -632,6 +633,7 @@ else if (e.key === '6') {
             const currentBreadcrumb = document.createElement('span');
             currentBreadcrumb.className = 'breadcrumb-item';
             currentBreadcrumb.style.textDecoration = 'none';
+            // We don't need to add dataset.index for the current level since we won't drop onto it
             
             const title = this.model.navigationStack.length === 1 ? 
                 'Home' : (currentItem.nodeTitle || 'Untitled');
@@ -1215,24 +1217,39 @@ if (highlightOption) {
             
             const draggedId = this.draggedElement.dataset.id;
             
-            // Check if dragged over another element
-            const dropTarget = this.findDropTarget(e);
-            if (dropTarget && dropTarget !== this.draggedElement) {
-                const targetId = dropTarget.dataset.id;
+            // First check if dragged over a breadcrumb
+            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+            if (breadcrumbTarget) {
+                const navIndex = parseInt(breadcrumbTarget.dataset.index);
                 
-                OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
+                OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
                 
                 // Deselect all elements before moving
                 this.deselectAllElements();
                 
-                this.controller.moveElement(draggedId, targetId);
-            } else {
-                // Update position in model
-                const newX = parseFloat(this.draggedElement.style.left);
-                const newY = parseFloat(this.draggedElement.style.top);
-                
-                OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-                this.controller.updateElement(draggedId, { x: newX, y: newY });
+                // Move the element to the target navigation level
+                this.controller.moveElementToBreadcrumb(draggedId, navIndex);
+            } 
+            // If not on a breadcrumb, check if dragged over another element
+            else {
+                const dropTarget = this.findDropTarget(e);
+                if (dropTarget && dropTarget !== this.draggedElement) {
+                    const targetId = dropTarget.dataset.id;
+                    
+                    OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
+                    
+                    // Deselect all elements before moving
+                    this.deselectAllElements();
+                    
+                    this.controller.moveElement(draggedId, targetId);
+                } else {
+                    // Not dropped on any target, just update position
+                    const newX = parseFloat(this.draggedElement.style.left);
+                    const newY = parseFloat(this.draggedElement.style.top);
+                    
+                    OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
+                    this.controller.updateElement(draggedId, { x: newX, y: newY });
+                }
             }
             
             // Reset drag state
@@ -1252,7 +1269,14 @@ if (highlightOption) {
         const highlighted = document.querySelectorAll('.drag-over');
         highlighted.forEach(el => el.classList.remove('drag-over'));
         
-        // Check for new target
+        // First check for breadcrumb targets (they have priority)
+        const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+        if (breadcrumbTarget) {
+            breadcrumbTarget.classList.add('drag-over');
+            return;
+        }
+        
+        // Then check for element targets
         const dropTarget = this.findDropTarget(e);
         if (dropTarget && dropTarget !== this.draggedElement) {
             dropTarget.classList.add('drag-over');
@@ -1308,4 +1332,19 @@ if (highlightOption) {
         
         OPTIMISM.log('Backup reminder modal set up successfully');
     }
+
+    findBreadcrumbDropTarget(e) {
+        const breadcrumbs = document.querySelectorAll('.breadcrumb-item');
+        for (let i = 0; i < breadcrumbs.length - 1; i++) { // Skip the last one (current level)
+            const breadcrumb = breadcrumbs[i];
+            const rect = breadcrumb.getBoundingClientRect();
+            
+            if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                return breadcrumb;
+            }
+        }
+        return null;
+    }
+    
 }
