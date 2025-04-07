@@ -385,38 +385,43 @@ async execute(command) {
         return true;
     }
 
-    async navigateBack() {
-        if (this.navigationStack.length <= 1) return false;
-        
-        // Get the current node ID before navigation
-        const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
-        
-        // Remove the current level
-        this.navigationStack.pop();
-        
-        // Set current node to the previous level
-        this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
-        
-        // Check if the node we just left has no children anymore
-        const isEmpty = this.checkIfNodeIsEmpty(currentNodeId);
-        
-        // Clear selected element when navigating
-        this.selectedElement = null;
-        
-        // Update hasChildren status for the card we just came out of
-        if (this.currentNode.elements) {
-            const parentElement = this.currentNode.elements.find(el => el.id === currentNodeId);
-            if (parentElement) {
-                // Update the display to not show it as having children if empty
-                if (isEmpty) {
-                    // Just save the data here, the view will handle removing underline
-                    await this.saveData();
-                }
+    // Update the navigateBack method in model.js
+async navigateBack() {
+    if (this.navigationStack.length <= 1) return false;
+    
+    // Get the current node ID before navigation
+    const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+    const currentNode = this.currentNode; // Store reference to current node before popping
+    
+    // Remove the current level
+    this.navigationStack.pop();
+    
+    // Set current node to the previous level
+    this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
+    
+    // Check if the node we just left has no children anymore
+    const isEmpty = this.checkIfNodeIsEmpty(currentNodeId);
+    
+    // Clear selected element when navigating
+    this.selectedElement = null;
+    
+    // Update hasChildren status for the card we just came out of
+    if (this.currentNode.elements) {
+        const parentElement = this.currentNode.elements.find(el => el.id === currentNodeId);
+        if (parentElement) {
+            // Update the display to not show it as having children if empty
+            if (isEmpty) {
+                // Queue any images in this empty node for deletion before it's effectively removed
+                this.queueImagesForDeletion(currentNode);
+                
+                // Just save the data here, the view will handle removing underline
+                await this.saveData();
             }
         }
-        
-        return true;
     }
+    
+    return true;
+}
     
     checkIfNodeIsEmpty(nodeId) {
         // Find the node in the current level's children
@@ -705,4 +710,50 @@ async saveAppState() {
         OPTIMISM.logError('Error saving app state:', error);
     }
 }
+// Add this method to the CanvasModel class in model.js
+findAllImageElementsInNode(node) {
+    if (!node) return [];
+    
+    let imageElements = [];
+    
+    // Check elements in this node
+    if (node.elements && node.elements.length > 0) {
+        // Add all image elements from this node
+        const nodeImages = node.elements.filter(element => element.type === 'image');
+        imageElements = imageElements.concat(nodeImages);
+    }
+    
+    // Recursively check all children nodes
+    if (node.children && Object.keys(node.children).length > 0) {
+        for (const childId in node.children) {
+            const childNode = node.children[childId];
+            const childImages = this.findAllImageElementsInNode(childNode);
+            imageElements = imageElements.concat(childImages);
+        }
+    }
+    
+    return imageElements;
+}
+
+// Also add this method to recursively queue images for deletion
+queueImagesForDeletion(node) {
+    const images = this.findAllImageElementsInNode(node);
+    if (images.length > 0) {
+        OPTIMISM.log(`Found ${images.length} images to queue for deletion`);
+        
+        // Add each image to the deletion queue
+        for (const image of images) {
+            const deleteAtCounter = this.editCounter + 10;
+            this.deletedImageQueue.push({
+                imageId: image.imageDataId,
+                deleteAtCounter: deleteAtCounter
+            });
+            OPTIMISM.log(`Added image ${image.imageDataId} to deletion queue (will delete after edit #${deleteAtCounter})`);
+        }
+        
+        // Save the updated queue
+        this.saveAppState();
+    }
+}
+
 }

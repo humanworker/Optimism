@@ -634,6 +634,7 @@ class DeleteElementCommand extends Command {
     }
     
     // In core.js, modify the DeleteElementCommand's execute method
+// In core.js, update the DeleteElementCommand's execute method
 async execute() {
     if (!this.element) return false;
     
@@ -644,6 +645,16 @@ async execute() {
         } catch (error) {
             OPTIMISM.logError('Failed to get image data for undo:', error);
             // Continue with deletion even if we can't get the image data
+        }
+    }
+    
+    // If this element has children, we need to check for images that need to be queued
+    if (this.model.hasChildren(this.elementId)) {
+        // Find the child node
+        const childNode = this.model.currentNode.children[this.elementId];
+        if (childNode) {
+            // Queue all images in this node and its children for deletion
+            this.model.queueImagesForDeletion(childNode);
         }
     }
     
