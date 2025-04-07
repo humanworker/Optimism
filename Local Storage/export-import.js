@@ -18,15 +18,17 @@ class ExportImportManager {
             this.view.showProgress('Preparing export...', 0);
 
             // Create the base export structure with version and timestamp
-            const exportData = {
-                version: this.exportVersion,
-                timestamp: new Date().toISOString(),
-                data: {
-                    nodes: {},
-                    theme: await this.model.db.getTheme(),
-                    images: {}
-                }
-            };
+const exportData = {
+    version: this.exportVersion,
+    timestamp: new Date().toISOString(),
+    data: {
+        nodes: {},
+        theme: await this.model.db.getTheme(),
+        images: {},
+        editCounter: this.model.editCounter,
+        lastBackupReminder: this.model.lastBackupReminder
+    }
+};
 
             // Get all node keys
             const nodeKeys = await this.model.db.getAllKeys('canvasData');
@@ -93,6 +95,9 @@ class ExportImportManager {
                URL.revokeObjectURL(url);
                this.view.hideLoading();
            }, 500);
+
+           // Reset backup reminder after successful export
+this.model.resetBackupReminder();
            
            return true;
        } catch (error) {
@@ -174,6 +179,15 @@ class ExportImportManager {
                const imageProgress = 70 + Math.floor((i / totalImages) * 25);
                this.view.showProgress('Importing images...', imageProgress);
            }
+
+           // Import edit counter and backup reminder state
+this.view.showProgress('Importing application state...', 90);
+if (importData.data.editCounter !== undefined) {
+    this.model.editCounter = importData.data.editCounter;
+}
+if (importData.data.lastBackupReminder !== undefined) {
+    this.model.lastBackupReminder = importData.data.lastBackupReminder;
+}
            
            // Reload the data
            this.view.showProgress('Finalizing import...', 95);

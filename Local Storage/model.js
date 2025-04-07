@@ -12,6 +12,9 @@ class CanvasModel {
         this.isDarkTheme = true; // Default theme
         this.currentNode = null; // Will be set after data load
         this.selectedElement = null;
+        this.editCounter = 0;
+this.lastBackupReminder = 0;
+this.backupReminderThreshold = 100;
         
         // Command history for undo/redo
         this.undoStack = [];
@@ -149,7 +152,6 @@ class CanvasModel {
         return this.isDebugVisible;
     }
     
-    // Command pattern for undo/redo
     async execute(command) {
         try {
             OPTIMISM.log(`Executing ${command.constructor.name}`);
@@ -167,7 +169,10 @@ class CanvasModel {
                 this.undoStack.shift(); // Remove oldest command
             }
             
-            return result;
+            // Increment edit counter and check if backup reminder is needed
+            const showBackupReminder = this.incrementEditCounter();
+            
+            return { result, showBackupReminder };
         } catch (error) {
             OPTIMISM.logError('Error executing command:', error);
             throw error;
@@ -560,5 +565,20 @@ class CanvasModel {
         this.isDarkTheme = !this.isDarkTheme;
         await this.saveTheme();
         return this.isDarkTheme;
+    }
+
+    incrementEditCounter() {
+        this.editCounter++;
+        
+        // Check if we need to show a backup reminder
+        if (this.editCounter - this.lastBackupReminder >= this.backupReminderThreshold) {
+            return true; // Signal to show backup reminder
+        }
+        
+        return false;
+    }
+    
+    resetBackupReminder() {
+        this.lastBackupReminder = this.editCounter;
     }
 }

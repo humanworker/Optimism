@@ -63,6 +63,8 @@ class CanvasView {
     
     setupEventListeners() {
         OPTIMISM.log('Setting up event listeners');
+
+        this.setupBackupReminderModal();
         
         // Workspace double-click to create new elements
         this.workspace.addEventListener('dblclick', (e) => {
@@ -1077,5 +1079,36 @@ container.addEventListener('click', (e) => {
         } else {
             document.body.classList.add('light-theme');
         }
+    }
+
+    showBackupReminderModal() {
+        document.getElementById('backup-reminder-modal').style.display = 'flex';
+    }
+    
+    hideBackupReminderModal() {
+        document.getElementById('backup-reminder-modal').style.display = 'none';
+    }
+    
+    setupBackupReminderModal() {
+        OPTIMISM.log('Setting up backup reminder modal');
+        
+        // Get modal elements
+        const modal = document.getElementById('backup-reminder-modal');
+        const remindLaterButton = document.getElementById('remind-later-button');
+        const backupNowButton = document.getElementById('backup-now-button');
+        
+        // Setup event listeners
+        remindLaterButton.addEventListener('click', () => {
+            this.hideBackupReminderModal();
+            this.model.resetBackupReminder();
+        });
+        
+        backupNowButton.addEventListener('click', () => {
+            this.hideBackupReminderModal();
+            this.model.resetBackupReminder();
+            this.controller.exportData();
+        });
+        
+        OPTIMISM.log('Backup reminder modal set up successfully');
     }
 }

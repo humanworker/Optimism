@@ -62,7 +62,7 @@ class CanvasController {
             const command = new AddElementCommand(this.model, element);
             
             // Execute the command
-            await this.model.execute(command);
+            const { result, showBackupReminder } = await this.model.execute(command);
             
             const elemDOM = this.view.createTextElementDOM(element);
             
@@ -77,6 +77,12 @@ class CanvasController {
             
             // Update undo/redo buttons
             this.view.updateUndoRedoButtons();
+            
+            // Show backup reminder if needed
+            if (showBackupReminder) {
+                this.view.showBackupReminderModal();
+            }
+            
             OPTIMISM.log('Text element created successfully');
         } catch (error) {
             OPTIMISM.logError('Error creating element:', error);
@@ -116,13 +122,19 @@ class CanvasController {
             command.setImageData(processedImage.data);
             
             // Execute the command
-            await this.model.execute(command);
+            const { result, showBackupReminder } = await this.model.execute(command);
             
             // Create the DOM element
             await this.view.createImageElementDOM(element);
             
             // Update undo/redo buttons
             this.view.updateUndoRedoButtons();
+            
+            // Show backup reminder if needed
+            if (showBackupReminder) {
+                this.view.showBackupReminderModal();
+            }
+            
             OPTIMISM.log('Image added successfully');
             
             return element.id;
@@ -156,7 +168,7 @@ class CanvasController {
             const command = new UpdateElementCommand(this.model, id, properties);
             
             // Execute the command
-            await this.model.execute(command);
+            const { result, showBackupReminder } = await this.model.execute(command);
             
             const updatedElement = this.model.findElement(id);
             if (!updatedElement) {
@@ -208,6 +220,11 @@ class CanvasController {
                     }
                     OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
                 }
+            }
+            
+            // Show backup reminder if needed
+            if (showBackupReminder) {
+                this.view.showBackupReminderModal();
             }
             
             // Update undo/redo buttons
@@ -306,12 +323,18 @@ class CanvasController {
             const command = new DeleteElementCommand(this.model, id);
             
             // Execute the command
-            const result = await this.model.execute(command);
+            const { result, showBackupReminder } = await this.model.execute(command);
             
             if (result) {
                 OPTIMISM.log('Element deleted successfully');
                 this.view.renderWorkspace();
                 this.view.updateUndoRedoButtons();
+                
+                // Show backup reminder if needed
+                if (showBackupReminder) {
+                    this.view.showBackupReminderModal();
+                }
+                
                 return true;
             }
             OPTIMISM.log('Element deletion failed or element not found');
@@ -334,12 +357,18 @@ class CanvasController {
             const command = new MoveElementCommand(this.model, elementId, targetElementId);
             
             // Execute the command
-            const result = await this.model.execute(command);
-
+            const { result, showBackupReminder } = await this.model.execute(command);
+    
             if (result) {
                 OPTIMISM.log('Element moved successfully');
                 this.view.renderWorkspace();
                 this.view.updateUndoRedoButtons();
+                
+                // Show backup reminder if needed
+                if (showBackupReminder) {
+                    this.view.showBackupReminderModal();
+                }
+                
                 return true;
             }
             OPTIMISM.log('Element move failed');
@@ -363,12 +392,18 @@ class CanvasController {
             const command = new MoveElementToBreadcrumbCommand(this.model, elementId, navIndex);
             
             // Execute the command
-            const result = await this.model.execute(command);
+            const { result, showBackupReminder } = await this.model.execute(command);
             
             if (result) {
                 OPTIMISM.log('Element moved to breadcrumb level successfully');
                 this.view.renderWorkspace();
                 this.view.updateUndoRedoButtons();
+                
+                // Show backup reminder if needed
+                if (showBackupReminder) {
+                    this.view.showBackupReminderModal();
+                }
+                
                 return true;
             }
             OPTIMISM.log('Element move to breadcrumb failed');
@@ -570,7 +605,7 @@ class CanvasController {
             const command = new UpdateElementCommand(this.model, id, newProperties, oldProperties);
             
             // Execute the command
-            await this.model.execute(command);
+            const { result, showBackupReminder } = await this.model.execute(command);
             
             const element = this.model.findElement(id);
             if (!element) return; // Element might have been deleted
@@ -626,6 +661,11 @@ class CanvasController {
                     }
                     OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
                 }
+            }
+            
+            // Show backup reminder if needed
+            if (showBackupReminder) {
+                this.view.showBackupReminderModal();
             }
             
             // Update undo/redo buttons
