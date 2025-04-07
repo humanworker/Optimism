@@ -235,11 +235,12 @@
             font-weight: bold;
         }
 
-        .image-element {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            cursor: move;
+        /* Header formatting styles */
+        .text-display.has-header .first-line {
+            font-weight: bold;
+            font-size: 1.4em;
+            display: block;
+            margin-bottom: 5px;
         }
 
         /* Color variations */
@@ -411,6 +412,7 @@
             font-size: 12px;
             overflow-y: auto;
             z-index: 2000;
+            display: none; /* Hide by default */
         }
 
         /* Reset database button */
@@ -465,6 +467,7 @@
         <div id="right-controls">
             <button id="undo-button" class="nav-link" disabled>Undo</button>
             <button id="redo-button" class="nav-link" disabled>Redo</button>
+            <button id="debug-toggle" class="nav-link">Show Debug</button>
             <button id="theme-toggle" class="nav-link">Toggle Theme</button>
         </div>
     </div>
@@ -484,6 +487,13 @@
                 <a href="#" class="option-value" data-color="default">Default</a>
                 <a href="#" class="option-value" data-color="red">Red</a>
                 <a href="#" class="option-value" data-color="green">Green</a>
+            </div>
+        </div>
+        <div class="style-option">
+            <div class="option-label">Header?</div>
+            <div class="option-values">
+                <a href="#" class="option-value" data-header="false">No</a>
+                <a href="#" class="option-value" data-header="true">Yes</a>
             </div>
         </div>
     </div>
@@ -870,6 +880,9 @@
                 this.undoStack = [];
                 this.redoStack = [];
                 this.maxHistorySize = 50; // Limit history size to prevent memory issues
+                
+                // Debug panel visibility state
+                this.isDebugVisible = false;
             }
 
             async initialize() {
@@ -962,8 +975,8 @@
                 }
             }
 
-            // Save image data
-            async saveImageData(imageId, imageData) {
+           // Save image data
+           async saveImageData(imageId, imageData) {
                 try {
                     await this.db.saveImage(imageId, imageData);
                 } catch (error) {
@@ -991,6 +1004,12 @@
                     logError('Error deleting image data:', error);
                     throw error;
                 }
+            }
+            
+            // Toggle debug panel visibility
+            toggleDebugPanel() {
+                this.isDebugVisible = !this.isDebugVisible;
+                return this.isDebugVisible;
             }
             
             // Command pattern for undo/redo
@@ -1643,6 +1662,8 @@
                 this.redoButton = document.getElementById('redo-button');
                 this.loadingOverlay = document.getElementById('loading-overlay');
                 this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
+                this.debugPanel = document.getElementById('debug-panel');
+                this.debugToggle = document.getElementById('debug-toggle');
                 
                 this.draggedElement = null;
                 this.resizingElement = null;
@@ -1746,7 +1767,28 @@
                 // Setup drag and drop for images
                 this.setupImageDropZone();
                 
+                // Setup debug panel toggle
+                this.setupDebugToggle();
+                
                 log('Event listeners set up successfully');
+            }
+            
+            setupDebugToggle() {
+                log('Setting up debug toggle');
+                this.debugToggle.addEventListener('click', () => {
+                    this.controller.toggleDebugPanel();
+                });
+                log('Debug toggle set up successfully');
+            }
+            
+            updateDebugPanelVisibility(isVisible) {
+                if (isVisible) {
+                    this.debugPanel.style.display = 'block';
+                    this.debugToggle.textContent = 'Hide Debug';
+                } else {
+                    this.debugPanel.style.display = 'none';
+                    this.debugToggle.textContent = 'Show Debug';
+                }
             }
             
             setupImageDropZone() {
@@ -1812,6 +1854,7 @@
                 
                 // Initially disable buttons
                 this.updateUndoRedoButtons();
+
                 log('Undo/redo buttons set up successfully');
             }
             
@@ -1866,6 +1909,30 @@
                         
                         // Update the UI to show which option is selected
                         colorOptions.forEach(opt => opt.classList.remove('selected'));
+                        option.classList.add('selected');
+                    });
+                });
+                
+                // Set up header option
+                const headerOptions = document.querySelectorAll('.option-value[data-header]');
+                
+                // Add click event listeners to each header option
+                headerOptions.forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation(); // Prevent closing the panel
+                        
+                        // Only apply if an element is selected
+                        if (!this.model.selectedElement) return;
+                        
+                        // Get the selected header setting
+                        const hasHeader = option.dataset.header === 'true';
+                        
+                        // Update the element's style
+                        this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: hasHeader });
+                        
+                        // Update the UI to show which option is selected
+                        headerOptions.forEach(opt => opt.classList.remove('selected'));
                         option.classList.add('selected');
                     });
                 });
@@ -2006,6 +2073,20 @@
                 log('Breadcrumbs rendered successfully');
             }
             
+            // Format text with header if needed
+            formatTextWithHeader(text, hasHeader) {
+                if (!text || !hasHeader) return this.convertUrlsToLinks(text || '');
+                
+                const lines = text.split('\n');
+                if (lines.length === 0) return '';
+                
+                // Extract first line as header
+                const headerLine = lines[0];
+                const restOfText = lines.slice(1).join('\n');
+                
+                return `<span class="first-line">${this.convertUrlsToLinks(headerLine)}</span>${this.convertUrlsToLinks(restOfText)}`;
+            }
+            
             // URL detection and conversion to clickable links
             convertUrlsToLinks(text) {
                 if (!text) return '';
@@ -2109,7 +2190,15 @@
                 if (hasChildren) {
                     textDisplay.classList.add('has-children');
                 }
-                textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '');
+                
+                // Apply header formatting if set
+                const hasHeader = elementData.style && elementData.style.hasHeader;
+                if (hasHeader) {
+                    textDisplay.classList.add('has-header');
+                    textDisplay.innerHTML = this.formatTextWithHeader(elementData.text || '', true);
+                } else {
+                    textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '');
+                }
                 
                 // Apply text size if defined
                 if (elementData.style && elementData.style.textSize) {
@@ -2152,8 +2241,15 @@
                     
                     // If element still exists after potential deletion
                     if (this.model.findElement(elementData.id)) {
-                        // Update display content with converted links
-                        textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
+                        // Update display content with converted links and header format if needed
+                        const element = this.model.findElement(elementData.id);
+                        const hasHeader = element.style && element.style.hasHeader;
+                        
+                        if (hasHeader) {
+                            textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true);
+                        } else {
+                            textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value);
+                        }
                         
                         // Toggle visibility
                         textEditor.style.display = 'none';
@@ -2404,6 +2500,13 @@
                 if (colorOption) {
                     colorOption.classList.add('selected');
                 }
+                
+                // Set the correct header option as selected
+                const hasHeader = elementData.style && elementData.style.hasHeader ? 'true' : 'false';
+                const headerOption = document.querySelector(`.option-value[data-header="${hasHeader}"]`);
+                if (headerOption) {
+                    headerOption.classList.add('selected');
+                }
             }
             
             deselectAllElements() {
@@ -2563,6 +2666,8 @@
                     this.view.setupThemeToggle();
                     this.view.setupUndoRedoButtons();
                     this.view.updateTheme(this.model.isDarkTheme);
+                  // Initialize debug panel state
+                  this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
                     this.isInitialized = true;
                     log('Controller initialized successfully');
                 } catch (error) {
@@ -2591,7 +2696,8 @@
                         height: 100,
                         style: {
                             textSize: 'small', // Default text size
-                            textColor: 'default' // Default text color
+                            textColor: 'default', // Default text color
+                            hasHeader: false // Default header setting
                         }
                     };
                     
@@ -2715,7 +2821,12 @@
                         if (container && container.dataset.type === 'text') {
                             const display = container.querySelector('.text-display');
                             if (display) {
-                                display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
+                                // Check if we need to apply header formatting
+                                if (element.style && element.style.hasHeader) {
+                                    display.innerHTML = this.view.formatTextWithHeader(properties.text || '', true);
+                                } else {
+                                    display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
+                                }
                             }
                         }
                     }
@@ -2756,11 +2867,13 @@
                             element.style = {};
                         }
                         
-                        // Update style properties
-                        Object.assign(element.style, styleProperties);
+                        // Create a proper update command
+                        const newProps = {
+                            style: { ...element.style, ...styleProperties }
+                        };
                         
-                        // Save changes
-                        await this.model.saveData();
+                        // Use the update element method to create proper command
+                        await this.updateElement(id, newProps);
                         
                         // Update the DOM to reflect style changes
                         const container = document.querySelector(`.element-container[data-id="${id}"]`);
@@ -2794,6 +2907,17 @@
                         } else {
                             textarea.classList.add('color-default');
                             display.classList.add('color-default');
+                        }
+                        
+                        // Handle header formatting
+                        if (styleProperties.hasHeader !== undefined) {
+                            if (styleProperties.hasHeader) {
+                                display.classList.add('has-header');
+                                display.innerHTML = this.view.formatTextWithHeader(element.text || '', true);
+                            } else {
+                                display.classList.remove('has-header');
+                                display.innerHTML = this.view.convertUrlsToLinks(element.text || '');
+                            }
                         }
                         
                         log('Element style updated successfully');
@@ -2919,6 +3043,22 @@
                 } catch (error) {
                     logError('Error navigating to index:', error);
                     return false;
+                }
+            }
+            
+            async toggleDebugPanel() {
+                if (!this.isInitialized) {
+                    logError('Cannot toggle debug panel: application not initialized');
+                    return;
+                }
+                
+                try {
+                    log('Toggling debug panel');
+                    const isVisible = this.model.toggleDebugPanel();
+                    this.view.updateDebugPanelVisibility(isVisible);
+                    log(`Debug panel set to ${isVisible ? 'visible' : 'hidden'}`);
+                } catch (error) {
+                    logError('Error toggling debug panel:', error);
                 }
             }
             
