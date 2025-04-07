@@ -303,6 +303,17 @@ class CanvasController {
                         display.innerHTML = this.view.convertUrlsToLinks(element.text || '');
                     }
                 }
+
+                // Handle highlight formatting
+if (styleProperties.isHighlighted !== undefined) {
+    if (styleProperties.isHighlighted) {
+        textarea.classList.add('is-highlighted');
+        display.classList.add('is-highlighted');
+    } else {
+        textarea.classList.remove('is-highlighted');
+        display.classList.remove('is-highlighted');
+    }
+}
                 
                 OPTIMISM.log('Element style updated successfully');
             }

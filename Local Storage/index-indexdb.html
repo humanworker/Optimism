@@ -629,6 +629,11 @@
     margin-right: 4px;
     cursor: default;
 }
+
+/* Highlighted text */
+.text-element.is-highlighted, .text-display.is-highlighted {
+    background-color: rgb(255, 255, 169); /* Semi-transparent yellow */
+}
     </style>
 </head>
 <body>
@@ -698,6 +703,18 @@
             <div class="option-values">
                 <a href="#" class="option-value" data-header="false">No</a>
                 <a href="#" class="option-value" data-header="true">Yes</a>
+            </div>
+        </div>
+        <div class="style-option">
+            <div class="option-label">
+                Highlighted?
+                <span class="shortcut-badges">
+                    <span class="shortcut-badge" title="Toggle Highlight">6</span>
+                </span>
+            </div>
+            <div class="option-values">
+                <a href="#" class="option-value" data-highlight="false">No</a>
+                <a href="#" class="option-value" data-highlight="true">Yes</a>
             </div>
         </div>
         

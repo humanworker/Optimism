@@ -135,16 +135,17 @@ if (this.model.selectedElement &&
     if (element && element.type === 'text') {
         let styleUpdated = false;
         
-        // 0 = reset to default (small text, black, no header)
-        if (e.key === '0') {
-            this.controller.updateElementStyle(this.model.selectedElement, { 
-                textSize: 'small', 
-                textColor: 'default', 
-                hasHeader: false 
-            });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+        // 0 = reset to default (small text, black, no header, no highlight)
+if (e.key === '0') {
+    this.controller.updateElementStyle(this.model.selectedElement, { 
+        textSize: 'small', 
+        textColor: 'default', 
+        hasHeader: false,
+        isHighlighted: false
+    });
+    styleUpdated = true;
+    e.preventDefault();
+}
         
         // 1 = small text size
         else if (e.key === '1') {
@@ -200,6 +201,15 @@ if (this.model.selectedElement &&
             styleUpdated = true;
             e.preventDefault();
         }
+
+        // 6 = toggle highlight
+else if (e.key === '6') {
+    // Get the current highlight setting
+    const isHighlighted = element.style && element.style.isHighlighted ? true : false;
+    this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
+    styleUpdated = true;
+    e.preventDefault();
+}
         
         // Update style panel if any style changed
         if (styleUpdated) {
@@ -450,6 +460,30 @@ if (this.model.selectedElement &&
             });
         });
         
+        // Set up highlight option
+        const highlightOptions = document.querySelectorAll('.option-value[data-highlight]');
+        
+        // Add click event listeners to each highlight option
+        highlightOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent closing the panel
+                
+                // Only apply if an element is selected
+                if (!this.model.selectedElement) return;
+                
+                // Get the selected highlight setting
+                const isHighlighted = option.dataset.highlight === 'true';
+                
+                // Update the element's style
+                this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: isHighlighted });
+                
+                // Update the UI to show which option is selected
+                highlightOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            });
+        });
+        
         // Set up reset style option
         const resetOption = document.querySelector('.option-value.reset-style');
         if (resetOption) {
@@ -464,7 +498,8 @@ if (this.model.selectedElement &&
                 this.controller.updateElementStyle(this.model.selectedElement, { 
                     textSize: 'small', 
                     textColor: 'default', 
-                    hasHeader: false 
+                    hasHeader: false,
+                    isHighlighted: false
                 });
                 
                 // Update the UI to show which options are selected
@@ -754,6 +789,12 @@ if (this.model.selectedElement &&
             textEditor.classList.add(`color-${elementData.style.textColor}`);
             textDisplay.classList.add(`color-${elementData.style.textColor}`);
         }
+
+        // Apply highlight if defined
+if (elementData.style && elementData.style.isHighlighted) {
+    textEditor.classList.add('is-highlighted');
+    textDisplay.classList.add('is-highlighted');
+}
         
         // Create resize handle
         const resizeHandle = document.createElement('div');
@@ -1061,6 +1102,13 @@ container.addEventListener('click', (e) => {
         if (headerOption) {
             headerOption.classList.add('selected');
         }
+
+        // Set the correct highlight option as selected
+const isHighlighted = elementData.style && elementData.style.isHighlighted ? 'true' : 'false';
+const highlightOption = document.querySelector(`.option-value[data-highlight="${isHighlighted}"]`);
+if (highlightOption) {
+    highlightOption.classList.add('selected');
+}
     }
     
     deselectAllElements() {
