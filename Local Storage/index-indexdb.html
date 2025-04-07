@@ -397,6 +397,30 @@
             animation: spin 1s linear infinite;
         }
 
+        /* Progress indicator for export/import */
+        .progress-container {
+            width: 200px;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.3);
+            margin-top: 15px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: white;
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        .progress-text {
+            color: white;
+            font-size: 12px;
+            margin-top: 8px;
+            font-family: Arial, sans-serif;
+        }
+
         /* Debug panel for showing errors */
         #debug-panel {
             position: fixed;
@@ -444,6 +468,59 @@
             display: none;
         }
 
+        /* Confirmation dialog for import */
+        #confirmation-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--bg-color);
+            border: 1px solid var(--element-border-color);
+            border-radius: 5px;
+            padding: 20px;
+            z-index: 3000;
+            max-width: 400px;
+            width: 80%;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .dialog-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--element-text-color);
+        }
+
+        .dialog-message {
+            margin-bottom: 20px;
+            color: var(--element-text-color);
+            line-height: 1.4;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .dialog-button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .confirm-button {
+            background-color: #ff5555;
+            color: white;
+        }
+
+        .cancel-button {
+            background-color: var(--element-border-color);
+            color: var(--element-text-color);
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -454,6 +531,10 @@
     <div id="loading-overlay">
         <div class="spinner"></div>
         <div class="loading-status" id="loading-status">Initializing application...</div>
+        <div class="progress-container" id="progress-container" style="display: none;">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-text" id="progress-text" style="display: none;">0%</div>
     </div>
     <div id="drop-zone-indicator">
         <div id="drop-message">Drop image to add to canvas</div>
@@ -465,6 +546,8 @@
             </div>
         </div>
         <div id="right-controls">
+            <button id="export-button" class="nav-link">Export</button>
+            <button id="import-button" class="nav-link">Import</button>
             <button id="undo-button" class="nav-link" disabled>Undo</button>
             <button id="redo-button" class="nav-link" disabled>Redo</button>
             <button id="debug-toggle" class="nav-link">Show Debug</button>
@@ -500,6 +583,17 @@
     <div id="debug-panel"></div>
     <div id="status-message">Memory Mode</div>
     <button id="reset-db-button">Reset Database & Reload</button>
+    
+    <div id="confirmation-dialog">
+        <div class="dialog-title">Confirm Import</div>
+        <div class="dialog-message">
+            Importing will replace all your current data. This action cannot be undone. Are you sure you want to continue?
+        </div>
+        <div class="dialog-buttons">
+            <button class="dialog-button cancel-button" id="cancel-import">Cancel</button>
+            <button class="dialog-button confirm-button" id="confirm-import">Replace All Data</button>
+        </div>
+    </div>
 
     <script>
         // Simple logging utility
@@ -816,6 +910,88 @@
                 });
             }
             
+            // Get all keys from a store
+            async getAllKeys(storeName) {
+                if (this.useMemory) {
+                    if (storeName === 'imageData') {
+                        return Object.keys(this.memoryFallback.images);
+                    } else if (storeName === 'canvasData') {
+                        return Object.keys(this.memoryFallback.data);
+                    }
+                    return [];
+                }
+                
+                log(`Getting all keys from ${storeName}`);
+                return new Promise((resolve) => {
+                    if (!this.db) {
+                        this.useMemory = true;
+                        showMemoryMode();
+                        resolve([]);
+                        return;
+                    }
+                    
+                    try {
+                        const transaction = this.db.transaction(storeName, 'readonly');
+                        const store = transaction.objectStore(storeName);
+                        const request = store.getAllKeys();
+                        
+                        request.onsuccess = () => {
+                            resolve(request.result);
+                        };
+                        
+                        request.onerror = (event) => {
+                            logError(`Error getting keys from ${storeName}:`, event.target.error);
+                            resolve([]);
+                        };
+                    } catch (error) {
+                        logError(`Exception in getAllKeys from ${storeName}:`, error);
+                        resolve([]);
+                    }
+                });
+            }
+            
+            // Clear a store
+            async clearStore(storeName) {
+                if (this.useMemory) {
+                    if (storeName === 'imageData') {
+                        this.memoryFallback.images = {};
+                    } else if (storeName === 'canvasData') {
+                        this.memoryFallback.data = {};
+                    } else if (storeName === 'themeSettings') {
+                        this.memoryFallback.theme = { isDarkTheme: true };
+                    }
+                    return;
+                }
+                
+                log(`Clearing store ${storeName}`);
+                return new Promise((resolve) => {
+                    if (!this.db) {
+                        this.useMemory = true;
+                        showMemoryMode();
+                        resolve();
+                        return;
+                    }
+                    
+                    try {
+                        const transaction = this.db.transaction(storeName, 'readwrite');
+                        const store = transaction.objectStore(storeName);
+                        const request = store.clear();
+                        
+                        request.onsuccess = () => {
+                            resolve();
+                        };
+                        
+                        request.onerror = (event) => {
+                            logError(`Error clearing store ${storeName}:`, event.target.error);
+                            resolve();
+                        };
+                    } catch (error) {
+                        logError(`Exception in clearStore ${storeName}:`, error);
+                        resolve();
+                    }
+                });
+            }
+            
             // Specialized methods for theme
             async getTheme() {
                 if (this.useMemory) {
@@ -975,8 +1151,8 @@
                 }
             }
 
-           // Save image data
-           async saveImageData(imageId, imageData) {
+            // Save image data
+            async saveImageData(imageId, imageData) {
                 try {
                     await this.db.saveImage(imageId, imageData);
                 } catch (error) {
@@ -1664,6 +1840,14 @@
                 this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
                 this.debugPanel = document.getElementById('debug-panel');
                 this.debugToggle = document.getElementById('debug-toggle');
+                this.progressContainer = document.getElementById('progress-container');
+                this.progressBar = document.getElementById('progress-bar');
+                this.progressText = document.getElementById('progress-text');
+                this.exportButton = document.getElementById('export-button');
+                this.importButton = document.getElementById('import-button');
+                this.confirmationDialog = document.getElementById('confirmation-dialog');
+                this.cancelImportButton = document.getElementById('cancel-import');
+                this.confirmImportButton = document.getElementById('confirm-import');
                 
                 this.draggedElement = null;
                 this.resizingElement = null;
@@ -1682,10 +1866,25 @@
             hideLoading() {
                 log('Application loaded');
                 this.loadingOverlay.style.display = 'none';
+                this.progressContainer.style.display = 'none';
+                this.progressText.style.display = 'none';
+                this.progressBar.style.width = '0%';
             }
             
-            showLoading() {
+            showLoading(message = 'Loading...') {
                 this.loadingOverlay.style.display = 'flex';
+                document.getElementById('loading-status').textContent = message;
+                this.progressContainer.style.display = 'none';
+                this.progressText.style.display = 'none';
+            }
+            
+            showProgress(message, percent) {
+                this.loadingOverlay.style.display = 'flex';
+                document.getElementById('loading-status').textContent = message;
+                this.progressContainer.style.display = 'block';
+                this.progressText.style.display = 'block';
+                this.progressBar.style.width = `${percent}%`;
+                this.progressText.textContent = `${percent}%`;
             }
             
             setupEventListeners() {
@@ -1764,6 +1963,9 @@
                     }
                 });
                 
+                // Setup export/import buttons
+                this.setupExportImport();
+                
                 // Setup drag and drop for images
                 this.setupImageDropZone();
                 
@@ -1771,6 +1973,53 @@
                 this.setupDebugToggle();
                 
                 log('Event listeners set up successfully');
+            }
+            
+            setupExportImport() {
+                log('Setting up export/import buttons');
+                
+                // Export button
+                this.exportButton.addEventListener('click', () => {
+                    this.controller.exportData();
+                });
+                
+                // Import button
+                this.importButton.addEventListener('click', () => {
+                    // Show confirmation dialog
+                    this.confirmationDialog.style.display = 'block';
+                });
+                
+                // Confirmation dialog buttons
+                this.cancelImportButton.addEventListener('click', () => {
+                    this.confirmationDialog.style.display = 'none';
+                });
+                
+                this.confirmImportButton.addEventListener('click', () => {
+                    this.confirmationDialog.style.display = 'none';
+                    
+                    // Create a file input element
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.json';
+                    fileInput.style.display = 'none';
+                    document.body.appendChild(fileInput);
+                    
+                    // Handle file selection
+                    fileInput.addEventListener('change', (e) => {
+                        if (e.target.files.length > 0) {
+                            const file = e.target.files[0];
+                            this.controller.importData(file);
+                        }
+                        
+                        // Remove the input element
+                        document.body.removeChild(fileInput);
+                    });
+                    
+                    // Trigger file selection dialog
+                    fileInput.click();
+                });
+                
+                log('Export/import buttons set up successfully');
             }
             
             setupDebugToggle() {
@@ -1854,7 +2103,6 @@
                 
                 // Initially disable buttons
                 this.updateUndoRedoButtons();
-
                 log('Undo/redo buttons set up successfully');
             }
             
@@ -2652,6 +2900,7 @@
                 this.model = model;
                 this.view = view;
                 this.isInitialized = false;
+                this.exportImportManager = null;
             }
             
             async initialize() {
@@ -2659,6 +2908,10 @@
                 this.view.showLoading();
                 try {
                     await this.model.initialize();
+                    
+                    // Initialize export/import manager
+                    this.exportImportManager = new ExportImportManager(this.model, this.view);
+                    
                     this.view.renderWorkspace();
                     this.view.setupEventListeners();
                     this.view.setupDragListeners();
@@ -2666,8 +2919,8 @@
                     this.view.setupThemeToggle();
                     this.view.setupUndoRedoButtons();
                     this.view.updateTheme(this.model.isDarkTheme);
-                  // Initialize debug panel state
-                  this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
+                    // Initialize debug panel state
+                    this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
                     this.isInitialized = true;
                     log('Controller initialized successfully');
                 } catch (error) {
@@ -3062,6 +3315,44 @@
                 }
             }
             
+            async exportData() {
+                if (!this.isInitialized || !this.exportImportManager) {
+                    logError('Cannot export data: application not initialized');
+                    return;
+                }
+                
+                try {
+                    log('Starting data export');
+                    await this.exportImportManager.exportData();
+                    log('Data export complete');
+                } catch (error) {
+                    logError('Error exporting data:', error);
+                    alert('Failed to export data. Please try again.');
+                }
+            }
+            
+            async importData(file) {
+                if (!this.isInitialized || !this.exportImportManager) {
+                    logError('Cannot import data: application not initialized');
+                    return;
+                }
+                
+                try {
+                    log('Starting data import');
+                    const success = await this.exportImportManager.importData(file);
+                    if (success) {
+                        log('Data import complete');
+                        this.view.renderWorkspace();
+                    } else {
+                        logError('Data import failed');
+                        alert('Failed to import data. The file may be invalid or corrupted.');
+                    }
+                } catch (error) {
+                    logError('Error importing data:', error);
+                    alert('Failed to import data. Please try again.');
+                }
+            }
+            
             async undo() {
                 if (!this.isInitialized) {
                     logError('Cannot undo: application not initialized');
@@ -3163,5 +3454,6 @@
             }
         });
     </script>
+    <script src="export-import.js"></script>
 </body>
 </html>
