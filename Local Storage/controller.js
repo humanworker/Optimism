@@ -340,6 +340,35 @@ class CanvasController {
         }
     }
     
+    async moveElementToBreadcrumb(elementId, navIndex) {
+        if (!this.isInitialized) {
+            OPTIMISM.logError('Cannot move element: application not initialized');
+            return false;
+        }
+        
+        try {
+            OPTIMISM.log(`Moving element ${elementId} to navigation level ${navIndex}`);
+            
+            // Create a breadcrumb move command
+            const command = new MoveElementToBreadcrumbCommand(this.model, elementId, navIndex);
+            
+            // Execute the command
+            const result = await this.model.execute(command);
+            
+            if (result) {
+                OPTIMISM.log('Element moved to breadcrumb level successfully');
+                this.view.renderWorkspace();
+                this.view.updateUndoRedoButtons();
+                return true;
+            }
+            OPTIMISM.log('Element move to breadcrumb failed');
+            return false;
+        } catch (error) {
+            OPTIMISM.logError('Error moving element to breadcrumb:', error);
+            return false;
+        }
+    }
+    
     async navigateToElement(id) {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot navigate: application not initialized');

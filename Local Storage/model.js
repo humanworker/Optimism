@@ -467,6 +467,93 @@ class CanvasModel {
         }
     }
     
+    async moveElementToBreadcrumb(elementId, navIndex) {
+        try {
+            // Find source element
+            const sourceElement = this.findElement(elementId);
+            if (!sourceElement) return false;
+            
+            // Ensure the navigation index is valid
+            if (navIndex < 0 || navIndex >= this.navigationStack.length - 1) {
+                OPTIMISM.log(`Invalid navigation index: ${navIndex}`);
+                return false;
+            }
+            
+            // Get the target node from the navigation stack
+            const targetNode = this.navigationStack[navIndex].node;
+            if (!targetNode) {
+                OPTIMISM.log(`Target node not found at index: ${navIndex}`);
+                return false;
+            }
+            
+            // Initialize the elements array if it doesn't exist
+            if (!targetNode.elements) {
+                targetNode.elements = [];
+            }
+            
+            // Create a copy of the element for the target node
+            const newElement = {...sourceElement};
+            newElement.id = crypto.randomUUID();
+            
+            // For image elements, we need to handle the image data separately
+            if (sourceElement.type === 'image') {
+                // Generate a new image data ID
+                const newImageDataId = crypto.randomUUID();
+                
+                // Get the original image data
+                const imageData = await this.getImageData(sourceElement.imageDataId);
+                
+                // Save with the new ID
+                await this.saveImageData(newImageDataId, imageData);
+                
+                // Update the reference in the new element
+                newElement.imageDataId = newImageDataId;
+            }
+            
+            // Add the new element to the target node
+            targetNode.elements.push(newElement);
+            
+            // Save data before attempting to delete
+            await this.saveData();
+            
+            // Remove source element from current node
+            await this.deleteElement(elementId);
+            
+            return true;
+        } catch (error) {
+            OPTIMISM.logError('Error in moveElementToBreadcrumb:', error);
+            return false;
+        }
+    }
+    
+    // New helper method to navigate directly to a node by ID
+    async navigateToNode(nodeId) {
+        // Handle case where we're navigating to root
+        if (nodeId === 'root') {
+            // Reset to just the root node
+            this.navigationStack = [this.navigationStack[0]];
+            this.currentNode = this.navigationStack[0].node;
+            this.selectedElement = null;
+            return true;
+        }
+        
+        // Search through the navigation stack
+        for (let i = 0; i < this.navigationStack.length; i++) {
+            if (this.navigationStack[i].nodeId === nodeId) {
+                // Truncate the stack to this point
+                this.navigationStack = this.navigationStack.slice(0, i + 1);
+                this.currentNode = this.navigationStack[i].node;
+                this.selectedElement = null;
+                return true;
+            }
+        }
+        
+        // If not found in the stack, we'd need to do a more complex search
+        // through the node hierarchy, but for now we'll return false
+        OPTIMISM.logError(`Node ${nodeId} not found in navigation stack`);
+        return false;
+    }
+    
     async toggleTheme() {
         this.isDarkTheme = !this.isDarkTheme;
         await this.saveTheme();

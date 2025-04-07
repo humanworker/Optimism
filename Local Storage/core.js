@@ -812,7 +812,108 @@ class MoveElementCommand extends Command {
         
         await this.model.saveData();
     }
+
+
+    
 }
+// Add this new command class at the end of the file, before the DOM content loaded event listener
+
+class MoveElementToBreadcrumbCommand extends Command {
+    constructor(model, elementId, navIndex) {
+        super(model);
+        this.elementId = elementId;
+        this.navIndex = navIndex;
+        
+        // Store source element
+        const sourceElement = model.findElement(elementId);
+        if (sourceElement) {
+            this.sourceElement = {...sourceElement}; // Store a copy
+        } else {
+            OPTIMISM.log(`Source element ${elementId} not found for MoveElementToBreadcrumbCommand`);
+            this.sourceElement = null;
+        }
+        
+        // Store current navigation information
+        this.currentNodeId = model.currentNode.id;
+        this.navigationStackLength = model.navigationStack.length;
+        
+        this.isImage = this.sourceElement && this.sourceElement.type === 'image';
+        this.imageData = null; // Will store image data if needed
+        this.newImageDataId = null;
+    }
+    
+    async execute() {
+        if (!this.sourceElement) return false;
+        
+        try {
+            // First, we need to remember the current state
+            this.originalNavigationStack = [...this.model.navigationStack];
+            
+            // Store image data if needed
+            if (this.isImage && !this.imageData) {
+                try {
+                    this.imageData = await this.model.getImageData(this.sourceElement.imageDataId);
+                    this.newImageDataId = crypto.randomUUID();
+                } catch (error) {
+                    OPTIMISM.logError('Failed to get image data for move:', error);
+                }
+            }
+            
+            // Remember the target's elements before the move
+            const targetNode = this.model.navigationStack[this.navIndex].node;
+            this.originalTargetElements = targetNode ? [...(targetNode.elements || [])] : [];
+            
+            // Move the element to the target navigation level
+            return await this.model.moveElementToBreadcrumb(this.elementId, this.navIndex);
+        } catch (error) {
+            OPTIMISM.logError('Error executing MoveElementToBreadcrumbCommand:', error);
+            return false;
+        }
+    }
+    
+    async undo() {
+        if (!this.sourceElement) return;
+        
+        try {
+            // Navigate back to the original level
+            await this.model.navigateToNode(this.currentNodeId);
+            
+            // Restore the original elements to the current node
+            if (!this.model.currentNode.elements) {
+                this.model.currentNode.elements = [];
+            }
+            
+            // If this is an image, restore the original image data
+            if (this.isImage && this.imageData) {
+                try {
+                    // Delete the new image data that was created during the move
+                    if (this.newImageDataId) {
+                        await this.model.deleteImageData(this.newImageDataId);
+                    }
+                    
+                    // Ensure the original image data exists
+                    await this.model.saveImageData(this.sourceElement.imageDataId, this.imageData);
+                } catch (error) {
+                    OPTIMISM.logError('Failed to restore image data on breadcrumb move undo:', error);
+                }
+            }
+            
+            // Add the element back to its original position
+            this.model.currentNode.elements.push(this.sourceElement);
+            
+            // Restore the target node's elements
+            const targetNode = this.model.navigationStack[this.navIndex].node;
+            if (targetNode) {
+                targetNode.elements = [...this.originalTargetElements];
+            }
+            
+            await this.model.saveData();
+        } catch (error) {
+            OPTIMISM.logError('Error undoing MoveElementToBreadcrumbCommand:', error);
+        }
+    }
+}
+
 
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', OPTIMISM.init);
