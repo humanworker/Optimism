@@ -15,6 +15,9 @@ class CanvasModel {
         this.editCounter = 0;
 this.lastBackupReminder = 0;
 this.backupReminderThreshold = 100;
+
+// Add this line:
+this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         
         // Command history for undo/redo
         this.undoStack = [];
@@ -75,6 +78,18 @@ this.backupReminderThreshold = 100;
             this.data = data;
             this.navigationStack[0].node = this.data;
             this.currentNode = this.data;
+            
+            // Add this to load the deleted image queue if it exists
+            try {
+                const appState = await this.db.getData('canvasData', 'appState');
+                if (appState && appState.deletedImageQueue) {
+                    this.deletedImageQueue = appState.deletedImageQueue;
+                    OPTIMISM.log(`Loaded deleted image queue with ${this.deletedImageQueue.length} entries`);
+                }
+            } catch (error) {
+                OPTIMISM.logError('Error loading app state:', error);
+                // Continue with empty queue
+            }
             
             return data;
         } catch (error) {
@@ -570,6 +585,11 @@ this.backupReminderThreshold = 100;
     incrementEditCounter() {
         this.editCounter++;
         
+        // Check if there are any images to clean up
+        if (this.deletedImageQueue.length > 0) {
+            this.cleanupDeletedImages();
+        }
+        
         // Check if we need to show a backup reminder
         if (this.editCounter - this.lastBackupReminder >= this.backupReminderThreshold) {
             return true; // Signal to show backup reminder
@@ -580,5 +600,51 @@ this.backupReminderThreshold = 100;
     
     resetBackupReminder() {
         this.lastBackupReminder = this.editCounter;
+    }
+
+    async cleanupDeletedImages() {
+        const imagesToDelete = [];
+        const remainingImages = [];
+        
+        // Separate images into ones to delete now vs. keep for later
+        for (const item of this.deletedImageQueue) {
+            if (this.editCounter >= item.deleteAtCounter) {
+                imagesToDelete.push(item.imageId);
+            } else {
+                remainingImages.push(item);
+            }
+        }
+        
+        // Update the queue
+        this.deletedImageQueue = remainingImages;
+        
+        // Save the updated queue
+        await this.saveAppState();
+        
+        // Actually delete the images that are old enough
+        if (imagesToDelete.length > 0) {
+            OPTIMISM.log(`Cleaning up ${imagesToDelete.length} old deleted images`);
+            
+            for (const imageId of imagesToDelete) {
+                try {
+                    await this.deleteImageData(imageId);
+                    OPTIMISM.log(`Deleted old image data: ${imageId}`);
+                } catch (error) {
+                    OPTIMISM.logError(`Failed to delete old image data ${imageId}:`, error);
+                }
+            }
+        }
+    }
+
+    async saveAppState() {
+        try {
+            const appState = {
+                id: 'appState',
+                deletedImageQueue: this.deletedImageQueue
+            };
+            await this.db.put('canvasData', appState);
+        } catch (error) {
+            OPTIMISM.logError('Error saving app state:', error);
+        }
     }
 }

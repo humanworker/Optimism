@@ -644,6 +644,15 @@ class DeleteElementCommand extends Command {
             }
         }
         
+        // If this is an image, add it to the deleted image queue
+        if (this.isImage && this.element.imageDataId) {
+            this.model.deletedImageQueue.push({
+                imageId: this.element.imageDataId,
+                deleteAtCounter: this.model.editCounter + 10
+            });
+            OPTIMISM.log(`Added image ${this.element.imageDataId} to deletion queue (will delete after edit ${this.model.editCounter + 10})`);
+        }
+        
         return await this.model.deleteElement(this.elementId);
     }
     
