@@ -314,8 +314,25 @@
         }
 
         .style-option {
-            margin-bottom: 20px;
-        }
+    margin-bottom: 50px; /* Increased from 20px to 30px for more spacing */
+}
+
+/* For the reset option row - to align items properly */
+.style-option:last-child {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px; /* Less bottom margin for the last item */
+}
+
+.style-option:last-child .option-values {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0; /* No extra margin for the last option values */
+}
+
+.option-value.reset-style {
+    margin-right: 8px;
+}
 
         .option-label {
             display: block;
@@ -324,9 +341,8 @@
         }
 
         .option-values {
-            display: flex;
-            gap: 10px;
-        }
+    margin-bottom: 10px; /* Add extra space below options */
+}
 
         .option-value {
             cursor: pointer;
@@ -599,6 +615,28 @@
     object-fit: contain;
     display: block;
 }
+/* Keyboard shortcut badges */
+.shortcut-badges {
+    display: inline-flex;
+    margin-left: 8px;
+    vertical-align: middle;
+    position: relative;
+    top: -2px; /* Move badges up 2px */
+}
+
+.shortcut-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(128, 128, 128, 0.15); /* Lighter background color */
+    color: var(--element-text-color);
+    border-radius: 3px;
+    font-size: 12px;
+    margin-right: 4px;
+    cursor: default;
+}
     </style>
 </head>
 <body>
@@ -631,7 +669,14 @@
     <div id="workspace"></div>
     <div id="style-panel">
         <div class="style-option">
-            <div class="option-label">Text Size</div>
+            <div class="option-label">
+                Text Size
+                <span class="shortcut-badges">
+                    <span class="shortcut-badge" title="Small">1</span>
+                    <span class="shortcut-badge" title="Large">2</span>
+                    <span class="shortcut-badge" title="Huge">3</span>
+                </span>
+            </div>
             <div class="option-values">
                 <a href="#" class="option-value" data-size="small">Small</a>
                 <a href="#" class="option-value" data-size="large">Large</a>
@@ -639,7 +684,12 @@
             </div>
         </div>
         <div class="style-option">
-            <div class="option-label">Text Color</div>
+            <div class="option-label">
+                Text Color
+                <span class="shortcut-badges">
+                    <span class="shortcut-badge" title="Cycle Colors">4</span>
+                </span>
+            </div>
             <div class="option-values">
                 <a href="#" class="option-value" data-color="default">Default</a>
                 <a href="#" class="option-value" data-color="red">Red</a>
@@ -647,10 +697,23 @@
             </div>
         </div>
         <div class="style-option">
-            <div class="option-label">Header?</div>
+            <div class="option-label">
+                Header?
+                <span class="shortcut-badges">
+                    <span class="shortcut-badge" title="Toggle Header">5</span>
+                </span>
+            </div>
             <div class="option-values">
                 <a href="#" class="option-value" data-header="false">No</a>
                 <a href="#" class="option-value" data-header="true">Yes</a>
+            </div>
+        </div>
+        <div class="style-option">
+            <div class="option-values">
+                <a href="#" class="option-value reset-style">Reset Style</a>
+                <span class="shortcut-badges">
+                    <span class="shortcut-badge" title="Reset Style">0</span>
+                </span>
             </div>
         </div>
     </div>

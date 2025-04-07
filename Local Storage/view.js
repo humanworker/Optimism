@@ -125,75 +125,92 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
     }
     
-    // Style shortcuts (only when an element is selected and not in edit mode)
-    if (this.model.selectedElement && 
-        document.activeElement.tagName !== 'TEXTAREA') {
+   // Style shortcuts (only when an element is selected and not in edit mode)
+if (this.model.selectedElement && 
+    document.activeElement.tagName !== 'TEXTAREA') {
+    
+    const element = this.model.findElement(this.model.selectedElement);
+    
+    // Only apply styling to text elements
+    if (element && element.type === 'text') {
+        let styleUpdated = false;
         
-        const element = this.model.findElement(this.model.selectedElement);
+        // 0 = reset to default (small text, black, no header)
+        if (e.key === '0') {
+            this.controller.updateElementStyle(this.model.selectedElement, { 
+                textSize: 'small', 
+                textColor: 'default', 
+                hasHeader: false 
+            });
+            styleUpdated = true;
+            e.preventDefault();
+        }
         
-        // Only apply styling to text elements
-        if (element && element.type === 'text') {
-            // 0 = reset to default (small text, black, no header)
-            if (e.key === '0') {
-                this.controller.updateElementStyle(this.model.selectedElement, { 
-                    textSize: 'small', 
-                    textColor: 'default', 
-                    hasHeader: false 
-                });
-                e.preventDefault();
+        // 1 = small text size
+        else if (e.key === '1') {
+            // Only apply if not already small (small is default)
+            if (element.style && element.style.textSize !== 'small') {
+                this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'small' });
+                styleUpdated = true;
             }
-            
-            // 1 = small text size
-            else if (e.key === '1') {
-                // Only apply if not already small (small is default)
-                if (element.style && element.style.textSize !== 'small') {
-                    this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'small' });
-                }
-                e.preventDefault();
+            e.preventDefault();
+        }
+        
+        // 2 = large text size
+        else if (e.key === '2') {
+            // Only apply if not already large
+            if (!element.style || element.style.textSize !== 'large') {
+                this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'large' });
+                styleUpdated = true;
             }
-            
-            // 2 = large text size
-            else if (e.key === '2') {
-                // Only apply if not already large
-                if (!element.style || element.style.textSize !== 'large') {
-                    this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'large' });
-                }
-                e.preventDefault();
+            e.preventDefault();
+        }
+        
+        // 3 = huge text size
+        else if (e.key === '3') {
+            // Only apply if not already huge
+            if (!element.style || element.style.textSize !== 'huge') {
+                this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'huge' });
+                styleUpdated = true;
             }
+            e.preventDefault();
+        }
+        
+        // 4 = cycle through text colors (default -> red -> green -> default)
+        else if (e.key === '4') {
+            // Get current color
+            const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
+            let nextColor;
             
-            // 3 = huge text size
-            else if (e.key === '3') {
-                // Only apply if not already huge
-                if (!element.style || element.style.textSize !== 'huge') {
-                    this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'huge' });
-                }
-                e.preventDefault();
-            }
+            // Determine next color
+            if (currentColor === 'default') nextColor = 'red';
+            else if (currentColor === 'red') nextColor = 'green';
+            else nextColor = 'default'; // green or any other color goes back to default
             
-            // 4 = cycle through text colors (default -> red -> green -> default)
-            else if (e.key === '4') {
-                // Get current color
-                const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
-                let nextColor;
-                
-                // Determine next color
-                if (currentColor === 'default') nextColor = 'red';
-                else if (currentColor === 'red') nextColor = 'green';
-                else nextColor = 'default'; // green or any other color goes back to default
-                
-                this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
-                e.preventDefault();
-            }
-            
-            // 5 = toggle header
-            else if (e.key === '5') {
-                // Toggle current header setting
-                const hasHeader = element.style && element.style.hasHeader ? true : false;
-                this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
-                e.preventDefault();
+            this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // 5 = toggle header
+        else if (e.key === '5') {
+            // Toggle current header setting
+            const hasHeader = element.style && element.style.hasHeader ? true : false;
+            this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // Update style panel if any style changed
+        if (styleUpdated) {
+            // Get the updated element data after the style changes
+            const updatedElement = this.model.findElement(this.model.selectedElement);
+            if (updatedElement) {
+                this.updateStylePanel(updatedElement);
             }
         }
     }
+}
 });
 
         // Prevent right-click context menu
@@ -432,6 +449,31 @@ document.addEventListener('keydown', (e) => {
                 option.classList.add('selected');
             });
         });
+        
+        // Set up reset style option
+        const resetOption = document.querySelector('.option-value.reset-style');
+        if (resetOption) {
+            resetOption.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent closing the panel
+                
+                // Only apply if an element is selected
+                if (!this.model.selectedElement) return;
+                
+                // Reset the element's style
+                this.controller.updateElementStyle(this.model.selectedElement, { 
+                    textSize: 'small', 
+                    textColor: 'default', 
+                    hasHeader: false 
+                });
+                
+                // Update the UI to show which options are selected
+                const updatedElement = this.model.findElement(this.model.selectedElement);
+                if (updatedElement) {
+                    this.updateStylePanel(updatedElement);
+                }
+            });
+        }
         
         OPTIMISM.log('Style panel set up successfully');
     }
