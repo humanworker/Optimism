@@ -714,26 +714,25 @@ class UpdateElementCommand extends Command {
         }
     }
     
-    async execute() {
-        if (!this.oldProperties) return false;
+    // In the UpdateElementCommand's execute method
+async execute() {
+    if (!this.oldProperties) return false;
+    
+    // Check if this is a text update that would make text empty
+    if (this.isText && 
+        this.newProperties.text !== undefined && 
+        (this.newProperties.text.trim() === '')) {
         
-        // Special case: If this is a text update that would make the text empty
-        if (this.mightDelete) {
-            OPTIMISM.log('Text update would make text empty, element will be deleted');
-            this.wasDeleted = true;
-            
-            // Get the full element before deletion for potential restoration
-            const element = this.model.findElement(this.elementId);
-            if (element) {
-                this.fullElement = JSON.parse(JSON.stringify(element));
-                await this.model.deleteElement(this.elementId);
-                return true;
-            }
-        } else {
-            await this.model.updateElement(this.elementId, this.newProperties);
-        }
+        OPTIMISM.log('Text is empty, element will be deleted');
+        this.wasDeleted = true;
+        await this.model.deleteElement(this.elementId);
         return true;
     }
+    
+    // Normal update
+    await this.model.updateElement(this.elementId, this.newProperties);
+    return true;
+}
     
     async undo() {
         if (this.wasDeleted) {

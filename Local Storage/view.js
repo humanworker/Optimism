@@ -655,6 +655,13 @@ class CanvasView {
             const originalText = element ? element.text : '';
             const newText = textEditor.value;
             
+            // Check if text is now empty (including whitespace-only)
+            if (newText.trim() === '') {
+                // The text is empty, delete the element
+                this.controller.deleteElement(elementData.id);
+                return; // Don't continue since the element is deleted
+            }
+            
             // Only create an undo command if the text actually changed
             if (originalText !== newText) {
                 this.controller.updateElementWithUndo(elementData.id, {
