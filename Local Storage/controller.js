@@ -7,33 +7,38 @@ class CanvasController {
         this.exportImportManager = null;
     }
     
-    async initialize() {
-        OPTIMISM.log('Initializing controller');
-        this.view.showLoading();
-        try {
-            await this.model.initialize();
-            
-            // Initialize export/import manager
-            this.exportImportManager = new ExportImportManager(this.model, this.view);
-            
-            this.view.renderWorkspace();
-            this.view.setupEventListeners();
-            this.view.setupDragListeners();
-            this.view.setupStylePanel();
-            this.view.setupThemeToggle();
-            this.view.setupUndoRedoButtons();
-            this.view.updateTheme(this.model.isDarkTheme);
-            // Initialize debug panel state
-            this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
-            this.isInitialized = true;
-            OPTIMISM.log('Controller initialized successfully');
-        } catch (error) {
-            OPTIMISM.logError('Failed to initialize controller:', error);
-            alert('Failed to initialize application. Please refresh the page and try again.');
-        } finally {
-            this.view.hideLoading();
-        }
+    // In controller.js, update the initialize method to set the initial URL hash
+async initialize() {
+    OPTIMISM.log('Initializing controller');
+    this.view.showLoading();
+    try {
+        await this.model.initialize();
+        
+        // Initialize export/import manager
+        this.exportImportManager = new ExportImportManager(this.model, this.view);
+        
+        this.view.renderWorkspace();
+        this.view.setupEventListeners();
+        this.view.setupDragListeners();
+        this.view.setupStylePanel();
+        this.view.setupThemeToggle();
+        this.view.setupUndoRedoButtons();
+        this.view.updateTheme(this.model.isDarkTheme);
+        // Initialize debug panel state
+        this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
+        this.isInitialized = true;
+        
+        // Set initial URL hash based on current navigation
+        this.model.updateUrlHash();
+        
+        OPTIMISM.log('Controller initialized successfully');
+    } catch (error) {
+        OPTIMISM.logError('Failed to initialize controller:', error);
+        alert('Failed to initialize application. Please refresh the page and try again.');
+    } finally {
+        this.view.hideLoading();
     }
+}
 
     async createElement(x, y) {
         if (!this.isInitialized) {

@@ -63,8 +63,34 @@ class CanvasView {
     
     setupEventListeners() {
         OPTIMISM.log('Setting up event listeners');
-
+    
         this.setupBackupReminderModal();
+        
+        // Add Copy Link button
+        const copyLinkButton = document.createElement('button');
+        copyLinkButton.id = 'copy-link-button';
+        copyLinkButton.className = 'nav-link';
+        copyLinkButton.textContent = 'Copy Link';
+        copyLinkButton.addEventListener('click', () => {
+            navigator.clipboard.writeText(window.location.href)
+                .then(() => {
+                    OPTIMISM.log('URL copied to clipboard');
+                })
+                .catch(err => {
+                    OPTIMISM.logError('Could not copy URL:', err);
+                });
+        });
+        
+        // Add the copy link button to the right controls section
+        const rightControls = document.getElementById('right-controls');
+        if (rightControls) {
+            // Add before the first button (or at the start if no buttons)
+            if (rightControls.firstChild) {
+                rightControls.insertBefore(copyLinkButton, rightControls.firstChild);
+            } else {
+                rightControls.appendChild(copyLinkButton);
+            }
+        }
         
         // Workspace double-click to create new elements
         this.workspace.addEventListener('dblclick', (e) => {

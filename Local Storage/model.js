@@ -366,11 +366,11 @@ async redo() {
     async navigateToElement(elementId) {
         const element = this.findElement(elementId);
         if (!element) return false;
-
+    
         if (!this.currentNode.children) {
             this.currentNode.children = {};
         }
-
+    
         // Create a child node if it doesn't exist
         if (!this.currentNode.children[elementId]) {
             let nodeTitle = "Untitled";
@@ -391,7 +391,7 @@ async redo() {
                 children: {}
             };
         }
-
+    
         // Add to navigation stack
         this.navigationStack.push({
             nodeId: elementId,
@@ -405,11 +405,18 @@ async redo() {
         // Clear selected element when navigating
         this.selectedElement = null;
         
+        // Update URL hash
+        this.updateUrlHash();
+        
+        // Update browser history
+        window.history.pushState({ nodeId: elementId }, '', this.generateUrlHash(elementId));
+        
         await this.saveData();
         return true;
     }
 
     // Update the navigateBack method in model.js
+// Modify the navigateBack method to update URL
 async navigateBack() {
     if (this.navigationStack.length <= 1) return false;
     
@@ -428,6 +435,13 @@ async navigateBack() {
     
     // Clear selected element when navigating
     this.selectedElement = null;
+    
+    // Update URL hash
+    this.updateUrlHash();
+    
+    // Update browser history
+    const newNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+    window.history.pushState({ nodeId: newNodeId }, '', this.generateUrlHash(newNodeId));
     
     // Update hasChildren status for the card we just came out of
     if (this.currentNode.elements) {
@@ -460,20 +474,28 @@ async navigateBack() {
         return hasNoElements && hasNoChildren;
     }
 
-    async navigateToIndex(index) {
-        if (index >= this.navigationStack.length || index < 0) return false;
-        
-        // Keep only up to the specified index
-        this.navigationStack = this.navigationStack.slice(0, index + 1);
-        
-        // Set current node
-        this.currentNode = this.navigationStack[index].node;
-        
-        // Clear selected element when navigating
-        this.selectedElement = null;
-        
-        return true;
-    }
+    // Modify the navigateToIndex method to update URL
+async navigateToIndex(index) {
+    if (index >= this.navigationStack.length || index < 0) return false;
+    
+    // Keep only up to the specified index
+    this.navigationStack = this.navigationStack.slice(0, index + 1);
+    
+    // Set current node
+    this.currentNode = this.navigationStack[index].node;
+    
+    // Clear selected element when navigating
+    this.selectedElement = null;
+    
+    // Update URL hash
+    this.updateUrlHash();
+    
+    // Update browser history
+    const nodeId = this.navigationStack[index].nodeId;
+    window.history.pushState({ nodeId: nodeId }, '', this.generateUrlHash(nodeId));
+    
+    return true;
+}
 
     async moveElement(elementId, targetElementId) {
         try {
@@ -604,33 +626,77 @@ async navigateBack() {
         }
     }
     
-    // New helper method to navigate directly to a node by ID
-    async navigateToNode(nodeId) {
-        // Handle case where we're navigating to root
-        if (nodeId === 'root') {
-            // Reset to just the root node
-            this.navigationStack = [this.navigationStack[0]];
-            this.currentNode = this.navigationStack[0].node;
+   // Modify the navigateToNode method to update URL
+async navigateToNode(nodeId) {
+    // Handle case where we're navigating to root
+    if (nodeId === 'root') {
+        // Reset to just the root node
+        this.navigationStack = [this.navigationStack[0]];
+        this.currentNode = this.navigationStack[0].node;
+        this.selectedElement = null;
+        
+        // Update URL hash
+        this.updateUrlHash();
+        
+        // Update browser history
+        window.history.pushState({ nodeId: 'root' }, '', '#');
+        
+        return true;
+    }
+    
+    // Search through the navigation stack
+    for (let i = 0; i < this.navigationStack.length; i++) {
+        if (this.navigationStack[i].nodeId === nodeId) {
+            // Truncate the stack to this point
+            this.navigationStack = this.navigationStack.slice(0, i + 1);
+            this.currentNode = this.navigationStack[i].node;
             this.selectedElement = null;
+            
+            // Update URL hash
+            this.updateUrlHash();
+            
+            // Update browser history
+            window.history.pushState({ nodeId: nodeId }, '', this.generateUrlHash(nodeId));
+            
             return true;
         }
+    }
+    
+    // If not found in the stack, we need to build the path to this node
+    const path = this.buildPathToNode(nodeId);
+    if (path && path.length > 0) {
+        // Start with root
+        this.navigationStack = [this.navigationStack[0]];
+        this.currentNode = this.navigationStack[0].node;
         
-        // Search through the navigation stack
-        for (let i = 0; i < this.navigationStack.length; i++) {
-            if (this.navigationStack[i].nodeId === nodeId) {
-                // Truncate the stack to this point
-                this.navigationStack = this.navigationStack.slice(0, i + 1);
-                this.currentNode = this.navigationStack[i].node;
-                this.selectedElement = null;
-                return true;
-            }
+        // Navigate through the path
+        for (const id of path) {
+            const node = this.findNodeById(id);
+            if (!node) return false;
+            
+            this.navigationStack.push({
+                nodeId: id,
+                nodeTitle: node.title || 'Untitled',
+                node: node
+            });
         }
         
-        // If not found in the stack, we'd need to do a more complex search
-        // through the node hierarchy, but for now we'll return false
-        OPTIMISM.logError(`Node ${nodeId} not found in navigation stack`);
-        return false;
+        // Set current node to the last one in the path
+        this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
+        this.selectedElement = null;
+        
+        // Update URL hash
+        this.updateUrlHash();
+        
+        // Update browser history
+        window.history.pushState({ nodeId: nodeId }, '', this.generateUrlHash(nodeId));
+        
+        return true;
     }
+    
+    OPTIMISM.logError(`Node ${nodeId} not found in navigation stack`);
+    return false;
+}
     
     async toggleTheme() {
         this.isDarkTheme = !this.isDarkTheme;
@@ -778,6 +844,207 @@ queueImagesForDeletion(node) {
         // Always save the app state whenever the queue is modified
         this.saveAppState();
     }
+}
+
+// Add these methods to CanvasModel class in model.js
+// Helper method to build a path to a node
+
+// Generate a URL-friendly slug from text
+generateSlug(text) {
+    if (!text) return 'untitled';
+    
+    // Convert to lowercase and replace non-alphanumeric characters with hyphens
+    return text.toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '') // Remove special characters
+        .replace(/[\s_-]+/g, '-') // Replace spaces, underscores, and hyphens with a single hyphen
+        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+        .substring(0, 30); // Limit length
+}
+
+// Generate a URL hash for a node
+generateUrlHash(nodeId) {
+    const node = this.findNodeById(nodeId);
+    if (!node) return '#';
+    
+    // For root, just return '#'
+    if (nodeId === 'root') return '#';
+    
+    // For other nodes, combine slug and ID
+    let slug = 'untitled';
+    
+    // If it's a text element, use its content for the slug
+    const parentNode = this.findParentNode(nodeId);
+    if (parentNode && parentNode.elements) {
+        const element = parentNode.elements.find(el => el.id === nodeId);
+        if (element && element.type === 'text' && element.text) {
+            slug = this.generateSlug(element.text);
+        } else if (element && element.type === 'image') {
+            slug = 'image';
+        }
+    }
+    
+    // Add the first 6 characters of ID
+    const idPart = nodeId.substring(0, 6);
+    return `#${slug}-${idPart}`;
+}
+
+// Find a node by ID in the entire data structure
+findNodeById(nodeId) {
+    // Root node is a special case
+    if (nodeId === 'root') return this.data;
+    
+    // For other nodes, search through the children
+    return this.findNodeRecursive(this.data, nodeId);
+}
+
+// Recursively search for a node by ID
+findNodeRecursive(currentNode, targetId) {
+    // Check if this node has the target ID
+    if (currentNode.id === targetId) return currentNode;
+    
+    // Check children
+    if (currentNode.children) {
+        for (const childId in currentNode.children) {
+            const result = this.findNodeRecursive(currentNode.children[childId], targetId);
+            if (result) return result;
+        }
+    }
+    
+    return null;
+}
+
+// Find the parent node of a given node ID
+findParentNode(nodeId) {
+    // Root has no parent
+    if (nodeId === 'root') return null;
+    
+    // Search through the entire structure
+    return this.findParentNodeRecursive(this.data, nodeId);
+}
+
+// Recursively search for the parent of a node
+findParentNodeRecursive(currentNode, targetId) {
+    // Check if any direct children have the target ID
+    if (currentNode.children) {
+        if (currentNode.children[targetId]) {
+            return currentNode;
+        }
+        
+        // Check deeper in the hierarchy
+        for (const childId in currentNode.children) {
+            const result = this.findParentNodeRecursive(currentNode.children[childId], targetId);
+            if (result) return result;
+        }
+    }
+    
+    return null;
+}
+
+// Update the URL hash based on current navigation
+updateUrlHash() {
+    if (this.navigationStack.length === 0) return;
+    
+    const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+    const hash = this.generateUrlHash(currentNodeId);
+    
+    // Update the URL without adding a new history entry
+    window.history.replaceState(null, '', hash);
+}
+
+// Navigate to a node based on URL hash
+async navigateToNodeByHash(hash) {
+    if (!hash || hash === '#') {
+        // Go to root if no hash or just '#'
+        return this.navigateToNode('root');
+    }
+    
+    // Remove the # character
+    hash = hash.substring(1);
+    
+    // Extract the ID part (last part after the last hyphen)
+    const parts = hash.split('-');
+    if (parts.length < 2) return false;
+    
+    const idPart = parts[parts.length - 1];
+    if (idPart.length !== 6) return false;
+    
+    // Find nodes with matching ID prefix
+    const matchingNodes = this.findNodesWithIdPrefix(idPart);
+    if (matchingNodes.length === 0) return false;
+    
+    // If multiple matches, try to narrow down by slug
+    if (matchingNodes.length > 1) {
+        const slug = hash.substring(0, hash.length - idPart.length - 1);
+        for (const node of matchingNodes) {
+            const parentNode = this.findParentNode(node.id);
+            if (parentNode && parentNode.elements) {
+                const element = parentNode.elements.find(el => el.id === node.id);
+                if (element && element.type === 'text' && element.text) {
+                    const elementSlug = this.generateSlug(element.text);
+                    if (elementSlug === slug) {
+                        return this.navigateToNode(node.id);
+                    }
+                }
+            }
+        }
+    }
+    
+    // If we couldn't narrow it down or there's only one match, use the first one
+    return this.navigateToNode(matchingNodes[0].id);
+}
+
+// Find all nodes with a given ID prefix
+findNodesWithIdPrefix(idPrefix) {
+    const results = [];
+    this.findNodesWithIdPrefixRecursive(this.data, idPrefix, results);
+    return results;
+}
+
+// Recursively find nodes with matching ID prefix
+findNodesWithIdPrefixRecursive(currentNode, idPrefix, results) {
+    // Check if this node's ID starts with the prefix
+    if (currentNode.id && currentNode.id.startsWith(idPrefix)) {
+        results.push(currentNode);
+    }
+    
+    // Check all children
+    if (currentNode.children) {
+        for (const childId in currentNode.children) {
+            this.findNodesWithIdPrefixRecursive(currentNode.children[childId], idPrefix, results);
+        }
+    }
+}
+
+buildPathToNode(nodeId) {
+    const path = [];
+    if (this.buildPathToNodeRecursive(this.data, nodeId, path)) {
+        return path;
+    }
+    return null;
+}
+
+
+// Recursively build a path to a node
+buildPathToNodeRecursive(currentNode, targetId, path) {
+    // Check if any direct children have the target ID
+    if (currentNode.children) {
+        if (currentNode.children[targetId]) {
+            path.push(targetId);
+            return true;
+        }
+        
+        // Check deeper in the hierarchy
+        for (const childId in currentNode.children) {
+            path.push(childId);
+            if (this.buildPathToNodeRecursive(currentNode.children[childId], targetId, path)) {
+                return true;
+            }
+            path.pop();
+        }
+    }
+    
+    return false;
 }
 
 }

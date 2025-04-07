@@ -135,53 +135,98 @@ resizeImage: async function(file, maxDimension = 600, quality = 0.5) {
 },
     
     // Initialize the application
-    init: function() {
-        OPTIMISM.log('Application starting...');
-        
-        // Setup global error handlers
-        window.addEventListener('error', (event) => {
-            OPTIMISM.logError('Uncaught error:', event.error);
-        });
-        
-        window.addEventListener('unhandledrejection', (event) => {
-            OPTIMISM.logError('Unhandled promise rejection:', event.reason);
-        });
-        
-        // Check for IndexedDB support
-        if (!window.indexedDB) {
-            OPTIMISM.logError('IndexedDB not supported', new Error('Browser does not support IndexedDB'));
-            document.getElementById('loading-status').textContent = 'Your browser does not support IndexedDB. Using memory-only mode.';
-            OPTIMISM.showMemoryMode();
-        }
-
-        // Set timeout to force error if initialization takes too long
-        const initTimeout = setTimeout(() => {
-            OPTIMISM.logError('Initialization timed out', new Error('Application did not initialize within 10 seconds'));
-            document.getElementById('loading-status').textContent = 'Initialization timed out. Please reset database and reload.';
-            document.getElementById('reset-db-button').style.display = 'block';
-            document.getElementById('reset-db-button').addEventListener('click', OPTIMISM.resetDatabase);
-        }, 10000);
-        
-        try {
-            OPTIMISM.model = new CanvasModel();
-            OPTIMISM.view = new CanvasView(OPTIMISM.model, null);
-            OPTIMISM.controller = new CanvasController(OPTIMISM.model, OPTIMISM.view);
-            
-            OPTIMISM.view.controller = OPTIMISM.controller;
-            
-            // Initialize application
-            OPTIMISM.controller.initialize().finally(() => {
-                clearTimeout(initTimeout);
-            });
-        } catch (error) {
-            clearTimeout(initTimeout);
-            OPTIMISM.logError('Fatal error starting application:', error);
-            alert('Error initializing application. Please refresh and try again.');
-            document.getElementById('loading-overlay').style.display = 'none';
-            document.getElementById('reset-db-button').style.display = 'block';
-            document.getElementById('reset-db-button').addEventListener('click', OPTIMISM.resetDatabase);
-        }
+   // Add this to core.js, in the OPTIMISM.init function
+init: function() {
+    OPTIMISM.log('Application starting...');
+    
+    // Setup global error handlers
+    window.addEventListener('error', (event) => {
+        OPTIMISM.logError('Uncaught error:', event.error);
+    });
+    
+    window.addEventListener('unhandledrejection', (event) => {
+        OPTIMISM.logError('Unhandled promise rejection:', event.reason);
+    });
+    
+    // Check for IndexedDB support
+    if (!window.indexedDB) {
+        OPTIMISM.logError('IndexedDB not supported', new Error('Browser does not support IndexedDB'));
+        document.getElementById('loading-status').textContent = 'Your browser does not support IndexedDB. Using memory-only mode.';
+        OPTIMISM.showMemoryMode();
     }
+
+    // Set timeout to force error if initialization takes too long
+    const initTimeout = setTimeout(() => {
+        OPTIMISM.logError('Initialization timed out', new Error('Application did not initialize within 10 seconds'));
+        document.getElementById('loading-status').textContent = 'Initialization timed out. Please reset database and reload.';
+        document.getElementById('reset-db-button').style.display = 'block';
+        document.getElementById('reset-db-button').addEventListener('click', OPTIMISM.resetDatabase);
+    }, 10000);
+    
+    try {
+        OPTIMISM.model = new CanvasModel();
+        OPTIMISM.view = new CanvasView(OPTIMISM.model, null);
+        OPTIMISM.controller = new CanvasController(OPTIMISM.model, OPTIMISM.view);
+        
+        OPTIMISM.view.controller = OPTIMISM.controller;
+        
+        // Initialize application
+        OPTIMISM.controller.initialize().finally(() => {
+            clearTimeout(initTimeout);
+            
+            // After initialization, check URL hash for direct linking
+            if (window.location.hash && window.location.hash !== '#') {
+                OPTIMISM.log(`Found hash in URL: ${window.location.hash}`);
+                OPTIMISM.model.navigateToNodeByHash(window.location.hash)
+                    .then(success => {
+                        if (success) {
+                            OPTIMISM.log('Successfully navigated to node from URL hash');
+                            OPTIMISM.view.renderWorkspace();
+                        } else {
+                            OPTIMISM.logError('Failed to navigate to node from URL hash');
+                        }
+                    })
+                    .catch(error => {
+                        OPTIMISM.logError('Error navigating to node from URL hash:', error);
+                    });
+            }
+        });
+        
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', (event) => {
+            if (event.state && event.state.nodeId) {
+                OPTIMISM.log(`Popstate event triggered for node: ${event.state.nodeId}`);
+                OPTIMISM.model.navigateToNode(event.state.nodeId)
+                    .then(success => {
+                        if (success) {
+                            OPTIMISM.view.renderWorkspace();
+                        }
+                    })
+                    .catch(error => {
+                        OPTIMISM.logError('Error handling popstate event:', error);
+                    });
+            } else {
+                // Default to root if no state
+                OPTIMISM.model.navigateToNode('root')
+                    .then(success => {
+                        if (success) {
+                            OPTIMISM.view.renderWorkspace();
+                        }
+                    })
+                    .catch(error => {
+                        OPTIMISM.logError('Error handling popstate event:', error);
+                    });
+            }
+        });
+    } catch (error) {
+        clearTimeout(initTimeout);
+        OPTIMISM.logError('Fatal error starting application:', error);
+        alert('Error initializing application. Please refresh and try again.');
+        document.getElementById('loading-overlay').style.display = 'none';
+        document.getElementById('reset-db-button').style.display = 'block';
+        document.getElementById('reset-db-button').addEventListener('click', OPTIMISM.resetDatabase);
+    }
+}
 };
 
 // Memory store for fallback when IndexedDB fails
