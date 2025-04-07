@@ -690,7 +690,7 @@ class CanvasView {
             textEditor.style.display = 'none';
             textDisplay.style.display = 'block';
         });
-        
+
         // Handle link clicks within the display div
         textDisplay.addEventListener('click', (e) => {
             // Check if we clicked on a link
@@ -700,19 +700,19 @@ class CanvasView {
             }
         });
         
-        // Setup container event listeners
-        container.addEventListener('click', (e) => {
-            // Don't handle clicks on links
-            if (e.target.tagName === 'A') return;
-            
-            this.selectElement(container, elementData);
-            
-            // If cmd/ctrl is pressed and the element has children, navigate into it
-            if (this.isModifierKeyPressed(e) && hasChildren) {
-                this.controller.navigateToElement(elementData.id);
-                e.stopPropagation();
-            }
-        });
+        // In createTextElementDOM method, update the click handler
+container.addEventListener('click', (e) => {
+    // Don't handle clicks on links
+    if (e.target.tagName === 'A') return;
+    
+    this.selectElement(container, elementData);
+    
+    // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
+    if (this.isModifierKeyPressed(e)) {
+        this.controller.navigateToElement(elementData.id);
+        e.stopPropagation();
+    }
+});
         
         // Handle double-click to edit text
         container.addEventListener('dblclick', (e) => {
@@ -828,16 +828,16 @@ class CanvasView {
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'resize-handle';
 
-        // Setup container event listeners
-        container.addEventListener('click', (e) => {
-            this.selectElement(container, elementData);
-            
-            // If cmd/ctrl is pressed and the element has children, navigate into it
-            if (this.isModifierKeyPressed(e) && hasChildren) {
-                this.controller.navigateToElement(elementData.id);
-                e.stopPropagation();
-            }
-        });
+       // In createImageElementDOM method, update the click handler
+container.addEventListener('click', (e) => {
+    this.selectElement(container, elementData);
+    
+    // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
+    if (this.isModifierKeyPressed(e)) {
+        this.controller.navigateToElement(elementData.id);
+        e.stopPropagation();
+    }
+});
         
         container.addEventListener('mousedown', (e) => {
             // Don't handle if not left mouse button
