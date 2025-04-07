@@ -632,8 +632,13 @@
 
 /* Highlighted text - both display and edit mode */
 .text-element.is-highlighted, .text-display.is-highlighted {
-    
-    color: black !important; /* Force text to black regardless of theme */
+    background-color: transparent; /* Remove background highlight from container */
+    color: var(--element-text-color); /* Use theme color */
+}
+
+/* For editing in dark mode, keep textarea background transparent */
+.text-element.is-highlighted {
+    background-color: transparent !important;
 }
 
 /* Override color for elements within display */

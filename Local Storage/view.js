@@ -759,13 +759,18 @@ else if (e.key === '6') {
         }
 
         // Create the text editor (hidden by default)
-        const textEditor = document.createElement('textarea');
-        textEditor.className = 'text-element';
-        if (hasChildren) {
-            textEditor.classList.add('has-children');
-        }
-        textEditor.value = elementData.text || '';
-        textEditor.style.display = 'none'; // Hide by default
+const textEditor = document.createElement('textarea');
+textEditor.className = 'text-element';
+if (hasChildren) {
+    textEditor.classList.add('has-children');
+}
+textEditor.value = elementData.text || '';
+textEditor.style.display = 'none'; // Hide by default
+
+// Apply highlight directly to textarea background if needed
+if (elementData.style && elementData.style.isHighlighted) {
+    textEditor.style.backgroundColor = 'rgb(255, 255, 176)';
+}
         
         // Create the text display (shown by default)
         const textDisplay = document.createElement('div');

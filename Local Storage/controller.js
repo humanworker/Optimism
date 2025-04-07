@@ -304,14 +304,15 @@ class CanvasController {
                     }
                 }
 
-                // Handle highlight formatting
 // Handle highlight formatting in controller.js
 if (styleProperties.isHighlighted !== undefined) {
     if (styleProperties.isHighlighted) {
         textarea.classList.add('is-highlighted');
+        textarea.style.backgroundColor = 'rgb(255, 255, 176)';
         display.classList.add('is-highlighted');
     } else {
         textarea.classList.remove('is-highlighted');
+        textarea.style.backgroundColor = '';
         display.classList.remove('is-highlighted');
     }
     
