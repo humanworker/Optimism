@@ -349,56 +349,178 @@ else if (e.key === '6') {
         }
     }
     
-    setupImageDropZone() {
-        OPTIMISM.log('Setting up image drop zone');
-        const dropZoneIndicator = this.dropZoneIndicator;
-        
-        // Show drop zone when dragging over the document
-        document.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZoneIndicator.style.display = 'block';
-        });
-        
-        // Hide drop zone when leaving the document
-        document.addEventListener('dragleave', (e) => {
-            if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
-                dropZoneIndicator.style.display = 'none';
-            }
-        });
-        
-        // Handle drop events
-        document.addEventListener('drop', async (e) => {
-            e.preventDefault();
+    // For view.js - Updated setupImageDropZone method
+setupImageDropZone() {
+    OPTIMISM.log('Setting up image drop zone');
+    const dropZoneIndicator = this.dropZoneIndicator;
+    
+    // Show drop zone when dragging over the document
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZoneIndicator.style.display = 'block';
+    });
+    
+    // Hide drop zone when leaving the document
+    document.addEventListener('dragleave', (e) => {
+        if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
             dropZoneIndicator.style.display = 'none';
+        }
+    });
+    
+    // Handle drop events
+    document.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropZoneIndicator.style.display = 'none';
+        
+        // Get correct coordinates relative to the workspace
+        const rect = this.workspace.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        let handled = false;
+        
+        // First check if we have files (local files)
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
             
-            if (e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
+            // Only handle image files
+            if (file.type.startsWith('image/')) {
+                OPTIMISM.log(`Image file dropped: ${file.name} (${file.type})`);
+                this.showLoading();
                 
-                // Only handle image files
-                if (file.type.startsWith('image/')) {
-                    OPTIMISM.log(`Image dropped: ${file.name} (${file.type})`);
+                try {
+                    // Process and add the image
+                    await this.controller.addImage(file, x, y);
+                    handled = true;
+                } catch (error) {
+                    OPTIMISM.logError('Error adding image file:', error);
+                    alert('Failed to add image file. Please try again.');
+                } finally {
+                    this.hideLoading();
+                }
+            }
+        }
+        
+        // If already handled a file, don't continue
+        if (handled) return;
+        
+        // Check all available types in the data transfer
+        const types = e.dataTransfer.types;
+        OPTIMISM.log("Available drop types: " + types.join(", "));
+        
+        // Look for HTML content first (most likely to contain image data when dragging from a webpage)
+        if (types.includes('text/html')) {
+            const html = e.dataTransfer.getData('text/html');
+            OPTIMISM.log("Received HTML: " + html.substring(0, 100) + "...");
+            
+            // Look for image tags in the HTML
+            const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
+            if (imgMatch && imgMatch[1]) {
+                const imgSrc = imgMatch[1];
+                OPTIMISM.log(`Found image source in HTML: ${imgSrc}`);
+                
+                this.showLoading();
+                try {
+                    await this.controller.addImageFromUrl(imgSrc, x, y);
+                    handled = true;
+                } catch (error) {
+                    OPTIMISM.logError('Error adding image from HTML source:', error);
+                    // Don't alert here, try other methods
+                } finally {
+                    this.hideLoading();
+                }
+            }
+            
+            // Also check for base64 encoded images
+            if (!handled) {
+                const base64Match = html.match(/src=["']data:image\/([^;]+);base64,([^"']+)["']/i);
+                if (base64Match) {
+                    const imageType = base64Match[1];
+                    const base64Data = base64Match[2];
+                    
+                    OPTIMISM.log(`Base64 image data found of type: ${imageType}`);
                     this.showLoading();
                     
                     try {
-                        // Get correct coordinates relative to the workspace
-                        const rect = this.workspace.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const y = e.clientY - rect.top;
+                        // Convert base64 to blob
+                        const byteString = atob(base64Data);
+                        const ab = new ArrayBuffer(byteString.length);
+                        const ia = new Uint8Array(ab);
                         
-                        // Process and add the image
+                        for (let i = 0; i < byteString.length; i++) {
+                            ia[i] = byteString.charCodeAt(i);
+                        }
+                        
+                        const blob = new Blob([ab], { type: `image/${imageType}` });
+                        const file = new File([blob], `image.${imageType}`, { type: `image/${imageType}` });
+                        
+                        // Add the image
                         await this.controller.addImage(file, x, y);
+                        handled = true;
                     } catch (error) {
-                        OPTIMISM.logError('Error adding image:', error);
-                        alert('Failed to add image. Please try again.');
+                        OPTIMISM.logError('Error adding base64 image:', error);
+                        // Don't alert yet, try other methods
                     } finally {
                         this.hideLoading();
                     }
                 }
             }
-        });
+        }
         
-        OPTIMISM.log('Image drop zone set up successfully');
-    }
+        // If not handled yet, check for URL or text containing an image URL
+        if (!handled && (types.includes('text/uri-list') || types.includes('text/plain'))) {
+            let url = '';
+            
+            // Try URI list first
+            if (types.includes('text/uri-list')) {
+                url = e.dataTransfer.getData('text/uri-list');
+            } 
+            // If not available, try plain text
+            else {
+                url = e.dataTransfer.getData('text/plain');
+            }
+            
+            if (url) {
+                OPTIMISM.log(`Found URL: ${url}`);
+                
+                // Check if URL is for an image file
+                const isImageUrl = url.match(/\.(jpe?g|png|gif|bmp|webp|svg)(\?.*)?$/i);
+                
+                if (isImageUrl) {
+                    this.showLoading();
+                    try {
+                        await this.controller.addImageFromUrl(url, x, y);
+                        handled = true;
+                    } catch (error) {
+                        OPTIMISM.logError('Error adding image from URL:', error);
+                    } finally {
+                        this.hideLoading();
+                    }
+                } else {
+                    // Not obviously an image URL, but might be a dynamic image or an image
+                    // without a file extension. Try to fetch it anyway.
+                    this.showLoading();
+                    try {
+                        await this.controller.addImageFromUrl(url, x, y);
+                        handled = true;
+                    } catch (error) {
+                        OPTIMISM.logError('URL does not appear to be an image:', error);
+                    } finally {
+                        this.hideLoading();
+                    }
+                }
+            }
+        }
+        
+        // If we've tried everything and still couldn't process the drop
+        if (!handled) {
+            OPTIMISM.log('Could not process dropped content as an image');
+            alert('The dropped content could not be processed as an image.');
+        }
+    });
+    
+    OPTIMISM.log('Image drop zone set up successfully');
+}
     
     setupUndoRedoButtons() {
         OPTIMISM.log('Setting up undo/redo buttons');
@@ -1181,51 +1303,51 @@ if (highlightOption) {
         OPTIMISM.log('Setting up drag listeners');
         
         document.addEventListener('mousemove', (e) => {
-            // Handle resizing
-            if (this.resizingElement) {
-                // Calculate size delta
-                const deltaWidth = e.clientX - this.dragStartX;
-                const deltaHeight = e.clientY - this.dragStartY;
-                
-                // Get element type
-                const elementType = this.resizingElement.dataset.type;
-                
-                // Apply new dimensions with constraints based on element type
-                let newWidth, newHeight;
-                
-                if (elementType === 'image') {
-                    // For images, limit max size to 600px while maintaining aspect ratio
-                    const aspectRatio = this.initialHeight / this.initialWidth;
-                    
-                    // Calculate new dimensions without enforcing aspect ratio yet
-                    newWidth = Math.max(50, this.initialWidth + deltaWidth);
-                    newHeight = Math.max(50, this.initialHeight + deltaHeight);
-                    
-                    // Now enforce the 600px max dimension
-                    if (newWidth > newHeight) {
-                        // Width is longest dimension
-                        if (newWidth > 600) {
-                            newWidth = 600;
-                            newHeight = Math.round(newWidth * aspectRatio);
-                        }
-                    } else {
-                        // Height is longest dimension
-                        if (newHeight > 600) {
-                            newHeight = 600;
-                            newWidth = Math.round(newHeight / aspectRatio);
-                        }
-                    }
-                } else {
-                    // For text elements, use original constraints
-                    newWidth = Math.max(100, this.initialWidth + deltaWidth);
-                    newHeight = Math.max(30, this.initialHeight + deltaHeight);
-                }
-                
-                this.resizingElement.style.width = `${newWidth}px`;
-                this.resizingElement.style.height = `${newHeight}px`;
-                
-                return;
+           // Handle resizing
+if (this.resizingElement) {
+    // Calculate size delta
+    const deltaWidth = e.clientX - this.dragStartX;
+    const deltaHeight = e.clientY - this.dragStartY;
+    
+    // Get element type
+    const elementType = this.resizingElement.dataset.type;
+    
+    // Apply new dimensions with constraints based on element type
+    let newWidth, newHeight;
+    
+    if (elementType === 'image') {
+        // For images, limit max size to 600px while maintaining aspect ratio
+        const aspectRatio = this.initialHeight / this.initialWidth;
+        
+        // Calculate new dimensions without enforcing aspect ratio yet
+        newWidth = Math.max(50, this.initialWidth + deltaWidth);
+        newHeight = Math.max(50, this.initialHeight + deltaHeight);
+        
+        // Now enforce the 600px max dimension
+        if (newWidth > newHeight) {
+            // Width is longest dimension
+            if (newWidth > 600) {
+                newWidth = 600;
+                newHeight = Math.round(newWidth * aspectRatio);
             }
+        } else {
+            // Height is longest dimension
+            if (newHeight > 600) {
+                newHeight = 600;
+                newWidth = Math.round(newHeight / aspectRatio);
+            }
+        }
+    } else {
+        // For text elements, use original constraints
+        newWidth = Math.max(100, this.initialWidth + deltaWidth);
+        newHeight = Math.max(30, this.initialHeight + deltaHeight);
+    }
+    
+    this.resizingElement.style.width = `${newWidth}px`;
+    this.resizingElement.style.height = `${newHeight}px`;
+    
+    return;
+}
             
             // Handle dragging code continues below...
             

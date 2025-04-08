@@ -102,8 +102,8 @@ async initialize() {
         
         try {
             OPTIMISM.log(`Adding image at position (${x}, ${y})`);
-            // Compress and resize the image to 600px max dimension with 0.5 quality
-            const processedImage = await OPTIMISM.resizeImage(file, 600, 0.7);
+            // Compress and resize the image to 1200px max storage dimension, 600px max display dimension, with 0.7 quality
+            const processedImage = await OPTIMISM.resizeImage(file, 1200, 0.95, 600);
             
             // Create unique IDs
             const elementId = crypto.randomUUID();
@@ -117,7 +117,9 @@ async initialize() {
                 x: x,
                 y: y,
                 width: processedImage.width,
-                height: processedImage.height
+                height: processedImage.height,
+                storageWidth: processedImage.storageWidth,
+                storageHeight: processedImage.storageHeight
             };
             
             // Create an add element command
@@ -720,5 +722,114 @@ if (styleProperties.isHighlighted !== undefined) {
             OPTIMISM.logError('Error updating element:', error);
         }
     }
+
+    // For controller.js - Updated addImageFromUrl method
+async addImageFromUrl(url, x, y) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot add image: application not initialized');
+        return;
+    }
+    
+    try {
+        OPTIMISM.log(`Adding image from URL: ${url} at position (${x}, ${y})`);
+        
+        // Handle relative URLs by converting to absolute
+        if (url.startsWith('/')) {
+            // This assumes the URL is relative to the current domain
+            const base = window.location.origin;
+            url = base + url;
+            OPTIMISM.log(`Converted to absolute URL: ${url}`);
+        } else if (!url.match(/^https?:\/\//i) && !url.startsWith('data:')) {
+            // If not absolute and not a data URL, assume it's relative to the current page
+            const base = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+            url = base + url;
+            OPTIMISM.log(`Converted to absolute URL: ${url}`);
+        }
+        
+        // For data URLs, convert directly to a blob
+        if (url.startsWith('data:image/')) {
+            OPTIMISM.log('Processing data URL');
+            const parts = url.split(',');
+            const mimeMatch = parts[0].match(/data:(image\/[^;]+)/);
+            
+            if (!mimeMatch) {
+                throw new Error('Invalid data URL format');
+            }
+            
+            const mimetype = mimeMatch[1];
+            const imageData = parts[1];
+            let binary;
+            
+            // Check if it's base64 encoded
+            if (parts[0].includes('base64')) {
+                binary = atob(imageData);
+            } else {
+                // Decode the URL-encoded data
+                binary = decodeURIComponent(imageData);
+            }
+            
+            // Create array buffer
+            const buffer = new ArrayBuffer(binary.length);
+            const view = new Uint8Array(buffer);
+            
+            for (let i = 0; i < binary.length; i++) {
+                view[i] = binary.charCodeAt(i);
+            }
+            
+            const blob = new Blob([buffer], { type: mimetype });
+            const filename = 'image.' + mimetype.split('/')[1];
+            const file = new File([blob], filename, { type: mimetype });
+            
+            // Use the existing method to process the file
+            return await this.addImage(file, x, y);
+        }
+        
+        // For regular URLs, fetch the image
+        OPTIMISM.log(`Fetching image from URL: ${url}`);
+        const response = await fetch(url, {
+            // Add these options to handle CORS issues when possible
+            mode: 'cors',
+            credentials: 'same-origin'
+        }).catch(error => {
+            // If CORS error, try without CORS (might work for some images)
+            OPTIMISM.logError('CORS fetch failed, trying without CORS:', error);
+            return fetch(url, { mode: 'no-cors' });
+        });
+        
+        // If we couldn't fetch the URL, throw an error
+        if (!response || !response.ok) {
+            throw new Error(`Failed to fetch image: ${response?.statusText || 'Network error'}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.startsWith('image/')) {
+            OPTIMISM.log(`Content-Type is not an image: ${contentType}`);
+            
+            // If the response doesn't explicitly say it's an image,
+            // we'll still try to process it as one
+            OPTIMISM.log('Attempting to process as image anyway');
+        }
+        
+        const blob = await response.blob();
+        
+        // Determine file extension from content type or URL
+        const extension = contentType ? 
+            contentType.split('/')[1].split(';')[0] : 
+            url.split('.').pop().split('?')[0];
+        
+        const filename = `web-image.${extension || 'jpg'}`;
+        
+        // Create a File object from the blob
+        const file = new File([blob], filename, { 
+            type: contentType || 'image/jpeg' 
+        });
+        
+        // Now use the existing method to add the image
+        return await this.addImage(file, x, y);
+    } catch (error) {
+        OPTIMISM.logError('Error adding image from URL:', error);
+        throw error;
+    }
+}
 
 }

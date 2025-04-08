@@ -54,85 +54,101 @@ const OPTIMISM = {
         resetButton.addEventListener('click', OPTIMISM.resetDatabase);
     },
     
-   // Helper function to resize an image while maintaining aspect ratio
-resizeImage: async function(file, maxDimension = 600, quality = 0.5) {
-    OPTIMISM.log(`Resizing image with max dimension ${maxDimension} and quality ${quality}...`);
-    
-    return new Promise((resolve, reject) => {
-        try {
-            const img = new Image();
-            const reader = new FileReader();
-            
-            // Set timeout in case the image loading hangs
-            const timeout = setTimeout(() => {
-                OPTIMISM.logError('Image loading timed out', new Error('Timeout'));
-                reject(new Error('Image loading timed out'));
-            }, 10000);
-            
-            reader.onload = function(e) {
-                img.onload = function() {
-                    clearTimeout(timeout);
-                    
-                    try {
-                        // Calculate dimensions
-                        let width = img.width;
-                        let height = img.height;
+    resizeImage: async function(file, maxDimension = 1200, quality = 0.95, displayMaxDimension = 600) {
+        OPTIMISM.log(`Resizing image with max storage dimension ${maxDimension}, display max ${displayMaxDimension}, and quality ${quality}...`);
+        
+        return new Promise((resolve, reject) => {
+            try {
+                const img = new Image();
+                const reader = new FileReader();
+                
+                // Set timeout in case the image loading hangs
+                const timeout = setTimeout(() => {
+                    OPTIMISM.logError('Image loading timed out', new Error('Timeout'));
+                    reject(new Error('Image loading timed out'));
+                }, 10000);
+                
+                reader.onload = function(e) {
+                    img.onload = function() {
+                        clearTimeout(timeout);
                         
-                        // Determine which dimension is longer and resize to maxDimension
-                        if (width > height && width > maxDimension) {
-                            height = Math.round(height * (maxDimension / width));
-                            width = maxDimension;
-                        } else if (height > maxDimension) {
-                            width = Math.round(width * (maxDimension / height));
-                            height = maxDimension;
+                        try {
+                            // Calculate storage dimensions (max 1200px)
+                            let storageWidth = img.width;
+                            let storageHeight = img.height;
+                            
+                            // Determine which dimension is longer and resize to maxDimension
+                            if (storageWidth > storageHeight && storageWidth > maxDimension) {
+                                storageHeight = Math.round(storageHeight * (maxDimension / storageWidth));
+                                storageWidth = maxDimension;
+                            } else if (storageHeight > maxDimension) {
+                                storageWidth = Math.round(storageWidth * (maxDimension / storageHeight));
+                                storageHeight = maxDimension;
+                            }
+                            
+                            // Calculate display dimensions (max 600px)
+                            let displayWidth = img.width;
+                            let displayHeight = img.height;
+                            
+                            // Determine which dimension is longer and resize to displayMaxDimension
+                            if (displayWidth > displayHeight && displayWidth > displayMaxDimension) {
+                                displayHeight = Math.round(displayHeight * (displayMaxDimension / displayWidth));
+                                displayWidth = displayMaxDimension;
+                            } else if (displayHeight > displayMaxDimension) {
+                                displayWidth = Math.round(displayWidth * (displayMaxDimension / displayHeight));
+                                displayHeight = displayMaxDimension;
+                            }
+                            
+                            // Create canvas for resizing to storage dimensions
+                            const canvas = document.createElement('canvas');
+                            canvas.width = storageWidth;
+                            canvas.height = storageHeight;
+                            
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, storageWidth, storageHeight);
+                            
+                            // Convert to JPEG data URL with specified quality
+                            // Quality is between 0 and 1, where 1 is highest quality
+                            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                            
+                            OPTIMISM.log(`Image resized to ${storageWidth}x${storageHeight} for storage with quality ${quality}`);
+                            OPTIMISM.log(`Image display size set to ${displayWidth}x${displayHeight}`);
+                            
+                            resolve({
+                                data: dataUrl,
+                                width: displayWidth,   // Display width
+                                height: displayHeight, // Display height
+                                storageWidth: storageWidth,   // Actual stored dimensions
+                                storageHeight: storageHeight  // Actual stored dimensions
+                            });
+                        } catch (error) {
+                            OPTIMISM.logError('Error processing image:', error);
+                            reject(error);
                         }
-                        
-                        // Create canvas for resizing
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        
-                        // Convert to JPEG data URL with specified quality
-                        // Quality is between 0 and 1, where 1 is highest quality
-                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-                        
-                        OPTIMISM.log(`Image resized to ${width}x${height} with quality ${quality}`);
-                        resolve({
-                            data: dataUrl,
-                            width: width,
-                            height: height
-                        });
-                    } catch (error) {
-                        OPTIMISM.logError('Error processing image:', error);
-                        reject(error);
-                    }
+                    };
+                    
+                    img.onerror = function() {
+                        clearTimeout(timeout);
+                        OPTIMISM.logError('Failed to load image', new Error('Image load error'));
+                        reject(new Error('Failed to load image'));
+                    };
+                    
+                    img.src = e.target.result;
                 };
                 
-                img.onerror = function() {
+                reader.onerror = function() {
                     clearTimeout(timeout);
-                    OPTIMISM.logError('Failed to load image', new Error('Image load error'));
-                    reject(new Error('Failed to load image'));
+                    OPTIMISM.logError('Failed to read file', new Error('File read error'));
+                    reject(new Error('Failed to read file'));
                 };
                 
-                img.src = e.target.result;
-            };
-            
-            reader.onerror = function() {
-                clearTimeout(timeout);
-                OPTIMISM.logError('Failed to read file', new Error('File read error'));
-                reject(new Error('Failed to read file'));
-            };
-            
-            reader.readAsDataURL(file);
-        } catch (error) {
-            OPTIMISM.logError('Error in image resize setup:', error);
-            reject(error);
-        }
-    });
-},
+                reader.readAsDataURL(file);
+            } catch (error) {
+                OPTIMISM.logError('Error in image resize setup:', error);
+                reject(error);
+            }
+        });
+    },
     
     // Initialize the application
    // Add this to core.js, in the OPTIMISM.init function
