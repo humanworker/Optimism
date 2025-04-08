@@ -705,10 +705,15 @@ setupImageDropZone() {
             const elementsCount = this.model.currentNode.elements.length;
             OPTIMISM.log(`Rendering ${elementsCount} element(s)`);
             
-            // Sort elements so images are rendered before text (lower z-index)
+            // Sort elements: 1. First by type (images before text)
+            // 2. Then by z-index for images
             const sortedElements = [...this.model.currentNode.elements].sort((a, b) => {
                 if (a.type === 'image' && b.type === 'text') return -1;
                 if (a.type === 'text' && b.type === 'image') return 1;
+                if (a.type === 'image' && b.type === 'image') {
+                    // Higher z-index comes later (on top)
+                    return (a.zIndex || 1) - (b.zIndex || 1);
+                }
                 return 0;
             });
             
@@ -1153,6 +1158,14 @@ container.addEventListener('click', (e) => {
             container.style.height = `${elementData.height}px`;
         }
     
+        // INSERT THIS UPDATED CODE HERE - RIGHT AFTER DIMENSIONS
+        if (elementData.zIndex) {
+            // Ensure z-index stays below text elements
+            container.style.zIndex = Math.min(parseInt(elementData.zIndex), 99);
+        } else {
+            container.style.zIndex = '1'; // Default z-index for images
+        }
+        
         // Create the image element
         const imageElement = document.createElement('img');
         imageElement.className = 'image-element';
@@ -1399,8 +1412,21 @@ if (this.resizingElement) {
             
             const draggedId = this.draggedElement.dataset.id;
             
+            // CHECK IF THIS IS AN IMAGE - INSERT CODE HERE, RIGHT AFTER GETTING draggedId
+            // Check if this is an image element
+            const isImage = this.draggedElement.dataset.type === 'image';
+            
+            // If this is an image, bring it to front of other images
+            if (isImage) {
+                const newZIndex = this.findHighestImageZIndex() + 1;
+                // Make sure we don't exceed our maximum for images
+                const cappedZIndex = Math.min(newZIndex, 99);
+                this.draggedElement.style.zIndex = cappedZIndex;
+            }
+            
             // First check if dragged over a breadcrumb
             const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+            // ... rest of the code
             if (breadcrumbTarget) {
                 const navIndex = parseInt(breadcrumbTarget.dataset.index);
                 
@@ -1430,7 +1456,17 @@ if (this.resizingElement) {
                     const newY = parseFloat(this.draggedElement.style.top);
                     
                     OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-                    this.controller.updateElement(draggedId, { x: newX, y: newY });
+                    
+                    // If it's an image, also update z-index
+                    if (isImage) {
+                        this.controller.updateElement(draggedId, { 
+                            x: newX, 
+                            y: newY,
+                            zIndex: parseInt(this.draggedElement.style.zIndex) || 1
+                        });
+                    } else {
+                        this.controller.updateElement(draggedId, { x: newX, y: newY });
+                    }
                 }
             }
             
@@ -1598,5 +1634,22 @@ if (this.resizingElement) {
         
         OPTIMISM.log('Settings panel set up successfully');
     }
+
+    // Add this method to the CanvasView class in view.js
+// In view.js
+findHighestImageZIndex() {
+    const imageElements = document.querySelectorAll('.image-element-container');
+    let maxZIndex = 1; // Default z-index for images
+    
+    imageElements.forEach(elem => {
+        const zIndex = parseInt(elem.style.zIndex) || 1;
+        if (zIndex > maxZIndex) {
+            maxZIndex = zIndex;
+        }
+    });
+    
+    // Cap at 99 to ensure we're always below text elements (which are at 100+)
+    return Math.min(maxZIndex, 99);
+}
     
 }

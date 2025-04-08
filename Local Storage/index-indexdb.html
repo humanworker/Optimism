@@ -153,12 +153,12 @@
         }
 
         .text-element-container {
-            z-index: 2; /* Text elements appear above images */
-        }
+    z-index: 100 !important; /* Much higher base z-index for text elements */
+}
 
-        .image-element-container {
-            z-index: 1; /* Images appear below text */
-        }
+.image-element-container {
+    z-index: 1; /* Base z-index for images - individual images can have 1-99 */
+}
 
         .image-element-container.has-children {
             padding: 4px; /* Space for the border */
