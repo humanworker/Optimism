@@ -652,6 +652,23 @@ mark {
     color: black !important; /* Force text to black regardless of theme */
     padding: 0 2px; /* Small padding around highlighted text */
 }
+
+#settings-panel {
+    position: fixed;
+    top: 80px;
+    right: 0;
+    width: var(--panel-width);
+    height: calc(100vh - 40px);
+    background-color: var(--bg-color);
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: none; /* Hidden by default */
+}
+
+.settings-option {
+    margin-bottom: 15px;
+}
     </style>
 </head>
 <body>
@@ -673,14 +690,8 @@ mark {
             </div>
         </div>
         <div id="right-controls">
-            <button id="export-button" class="nav-link">Export</button>
-    <button id="export-no-images-button" class="nav-link">Export w/o Images</button>
-    
-            <button id="import-button" class="nav-link">Import</button>
-            <button id="undo-button" class="nav-link" disabled>Undo</button>
-            <button id="redo-button" class="nav-link" disabled>Redo</button>
-            <button id="debug-toggle" class="nav-link">Show Debug</button>
-            <button id="theme-toggle" class="nav-link">Toggle Theme</button>
+            
+            <button id="settings-toggle" class="nav-link">Settings</button>
         </div>
     </div>
     <div id="workspace"></div>
@@ -739,6 +750,32 @@ mark {
         </div>
         
     </div>
+
+    <div id="settings-panel">
+        <div class="settings-option">
+            <a href="#" class="option-value" id="settings-undo-button">Undo</a>
+        </div>
+        <div class="settings-option">
+            <a href="#" class="option-value" id="settings-redo-button">Redo</a>
+        </div>
+        <div class="settings-option">
+            <a href="#" class="option-value" id="settings-export-button">Export</a>
+        </div>
+        <div class="settings-option">
+            <a href="#" class="option-value" id="settings-export-no-images-button">Export w/o Images</a>
+        </div>
+        <div class="settings-option">
+            <a href="#" class="option-value" id="settings-import-button">Import</a>
+        </div>
+        <div class="settings-option">
+            <a href="#" class="option-value" id="settings-theme-toggle">Toggle Theme</a>
+        </div>
+
+        <div class="settings-option">
+            <a href="#" class="option-value" id="settings-debug-toggle">Show Debug</a>
+        </div>
+    </div>
+
     <div id="debug-panel"></div>
     <div id="status-message">Memory Mode</div>
     <button id="reset-db-button">Reset Database & Reload</button>
@@ -753,6 +790,8 @@ mark {
             <button class="dialog-button confirm-button" id="confirm-import">Replace All Data</button>
         </div>
     </div>
+
+
 
     <!-- Load modular scripts -->
     <script src="core.js"></script>
@@ -772,5 +811,16 @@ mark {
             </div>
         </div>
     </div>
+
+    <!-- Hidden buttons for JavaScript references -->
+<div style="display: none;">
+    <button id="export-button" class="nav-link">Export</button>
+    <button id="export-no-images-button" class="nav-link">Export w/o Images</button>
+    <button id="import-button" class="nav-link">Import</button>
+    <button id="undo-button" class="nav-link" disabled>Undo</button>
+    <button id="redo-button" class="nav-link" disabled>Redo</button>
+    <button id="debug-toggle" class="nav-link">Show Debug</button>
+    <button id="theme-toggle" class="nav-link">Toggle Theme</button>
+</div>
 </body>
 </html>

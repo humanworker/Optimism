@@ -7,7 +7,9 @@ class CanvasView {
         this.titleBar = document.getElementById('title-bar');
         this.breadcrumbContainer = document.getElementById('breadcrumb-container');
         this.stylePanel = document.getElementById('style-panel');
+        this.settingsPanel = document.getElementById('settings-panel');  // Add this line
         this.themeToggle = document.getElementById('theme-toggle');
+        this.settingsToggle = document.getElementById('settings-toggle');  // Add this line
         this.undoButton = document.getElementById('undo-button');
         this.redoButton = document.getElementById('redo-button');
         this.loadingOverlay = document.getElementById('loading-overlay');
@@ -65,6 +67,7 @@ class CanvasView {
         OPTIMISM.log('Setting up event listeners');
     
         this.setupBackupReminderModal();
+        this.setupSettingsPanel();  // Add this line
         
         // Add Copy Link button
         const copyLinkButton = document.createElement('button');
@@ -262,6 +265,14 @@ else if (e.key === '6') {
                 this.stylePanel.style.display === 'block') {
                 this.stylePanel.style.display = 'none';
             }
+
+// Add this new section to close the settings panel
+if (!this.settingsPanel.contains(e.target) && 
+e.target !== this.settingsToggle && 
+this.settingsPanel.style.display === 'block') {
+this.settingsPanel.style.display = 'none';
+}
+
         });
         
         // Setup export/import buttons
@@ -1235,6 +1246,9 @@ container.addEventListener('click', (e) => {
         element.classList.add('selected');
         this.model.selectedElement = element.dataset.id;
         
+        // Close settings panel
+        this.settingsPanel.style.display = 'none';  // Add this line
+        
         // Show style panel only for text elements
         if (element.dataset.type === 'text') {
             this.stylePanel.style.display = 'block';
@@ -1513,6 +1527,76 @@ if (this.resizingElement) {
             }
         }
         return null;
+    }
+
+    setupSettingsPanel() {
+        OPTIMISM.log('Setting up settings panel');
+        
+        // Toggle settings panel visibility when settings button is clicked
+        this.settingsToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = this.settingsPanel.style.display === 'block';
+            
+            // Toggle visibility
+            this.settingsPanel.style.display = isVisible ? 'none' : 'block';
+            
+            // Close style panel if settings panel is opening
+            if (!isVisible) {
+                this.stylePanel.style.display = 'none';
+            }
+        });
+        
+        // Set up settings panel options
+        document.getElementById('settings-undo-button').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.undo();
+            this.settingsPanel.style.display = 'none';
+        });
+        
+        document.getElementById('settings-redo-button').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.redo();
+            this.settingsPanel.style.display = 'none';
+        });
+        
+        document.getElementById('settings-export-button').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.exportData();
+            this.settingsPanel.style.display = 'none';
+        });
+        
+        document.getElementById('settings-export-no-images-button').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.exportDataWithoutImages();
+            this.settingsPanel.style.display = 'none';
+        });
+        
+        document.getElementById('settings-import-button').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.confirmationDialog.style.display = 'block';
+            this.settingsPanel.style.display = 'none';
+        });
+        
+        document.getElementById('settings-debug-toggle').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.toggleDebugPanel();
+            this.settingsPanel.style.display = 'none';
+        });
+        
+        document.getElementById('settings-theme-toggle').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.toggleTheme();
+            this.settingsPanel.style.display = 'none';
+        });
+        
+        OPTIMISM.log('Settings panel set up successfully');
     }
     
 }
