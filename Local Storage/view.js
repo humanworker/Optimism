@@ -9,7 +9,8 @@ class CanvasView {
         this.stylePanel = document.getElementById('style-panel');
         this.settingsPanel = document.getElementById('settings-panel');  // Add this line
         this.themeToggle = document.getElementById('theme-toggle');
-        this.settingsToggle = document.getElementById('settings-toggle');  // Add this line
+        this.settingsToggle = document.getElementById('settings-toggle');
+        this.lockImagesButton = document.getElementById('lock-images-button');   // Add this line
         this.undoButton = document.getElementById('undo-button');
         this.redoButton = document.getElementById('redo-button');
         this.loadingOverlay = document.getElementById('loading-overlay');
@@ -24,7 +25,7 @@ class CanvasView {
         this.confirmationDialog = document.getElementById('confirmation-dialog');
         this.cancelImportButton = document.getElementById('cancel-import');
         this.confirmImportButton = document.getElementById('confirm-import');
-        
+        this.imagesLocked = false; 
         this.draggedElement = null;
         this.resizingElement = null;
         this.dragStartX = 0;
@@ -67,7 +68,8 @@ class CanvasView {
         OPTIMISM.log('Setting up event listeners');
     
         this.setupBackupReminderModal();
-        this.setupSettingsPanel();  // Add this line
+        this.setupSettingsPanel();
+        this.setupLockImagesToggle();  // Add this line
         
         // Add Copy Link button
         const copyLinkButton = document.createElement('button');
@@ -125,6 +127,8 @@ document.addEventListener('keydown', (e) => {
         this.controller.deleteElement(this.model.selectedElement);
         e.preventDefault(); // Prevent browser back navigation on backspace
     }
+
+    
     
     // Up Arrow to navigate back (zoom out) - but not when editing text
     if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1 && 
@@ -733,6 +737,11 @@ setupImageDropZone() {
         } else {
             OPTIMISM.log('No elements to render');
         }
+
+         // Apply locked state to images if needed
+    if (this.imagesLocked) {
+        this.updateImagesLockState();
+    }
         
         // Hide style panel when no element is selected
         if (!this.model.selectedElement) {
@@ -938,18 +947,18 @@ convertUrlsToLinks(text, isHighlighted = false) {
         }
 
         // Create the text editor (hidden by default)
-const textEditor = document.createElement('textarea');
-textEditor.className = 'text-element';
-if (hasChildren) {
-    textEditor.classList.add('has-children');
-}
-textEditor.value = elementData.text || '';
-textEditor.style.display = 'none'; // Hide by default
-
-// Apply highlight directly to textarea background if needed
-if (elementData.style && elementData.style.isHighlighted) {
-    textEditor.style.backgroundColor = 'rgb(255, 255, 176)';
-}
+        const textEditor = document.createElement('textarea');
+        textEditor.className = 'text-element';
+        if (hasChildren) {
+            textEditor.classList.add('has-children');
+        }
+        textEditor.value = elementData.text || '';
+        textEditor.style.display = 'none'; // Hide by default
+        
+        // Apply highlight directly to textarea background if needed
+        if (elementData.style && elementData.style.isHighlighted) {
+            textEditor.style.backgroundColor = 'rgb(255, 255, 176)';
+        }
         
         // Create the text display (shown by default)
         const textDisplay = document.createElement('div');
@@ -997,6 +1006,21 @@ if (elementData.style && elementData.style.isHighlighted) {
         resizeHandle.className = 'resize-handle';
         
         // Setup content listeners
+        textEditor.addEventListener('input', () => {
+            // We don't immediately update the model on every keystroke anymore
+            // Just update display for immediate feedback if needed
+        });
+
+        textEditor.addEventListener('mousedown', (e) => {
+            // Stop propagation to prevent the container's mousedown handler from firing
+            e.stopPropagation();
+        });
+        
+        textEditor.addEventListener('click', (e) => {
+            // Stop propagation to prevent the container's click handler from firing
+            e.stopPropagation();
+        });
+        
         textEditor.addEventListener('input', () => {
             // We don't immediately update the model on every keystroke anymore
             // Just update display for immediate feedback if needed
@@ -1080,29 +1104,27 @@ container.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent creating a new element
         });
         
-        container.addEventListener('mousedown', (e) => {
-            // Don't handle if not left mouse button or if clicking a link
-            if (e.button !== 0 || e.target.tagName === 'A') return;
-            
-            // Don't start drag when on resize handle
-            if (e.target === resizeHandle) return;
-            
-            this.selectElement(container, elementData);
-            
-            // Don't start dragging if we're in edit mode
-            if (textEditor.style.display === 'block') return;
-            
-            this.draggedElement = container;
-            this.model.selectedElement = elementData.id;
-            
-            // Calculate offset
-            const rect = container.getBoundingClientRect();
-            this.elemOffsetX = e.clientX - rect.left;
-            this.elemOffsetY = e.clientY - rect.top;
-            
-            container.classList.add('dragging');
-            e.preventDefault();
-        });
+        // This goes inside createImageElementDOM, replacing the existing mousedown listener
+container.addEventListener('mousedown', (e) => {
+    // Don't handle if not left mouse button or if images are locked
+    if (e.button !== 0 || this.imagesLocked) return;
+    
+    // Don't start drag when on resize handle
+    if (e.target === resizeHandle) return;
+    
+    this.selectElement(container, elementData);
+    
+    this.draggedElement = container;
+    this.model.selectedElement = elementData.id;
+    
+    // Calculate offset
+    const rect = container.getBoundingClientRect();
+    this.elemOffsetX = e.clientX - rect.left;
+    this.elemOffsetY = e.clientY - rect.top;
+    
+    container.classList.add('dragging');
+    e.preventDefault();
+});
         
         // Setup resize handle event listeners
         resizeHandle.addEventListener('mousedown', (e) => {
@@ -1194,8 +1216,13 @@ container.addEventListener('click', (e) => {
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'resize-handle';
     
-        // In createImageElementDOM method, update the click handler
+        // Updated click handler
         container.addEventListener('click', (e) => {
+            // Don't select if images are locked
+            if (this.imagesLocked) {
+                return;
+            }
+            
             this.selectElement(container, elementData);
             
             // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
@@ -1205,9 +1232,10 @@ container.addEventListener('click', (e) => {
             }
         });
         
+        // Updated mousedown handler
         container.addEventListener('mousedown', (e) => {
-            // Don't handle if not left mouse button
-            if (e.button !== 0) return;
+            // Don't handle if not left mouse button or if images are locked
+            if (e.button !== 0 || this.imagesLocked) return;
             
             // Don't start drag when on resize handle
             if (e.target === resizeHandle) return;
@@ -1226,8 +1254,11 @@ container.addEventListener('click', (e) => {
             e.preventDefault();
         });
         
-        // Setup resize handle event listeners
+        // Updated resize handle event listener
         resizeHandle.addEventListener('mousedown', (e) => {
+            // Don't allow resizing if images are locked
+            if (this.imagesLocked) return;
+            
             e.stopPropagation(); // Prevent other mouse handlers
             
             this.selectElement(container, elementData);
@@ -1254,13 +1285,19 @@ container.addEventListener('click', (e) => {
     }
     
     selectElement(element, elementData) {
+        // Check if this is an image and images are locked
+        if (elementData.type === 'image' && this.imagesLocked) {
+            OPTIMISM.log(`Cannot select locked image ${elementData.id}`);
+            return;
+        }
+        
         OPTIMISM.log(`Selecting element ${elementData.id} of type ${elementData.type}`);
         this.deselectAllElements();
         element.classList.add('selected');
         this.model.selectedElement = element.dataset.id;
         
         // Close settings panel
-        this.settingsPanel.style.display = 'none';  // Add this line
+        this.settingsPanel.style.display = 'none';
         
         // Show style panel only for text elements
         if (element.dataset.type === 'text') {
@@ -1330,56 +1367,64 @@ if (highlightOption) {
         OPTIMISM.log('Setting up drag listeners');
         
         document.addEventListener('mousemove', (e) => {
-           // Handle resizing
-if (this.resizingElement) {
-    // Calculate size delta
-    const deltaWidth = e.clientX - this.dragStartX;
-    const deltaHeight = e.clientY - this.dragStartY;
-    
-    // Get element type
-    const elementType = this.resizingElement.dataset.type;
-    
-    // Apply new dimensions with constraints based on element type
-    let newWidth, newHeight;
-    
-    if (elementType === 'image') {
-        // For images, limit max size to 600px while maintaining aspect ratio
-        const aspectRatio = this.initialHeight / this.initialWidth;
-        
-        // Calculate new dimensions without enforcing aspect ratio yet
-        newWidth = Math.max(50, this.initialWidth + deltaWidth);
-        newHeight = Math.max(50, this.initialHeight + deltaHeight);
-        
-        // Now enforce the 600px max dimension
-        if (newWidth > newHeight) {
-            // Width is longest dimension
-            if (newWidth > 600) {
-                newWidth = 600;
-                newHeight = Math.round(newWidth * aspectRatio);
+            // Handle resizing
+            if (this.resizingElement) {
+                // Don't resize images if they're locked
+                if (this.imagesLocked && this.resizingElement.dataset.type === 'image') {
+                    return;
+                }
+                
+                // Calculate size delta
+                const deltaWidth = e.clientX - this.dragStartX;
+                const deltaHeight = e.clientY - this.dragStartY;
+                
+                // Get element type
+                const elementType = this.resizingElement.dataset.type;
+                
+                // Apply new dimensions with constraints based on element type
+                let newWidth, newHeight;
+                
+                if (elementType === 'image') {
+                    // For images, limit max size to 600px while maintaining aspect ratio
+                    const aspectRatio = this.initialHeight / this.initialWidth;
+                    
+                    // Calculate new dimensions without enforcing aspect ratio yet
+                    newWidth = Math.max(50, this.initialWidth + deltaWidth);
+                    newHeight = Math.max(50, this.initialHeight + deltaHeight);
+                    
+                    // Now enforce the 600px max dimension
+                    if (newWidth > newHeight) {
+                        // Width is longest dimension
+                        if (newWidth > 600) {
+                            newWidth = 600;
+                            newHeight = Math.round(newWidth * aspectRatio);
+                        }
+                    } else {
+                        // Height is longest dimension
+                        if (newHeight > 600) {
+                            newHeight = 600;
+                            newWidth = Math.round(newHeight / aspectRatio);
+                        }
+                    }
+                } else {
+                    // For text elements, use original constraints
+                    newWidth = Math.max(100, this.initialWidth + deltaWidth);
+                    newHeight = Math.max(30, this.initialHeight + deltaHeight);
+                }
+                
+                this.resizingElement.style.width = `${newWidth}px`;
+                this.resizingElement.style.height = `${newHeight}px`;
+                
+                return;
             }
-        } else {
-            // Height is longest dimension
-            if (newHeight > 600) {
-                newHeight = 600;
-                newWidth = Math.round(newHeight / aspectRatio);
-            }
-        }
-    } else {
-        // For text elements, use original constraints
-        newWidth = Math.max(100, this.initialWidth + deltaWidth);
-        newHeight = Math.max(30, this.initialHeight + deltaHeight);
-    }
-    
-    this.resizingElement.style.width = `${newWidth}px`;
-    this.resizingElement.style.height = `${newHeight}px`;
-    
-    return;
-}
-            
-            // Handle dragging code continues below...
             
             // Handle dragging
             if (!this.draggedElement) return;
+            
+            // Don't drag images if they're locked
+            if (this.imagesLocked && this.draggedElement.dataset.type === 'image') {
+                return;
+            }
             
             // Calculate new position
             const newX = e.clientX - this.elemOffsetX;
@@ -1396,6 +1441,12 @@ if (this.resizingElement) {
         document.addEventListener('mouseup', (e) => {
             // Handle end of resizing
             if (this.resizingElement) {
+                // Don't update locked images
+                if (this.imagesLocked && this.resizingElement.dataset.type === 'image') {
+                    this.resizingElement = null;
+                    return;
+                }
+                
                 const id = this.resizingElement.dataset.id;
                 const width = parseFloat(this.resizingElement.style.width);
                 const height = parseFloat(this.resizingElement.style.height);
@@ -1410,9 +1461,19 @@ if (this.resizingElement) {
             // Handle end of dragging
             if (!this.draggedElement) return;
             
+            // Don't update locked images
+            if (this.imagesLocked && this.draggedElement.dataset.type === 'image') {
+                this.draggedElement.classList.remove('dragging');
+                this.draggedElement = null;
+                
+                // Remove highlights
+                const highlighted = document.querySelectorAll('.drag-over');
+                highlighted.forEach(el => el.classList.remove('drag-over'));
+                return;
+            }
+            
             const draggedId = this.draggedElement.dataset.id;
             
-            // CHECK IF THIS IS AN IMAGE - INSERT CODE HERE, RIGHT AFTER GETTING draggedId
             // Check if this is an image element
             const isImage = this.draggedElement.dataset.type === 'image';
             
@@ -1426,7 +1487,6 @@ if (this.resizingElement) {
             
             // First check if dragged over a breadcrumb
             const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-            // ... rest of the code
             if (breadcrumbTarget) {
                 const navIndex = parseInt(breadcrumbTarget.dataset.index);
                 
@@ -1505,6 +1565,10 @@ if (this.resizingElement) {
         const elements = document.elementsFromPoint(e.clientX, e.clientY);
         for (const element of elements) {
             if (element.classList.contains('element-container') && element !== this.draggedElement) {
+                // Don't allow dropping onto images if images are locked
+                if (this.imagesLocked && element.dataset.type === 'image') {
+                    continue;
+                }
                 return element;
             }
         }
@@ -1650,6 +1714,94 @@ findHighestImageZIndex() {
     
     // Cap at 99 to ensure we're always below text elements (which are at 100+)
     return Math.min(maxZIndex, 99);
+}
+
+setupLockImagesToggle() {
+    OPTIMISM.log('Setting up lock images toggle');
+    
+    // Create the lock images button
+    const lockImagesButton = document.createElement('button');
+    lockImagesButton.id = 'lock-images-button';
+    lockImagesButton.className = 'nav-link';
+    lockImagesButton.textContent = 'Lock Images';
+    
+    // Add click event listener
+    lockImagesButton.addEventListener('click', () => {
+        this.toggleImagesLocked();
+    });
+    
+    // Add button to the right controls section
+    const rightControls = document.getElementById('right-controls');
+    if (rightControls) {
+        // Add after the Copy Link button
+        const copyLinkButton = document.getElementById('copy-link-button');
+        if (copyLinkButton && copyLinkButton.nextSibling) {
+            rightControls.insertBefore(lockImagesButton, copyLinkButton.nextSibling);
+        } else if (copyLinkButton) {
+            rightControls.insertBefore(lockImagesButton, rightControls.firstChild.nextSibling);
+        } else {
+            rightControls.insertBefore(lockImagesButton, rightControls.firstChild);
+        }
+    }
+    
+    // Store reference to the button
+    this.lockImagesButton = lockImagesButton;
+    
+    OPTIMISM.log('Lock images toggle set up successfully');
+}
+
+toggleImagesLocked() {
+    this.imagesLocked = !this.imagesLocked;
+    this.lockImagesButton.textContent = this.imagesLocked ? "Unlock Images" : "Lock Images";
+    OPTIMISM.log(`Images are now ${this.imagesLocked ? 'locked' : 'unlocked'}`);
+    
+    // Update the UI to reflect the new state
+    this.updateImagesLockState();
+}
+
+updateImagesLockState() {
+    const imageContainers = document.querySelectorAll('.image-element-container');
+    
+    imageContainers.forEach(container => {
+        if (this.imagesLocked) {
+            // Add a class to indicate locked state - we'll use CSS for styling
+            container.classList.add('image-locked');
+            
+            // If an image is currently selected, deselect it
+            if (container.classList.contains('selected')) {
+                container.classList.remove('selected');
+                if (this.model.selectedElement === container.dataset.id) {
+                    this.model.selectedElement = null;
+                    // Also hide style panel if it was showing
+                    this.stylePanel.style.display = 'none';
+                }
+            }
+        } else {
+            // Remove locked class
+            container.classList.remove('image-locked');
+        }
+    });
+    
+    // Add CSS to handle pointer events more reliably
+    let styleElem = document.getElementById('image-lock-style');
+    if (!styleElem) {
+        styleElem = document.createElement('style');
+        styleElem.id = 'image-lock-style';
+        document.head.appendChild(styleElem);
+    }
+    
+    if (this.imagesLocked) {
+        styleElem.textContent = `
+            .image-locked .resize-handle {
+                display: none !important;
+            }
+            .image-locked {
+                cursor: default !important;
+            }
+        `;
+    } else {
+        styleElem.textContent = '';
+    }
 }
     
 }
