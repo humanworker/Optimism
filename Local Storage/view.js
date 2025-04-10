@@ -1080,19 +1080,21 @@ if (elementData.style && elementData.style.isHighlighted) {
             }
         });
         
+        // This is the click handler for text elements:
         container.addEventListener('click', (e) => {
-            // Don't select if images are locked
-            if (this.model.imagesLocked) {
+            // If CMD/CTRL is pressed, navigate into the element regardless of lock state
+            if (this.isModifierKeyPressed(e)) {
+                this.controller.navigateToElement(elementData.id);
+                e.stopPropagation();
+                return;
+            }
+            
+            // Don't select if images are locked and this is an image
+            if (this.model.imagesLocked && elementData.type === 'image') {
                 return;
             }
             
             this.selectElement(container, elementData);
-            
-            // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
-            if (this.isModifierKeyPressed(e)) {
-                this.controller.navigateToElement(elementData.id);
-                e.stopPropagation();
-            }
         });
         
         // Handle double-click to edit text
@@ -1221,21 +1223,22 @@ if (elementData.style && elementData.style.isHighlighted) {
         resizeHandle.className = 'resize-handle';
     
         // Updated click handler
+        // This is the click handler for image elements:
         container.addEventListener('click', (e) => {
+            // If CMD/CTRL is pressed, navigate into the element regardless of lock state
+            if (this.isModifierKeyPressed(e)) {
+                this.controller.navigateToElement(elementData.id);
+                e.stopPropagation();
+                return;
+            }
+            
             // Don't select if images are locked
-            if (this.imagesLocked) {
+            if (this.model.imagesLocked) {
                 return;
             }
             
             this.selectElement(container, elementData);
-            
-            // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
-            if (this.isModifierKeyPressed(e)) {
-                this.controller.navigateToElement(elementData.id);
-                e.stopPropagation();
-            }
         });
-        
         // In createTextElementDOM method
 container.addEventListener('mousedown', (e) => {
     // Don't handle if not left mouse button
