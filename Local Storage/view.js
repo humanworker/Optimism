@@ -7,10 +7,10 @@ class CanvasView {
         this.titleBar = document.getElementById('title-bar');
         this.breadcrumbContainer = document.getElementById('breadcrumb-container');
         this.stylePanel = document.getElementById('style-panel');
-        this.settingsPanel = document.getElementById('settings-panel');  // Add this line
+        this.settingsPanel = document.getElementById('settings-panel');
         this.themeToggle = document.getElementById('theme-toggle');
         this.settingsToggle = document.getElementById('settings-toggle');
-        this.lockImagesButton = document.getElementById('lock-images-button');   // Add this line
+        this.lockImagesButton = document.getElementById('lock-images-button');
         this.undoButton = document.getElementById('undo-button');
         this.redoButton = document.getElementById('redo-button');
         this.loadingOverlay = document.getElementById('loading-overlay');
@@ -25,7 +25,7 @@ class CanvasView {
         this.confirmationDialog = document.getElementById('confirmation-dialog');
         this.cancelImportButton = document.getElementById('cancel-import');
         this.confirmImportButton = document.getElementById('confirm-import');
-        this.imagesLocked = false; 
+        // Remove the imagesLocked property declaration since we'll use model.imagesLocked
         this.draggedElement = null;
         this.resizingElement = null;
         this.dragStartX = 0;
@@ -737,11 +737,11 @@ setupImageDropZone() {
         } else {
             OPTIMISM.log('No elements to render');
         }
-
-         // Apply locked state to images if needed
-    if (this.imagesLocked) {
-        this.updateImagesLockState();
-    }
+    
+        // Apply locked state to images if needed
+        if (this.model.imagesLocked) {
+            this.updateImagesLockState();
+        }
         
         // Hide style panel when no element is selected
         if (!this.model.selectedElement) {
@@ -1079,18 +1079,20 @@ if (elementData.style && elementData.style.isHighlighted) {
         });
         
         // In createTextElementDOM method, update the click handler
-container.addEventListener('click', (e) => {
-    // Don't handle clicks on links
-    if (e.target.tagName === 'A') return;
-    
-    this.selectElement(container, elementData);
-    
-    // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
-    if (this.isModifierKeyPressed(e)) {
-        this.controller.navigateToElement(elementData.id);
-        e.stopPropagation();
-    }
-});
+        container.addEventListener('click', (e) => {
+            // Don't select if images are locked
+            if (this.model.imagesLocked) {
+                return;
+            }
+            
+            this.selectElement(container, elementData);
+            
+            // If cmd/ctrl is pressed, navigate into the element regardless of whether it has children
+            if (this.isModifierKeyPressed(e)) {
+                this.controller.navigateToElement(elementData.id);
+                e.stopPropagation();
+            }
+        });
         
         // Handle double-click to edit text
         container.addEventListener('dblclick', (e) => {
@@ -1286,7 +1288,7 @@ container.addEventListener('mousedown', (e) => {
     
     selectElement(element, elementData) {
         // Check if this is an image and images are locked
-        if (elementData.type === 'image' && this.imagesLocked) {
+        if (elementData.type === 'image' && this.model.imagesLocked) {
             OPTIMISM.log(`Cannot select locked image ${elementData.id}`);
             return;
         }
@@ -1370,7 +1372,7 @@ if (highlightOption) {
             // Handle resizing
             if (this.resizingElement) {
                 // Don't resize images if they're locked
-                if (this.imagesLocked && this.resizingElement.dataset.type === 'image') {
+                if (this.model.imagesLocked && this.resizingElement.dataset.type === 'image') {
                     return;
                 }
                 
@@ -1422,7 +1424,7 @@ if (highlightOption) {
             if (!this.draggedElement) return;
             
             // Don't drag images if they're locked
-            if (this.imagesLocked && this.draggedElement.dataset.type === 'image') {
+            if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
                 return;
             }
             
@@ -1723,7 +1725,7 @@ setupLockImagesToggle() {
     const lockImagesButton = document.createElement('button');
     lockImagesButton.id = 'lock-images-button';
     lockImagesButton.className = 'nav-link';
-    lockImagesButton.textContent = 'Lock Images';
+    lockImagesButton.textContent = this.model.imagesLocked ? 'Unlock Images' : 'Lock Images';
     
     // Add click event listener
     lockImagesButton.addEventListener('click', () => {
@@ -1751,19 +1753,20 @@ setupLockImagesToggle() {
 }
 
 toggleImagesLocked() {
-    this.imagesLocked = !this.imagesLocked;
-    this.lockImagesButton.textContent = this.imagesLocked ? "Unlock Images" : "Lock Images";
-    OPTIMISM.log(`Images are now ${this.imagesLocked ? 'locked' : 'unlocked'}`);
-    
-    // Update the UI to reflect the new state
-    this.updateImagesLockState();
+    this.controller.toggleImagesLocked();
 }
 
-updateImagesLockState() {
+updateImagesLockState(imagesLocked = null) {
+    // If a state is provided, use it, otherwise use the model's state
+    const isLocked = imagesLocked !== null ? imagesLocked : this.model.imagesLocked;
+    
+    // Update the button text
+    this.lockImagesButton.textContent = isLocked ? "Unlock Images" : "Lock Images";
+    
     const imageContainers = document.querySelectorAll('.image-element-container');
     
     imageContainers.forEach(container => {
-        if (this.imagesLocked) {
+        if (isLocked) {
             // Add a class to indicate locked state - we'll use CSS for styling
             container.classList.add('image-locked');
             
@@ -1790,7 +1793,7 @@ updateImagesLockState() {
         document.head.appendChild(styleElem);
     }
     
-    if (this.imagesLocked) {
+    if (isLocked) {
         styleElem.textContent = `
             .image-locked .resize-handle {
                 display: none !important;

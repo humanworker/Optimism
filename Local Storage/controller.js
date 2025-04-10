@@ -832,4 +832,22 @@ async addImageFromUrl(url, x, y) {
     }
 }
 
+async toggleImagesLocked() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle images locked: application not initialized');
+        return this.model.imagesLocked;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling images locked state');
+        const imagesLocked = await this.model.toggleImagesLocked();
+        this.view.updateImagesLockState(imagesLocked);
+        OPTIMISM.log(`Images locked state set to ${imagesLocked}`);
+        return imagesLocked;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling images locked state:', error);
+        return this.model.imagesLocked;
+    }
+}
+
 }

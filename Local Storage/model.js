@@ -13,11 +13,10 @@ class CanvasModel {
         this.currentNode = null; // Will be set after data load
         this.selectedElement = null;
         this.editCounter = 0;
-this.lastBackupReminder = 0;
-this.backupReminderThreshold = 100;
-
-// Add this line:
-this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
+        this.lastBackupReminder = 0;
+        this.backupReminderThreshold = 100;
+        this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
+        this.imagesLocked = false; // Add this line to track locked images state
         
         // Command history for undo/redo
         this.undoStack = [];
@@ -73,56 +72,62 @@ async initialize() {
 }
     
     // In model.js, modify the loadData method
-async loadData() {
-    try {
-        let data = await this.db.getData('canvasData', 'root');
-        
-        if (!data) {
-            OPTIMISM.log('No existing data, creating default structure');
-            data = { 
-                id: 'root', 
-                title: 'Home', 
-                elements: [], 
-                children: {} 
-            };
-            await this.db.put('canvasData', data);
-        }
-        
-        this.data = data;
-        this.navigationStack[0].node = this.data;
-        this.currentNode = this.data;
-        
-        // Load app state (including edit counter and backup reminder)
+    async loadData() {
         try {
-            const appState = await this.db.getData('canvasData', 'appState');
-            if (appState) {
-                if (appState.deletedImageQueue) {
-                    this.deletedImageQueue = appState.deletedImageQueue;
-                    OPTIMISM.log(`Loaded deleted image queue with ${this.deletedImageQueue.length} entries`);
-                }
-                
-                // Load edit counter and backup reminder
-                if (appState.editCounter !== undefined) {
-                    this.editCounter = appState.editCounter;
-                    OPTIMISM.log(`Loaded edit counter: ${this.editCounter}`);
-                }
-                
-                if (appState.lastBackupReminder !== undefined) {
-                    this.lastBackupReminder = appState.lastBackupReminder;
-                    OPTIMISM.log(`Loaded last backup reminder: ${this.lastBackupReminder}`);
-                }
+            let data = await this.db.getData('canvasData', 'root');
+            
+            if (!data) {
+                OPTIMISM.log('No existing data, creating default structure');
+                data = { 
+                    id: 'root', 
+                    title: 'Home', 
+                    elements: [], 
+                    children: {} 
+                };
+                await this.db.put('canvasData', data);
             }
+            
+            this.data = data;
+            this.navigationStack[0].node = this.data;
+            this.currentNode = this.data;
+            
+            // Load app state (including edit counter and backup reminder)
+            try {
+                const appState = await this.db.getData('canvasData', 'appState');
+                if (appState) {
+                    if (appState.deletedImageQueue) {
+                        this.deletedImageQueue = appState.deletedImageQueue;
+                        OPTIMISM.log(`Loaded deleted image queue with ${this.deletedImageQueue.length} entries`);
+                    }
+                    
+                    // Load edit counter and backup reminder
+                    if (appState.editCounter !== undefined) {
+                        this.editCounter = appState.editCounter;
+                        OPTIMISM.log(`Loaded edit counter: ${this.editCounter}`);
+                    }
+                    
+                    if (appState.lastBackupReminder !== undefined) {
+                        this.lastBackupReminder = appState.lastBackupReminder;
+                        OPTIMISM.log(`Loaded last backup reminder: ${this.lastBackupReminder}`);
+                    }
+                    
+                    // Add this block to load the images locked state
+                    if (appState.imagesLocked !== undefined) {
+                        this.imagesLocked = appState.imagesLocked;
+                        OPTIMISM.log(`Loaded images locked state: ${this.imagesLocked}`);
+                    }
+                }
+            } catch (error) {
+                OPTIMISM.logError('Error loading app state:', error);
+                // Continue with default values
+            }
+            
+            return data;
         } catch (error) {
-            OPTIMISM.logError('Error loading app state:', error);
-            // Continue with default values
+            OPTIMISM.logError('Error loading data:', error);
+            throw error;
         }
-        
-        return data;
-    } catch (error) {
-        OPTIMISM.logError('Error loading data:', error);
-        throw error;
     }
-}
 
     async saveData() {
         try {
@@ -785,21 +790,22 @@ resetBackupReminder() {
     }
 
     // In model.js, update the saveAppState method
-async saveAppState() {
-    try {
-        const appState = {
-            id: 'appState',
-            deletedImageQueue: this.deletedImageQueue,
-            editCounter: this.editCounter,
-            lastBackupReminder: this.lastBackupReminder
-        };
-        
-        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder})`);
-        await this.db.put('canvasData', appState);
-    } catch (error) {
-        OPTIMISM.logError('Error saving app state:', error);
+    async saveAppState() {
+        try {
+            const appState = {
+                id: 'appState',
+                deletedImageQueue: this.deletedImageQueue,
+                editCounter: this.editCounter,
+                lastBackupReminder: this.lastBackupReminder,
+                imagesLocked: this.imagesLocked // Add this line to save locked images state
+            };
+            
+            OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked})`);
+            await this.db.put('canvasData', appState);
+        } catch (error) {
+            OPTIMISM.logError('Error saving app state:', error);
+        }
     }
-}
 // Add this method to the CanvasModel class in model.js
 findAllImageElementsInNode(node) {
     if (!node) return [];
@@ -1045,6 +1051,13 @@ buildPathToNodeRecursive(currentNode, targetId, path) {
     }
     
     return false;
+}
+
+async toggleImagesLocked() {
+    this.imagesLocked = !this.imagesLocked;
+    OPTIMISM.log(`Images locked state toggled to ${this.imagesLocked}`);
+    await this.saveAppState();
+    return this.imagesLocked;
 }
 
 }
