@@ -1,44 +1,45 @@
 // View to handle UI interactions
 class CanvasView {
-    constructor(model, controller) {
-        this.model = model;
-        this.controller = controller;
-        this.workspace = document.getElementById('workspace');
-        this.titleBar = document.getElementById('title-bar');
-        this.breadcrumbContainer = document.getElementById('breadcrumb-container');
-        this.stylePanel = document.getElementById('style-panel');
-        this.settingsPanel = document.getElementById('settings-panel');
-        this.themeToggle = document.getElementById('theme-toggle');
-        this.settingsToggle = document.getElementById('settings-toggle');
-        this.lockImagesButton = document.getElementById('lock-images-button');
-        this.undoButton = document.getElementById('undo-button');
-        this.redoButton = document.getElementById('redo-button');
-        this.loadingOverlay = document.getElementById('loading-overlay');
-        this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
-        this.debugPanel = document.getElementById('debug-panel');
-        this.debugToggle = document.getElementById('debug-toggle');
-        this.progressContainer = document.getElementById('progress-container');
-        this.progressBar = document.getElementById('progress-bar');
-        this.progressText = document.getElementById('progress-text');
-        this.exportButton = document.getElementById('export-button');
-        this.importButton = document.getElementById('import-button');
-        this.confirmationDialog = document.getElementById('confirmation-dialog');
-        this.cancelImportButton = document.getElementById('cancel-import');
-        this.confirmImportButton = document.getElementById('confirm-import');
-        // Remove the imagesLocked property declaration since we'll use model.imagesLocked
-        this.draggedElement = null;
-        this.resizingElement = null;
-        this.dragStartX = 0;
-        this.dragStartY = 0;
-        this.elemOffsetX = 0;
-        this.elemOffsetY = 0;
-        
-        this.initialWidth = 0;
-        this.initialHeight = 0;
-        
-        // Detect platform
-        this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    }
+    // Modify the constructor in CanvasView to remove the imagesLocked property initialization:
+constructor(model, controller) {
+    this.model = model;
+    this.controller = controller;
+    this.workspace = document.getElementById('workspace');
+    this.titleBar = document.getElementById('title-bar');
+    this.breadcrumbContainer = document.getElementById('breadcrumb-container');
+    this.stylePanel = document.getElementById('style-panel');
+    this.settingsPanel = document.getElementById('settings-panel');
+    this.themeToggle = document.getElementById('theme-toggle');
+    this.settingsToggle = document.getElementById('settings-toggle');
+    this.lockImagesButton = document.getElementById('lock-images-button');
+    this.undoButton = document.getElementById('undo-button');
+    this.redoButton = document.getElementById('redo-button');
+    this.loadingOverlay = document.getElementById('loading-overlay');
+    this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
+    this.debugPanel = document.getElementById('debug-panel');
+    this.debugToggle = document.getElementById('debug-toggle');
+    this.progressContainer = document.getElementById('progress-container');
+    this.progressBar = document.getElementById('progress-bar');
+    this.progressText = document.getElementById('progress-text');
+    this.exportButton = document.getElementById('export-button');
+    this.importButton = document.getElementById('import-button');
+    this.confirmationDialog = document.getElementById('confirmation-dialog');
+    this.cancelImportButton = document.getElementById('cancel-import');
+    this.confirmImportButton = document.getElementById('confirm-import');
+    // Remove the imagesLocked = false; line (it's now in the model)
+    this.draggedElement = null;
+    this.resizingElement = null;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
+    this.elemOffsetX = 0;
+    this.elemOffsetY = 0;
+    
+    this.initialWidth = 0;
+    this.initialHeight = 0;
+    
+    // Detect platform
+    this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+}
     
     hideLoading() {
         OPTIMISM.log('Application loaded');
@@ -696,66 +697,67 @@ setupImageDropZone() {
         return this.isMac ? e.metaKey : e.ctrlKey;
     }
     
-    renderWorkspace() {
-        OPTIMISM.log('Rendering workspace');
-        // Clear workspace
-        this.workspace.innerHTML = '';
-        
-        // Update breadcrumbs
-        this.renderBreadcrumbs();
-        
-        // Render elements
-        if (this.model.currentNode.elements) {
-            const elementsCount = this.model.currentNode.elements.length;
-            OPTIMISM.log(`Rendering ${elementsCount} element(s)`);
-            
-            // Sort elements: 1. First by type (images before text)
-            // 2. Then by z-index for images
-            const sortedElements = [...this.model.currentNode.elements].sort((a, b) => {
-                if (a.type === 'image' && b.type === 'text') return -1;
-                if (a.type === 'text' && b.type === 'image') return 1;
-                if (a.type === 'image' && b.type === 'image') {
-                    // Higher z-index comes later (on top)
-                    return (a.zIndex || 1) - (b.zIndex || 1);
-                }
-                return 0;
-            });
-            
-            sortedElements.forEach(element => {
-                try {
-                    if (element.type === 'text') {
-                        this.createTextElementDOM(element);
-                    } else if (element.type === 'image') {
-                        this.createImageElementDOM(element);
-                    } else {
-                        OPTIMISM.logError(`Unknown element type: ${element.type}`);
-                    }
-                } catch (error) {
-                    OPTIMISM.logError(`Error rendering element ${element.id}:`, error);
-                }
-            });
-        } else {
-            OPTIMISM.log('No elements to render');
-        }
+    // Modify this method in CanvasView to use the model's imagesLocked state
+renderWorkspace() {
+    OPTIMISM.log('Rendering workspace');
+    // Clear workspace
+    this.workspace.innerHTML = '';
     
-        // Apply locked state to images if needed
-        if (this.model.imagesLocked) {
-            this.updateImagesLockState();
-        }
+    // Update breadcrumbs
+    this.renderBreadcrumbs();
+    
+    // Render elements
+    if (this.model.currentNode.elements) {
+        const elementsCount = this.model.currentNode.elements.length;
+        OPTIMISM.log(`Rendering ${elementsCount} element(s)`);
         
-        // Hide style panel when no element is selected
-        if (!this.model.selectedElement) {
-            this.stylePanel.style.display = 'none';
-        }
+        // Sort elements: 1. First by type (images before text)
+        // 2. Then by z-index for images
+        const sortedElements = [...this.model.currentNode.elements].sort((a, b) => {
+            if (a.type === 'image' && b.type === 'text') return -1;
+            if (a.type === 'text' && b.type === 'image') return 1;
+            if (a.type === 'image' && b.type === 'image') {
+                // Higher z-index comes later (on top)
+                return (a.zIndex || 1) - (b.zIndex || 1);
+            }
+            return 0;
+        });
         
-        // Update undo/redo buttons
-        this.updateUndoRedoButtons();
-        
-        // Update page title
-        this.updatePageTitle();
-        
-        OPTIMISM.log('Workspace rendering complete');
+        sortedElements.forEach(element => {
+            try {
+                if (element.type === 'text') {
+                    this.createTextElementDOM(element);
+                } else if (element.type === 'image') {
+                    this.createImageElementDOM(element);
+                } else {
+                    OPTIMISM.logError(`Unknown element type: ${element.type}`);
+                }
+            } catch (error) {
+                OPTIMISM.logError(`Error rendering element ${element.id}:`, error);
+            }
+        });
+    } else {
+        OPTIMISM.log('No elements to render');
     }
+
+    // Apply locked state to images if needed
+    if (this.model.imagesLocked) {
+        this.updateImagesLockState();
+    }
+    
+    // Hide style panel when no element is selected
+    if (!this.model.selectedElement) {
+        this.stylePanel.style.display = 'none';
+    }
+    
+    // Update undo/redo buttons
+    this.updateUndoRedoButtons();
+    
+    // Update page title
+    this.updatePageTitle();
+    
+    OPTIMISM.log('Workspace rendering complete');
+}
     
     updatePageTitle() {
         if (this.model.navigationStack.length === 1) {
@@ -1078,7 +1080,6 @@ if (elementData.style && elementData.style.isHighlighted) {
             }
         });
         
-        // In createTextElementDOM method, update the click handler
         container.addEventListener('click', (e) => {
             // Don't select if images are locked
             if (this.model.imagesLocked) {
@@ -1106,7 +1107,6 @@ if (elementData.style && elementData.style.isHighlighted) {
             e.stopPropagation(); // Prevent creating a new element
         });
         
-        // This goes inside createImageElementDOM, replacing the existing mousedown listener
         container.addEventListener('mousedown', (e) => {
             // Don't handle if not left mouse button
             if (e.button !== 0) return;
@@ -1128,8 +1128,10 @@ if (elementData.style && elementData.style.isHighlighted) {
             e.preventDefault();
         });
         
-        // Setup resize handle event listeners
         resizeHandle.addEventListener('mousedown', (e) => {
+            // Don't allow resizing if images are locked
+            if (this.model.imagesLocked) return;
+            
             e.stopPropagation(); // Prevent other mouse handlers
             
             this.selectElement(container, elementData);
@@ -1444,7 +1446,7 @@ if (highlightOption) {
             // Handle end of resizing
             if (this.resizingElement) {
                 // Don't update locked images
-                if (this.imagesLocked && this.resizingElement.dataset.type === 'image') {
+                if (this.model.imagesLocked && this.resizingElement.dataset.type === 'image') {
                     this.resizingElement = null;
                     return;
                 }
@@ -1464,7 +1466,7 @@ if (highlightOption) {
             if (!this.draggedElement) return;
             
             // Don't update locked images
-            if (this.imagesLocked && this.draggedElement.dataset.type === 'image') {
+            if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
                 this.draggedElement.classList.remove('dragging');
                 this.draggedElement = null;
                 
@@ -1568,7 +1570,7 @@ if (highlightOption) {
         for (const element of elements) {
             if (element.classList.contains('element-container') && element !== this.draggedElement) {
                 // Don't allow dropping onto images if images are locked
-                if (this.imagesLocked && element.dataset.type === 'image') {
+                if (this.model.imagesLocked && element.dataset.type === 'image') {
                     continue;
                 }
                 return element;
@@ -1718,6 +1720,7 @@ findHighestImageZIndex() {
     return Math.min(maxZIndex, 99);
 }
 
+// Update the setupLockImagesToggle method in CanvasView
 setupLockImagesToggle() {
     OPTIMISM.log('Setting up lock images toggle');
     
@@ -1752,21 +1755,23 @@ setupLockImagesToggle() {
     OPTIMISM.log('Lock images toggle set up successfully');
 }
 
+// Modify the toggleImagesLocked method in CanvasView to use the controller
 toggleImagesLocked() {
-    this.controller.toggleImagesLocked();
+    this.controller.toggleImagesLocked().then(isLocked => {
+        this.lockImagesButton.textContent = isLocked ? "Unlock Images" : "Lock Images";
+        this.updateImagesLockState();
+    });
 }
 
-updateImagesLockState(imagesLocked = null) {
-    // If a state is provided, use it, otherwise use the model's state
-    const isLocked = imagesLocked !== null ? imagesLocked : this.model.imagesLocked;
-    
-    // Update the button text
-    this.lockImagesButton.textContent = isLocked ? "Unlock Images" : "Lock Images";
+// Modify the updateImagesLockState method in CanvasView to accept an optional parameter
+updateImagesLockState(isLocked) {
+    // Use the provided isLocked value if passed, otherwise use the model's value
+    const imagesLocked = isLocked !== undefined ? isLocked : this.model.imagesLocked;
     
     const imageContainers = document.querySelectorAll('.image-element-container');
     
     imageContainers.forEach(container => {
-        if (isLocked) {
+        if (imagesLocked) {
             // Add a class to indicate locked state - we'll use CSS for styling
             container.classList.add('image-locked');
             
@@ -1793,7 +1798,7 @@ updateImagesLockState(imagesLocked = null) {
         document.head.appendChild(styleElem);
     }
     
-    if (isLocked) {
+    if (imagesLocked) {
         styleElem.textContent = `
             .image-locked .resize-handle {
                 display: none !important;
