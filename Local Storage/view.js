@@ -1105,26 +1105,26 @@ container.addEventListener('click', (e) => {
         });
         
         // This goes inside createImageElementDOM, replacing the existing mousedown listener
-container.addEventListener('mousedown', (e) => {
-    // Don't handle if not left mouse button or if images are locked
-    if (e.button !== 0 || this.imagesLocked) return;
-    
-    // Don't start drag when on resize handle
-    if (e.target === resizeHandle) return;
-    
-    this.selectElement(container, elementData);
-    
-    this.draggedElement = container;
-    this.model.selectedElement = elementData.id;
-    
-    // Calculate offset
-    const rect = container.getBoundingClientRect();
-    this.elemOffsetX = e.clientX - rect.left;
-    this.elemOffsetY = e.clientY - rect.top;
-    
-    container.classList.add('dragging');
-    e.preventDefault();
-});
+        container.addEventListener('mousedown', (e) => {
+            // Don't handle if not left mouse button
+            if (e.button !== 0) return;
+            
+            // Don't start drag when on resize handle
+            if (e.target === resizeHandle) return;
+            
+            this.selectElement(container, elementData);
+            
+            this.draggedElement = container;
+            this.model.selectedElement = elementData.id;
+            
+            // Calculate offset
+            const rect = container.getBoundingClientRect();
+            this.elemOffsetX = e.clientX - rect.left;
+            this.elemOffsetY = e.clientY - rect.top;
+            
+            container.classList.add('dragging');
+            e.preventDefault();
+        });
         
         // Setup resize handle event listeners
         resizeHandle.addEventListener('mousedown', (e) => {
