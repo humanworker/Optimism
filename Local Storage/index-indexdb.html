@@ -142,15 +142,15 @@
         }
 
         .element-container {
-            position: absolute;
-            border: 1px solid transparent; /* Border is transparent by default */
-            border-radius: 4px;
-            background-color: var(--element-bg-color);
-            min-width: var(--element-width);
-            min-height: 30px;
-            z-index: 1;
-            cursor: move;
-        }
+    position: absolute;
+    border: 1px solid transparent; /* Border is transparent by default */
+    border-radius: 4px;
+    background-color: var(--element-bg-color);
+    min-width: var(--element-width);
+    min-height: 30px;
+    z-index: 1;
+    cursor: move;
+}
 
         .text-element-container {
     z-index: 100 !important; /* Much higher base z-index for text elements */
@@ -670,6 +670,20 @@ mark {
 .settings-option {
     margin-bottom: 15px;
 }
+
+/* Add this new class for elements with permanent border */
+.has-permanent-border {
+    border-color: var(--selected-border-color) !important;
+}
+
+.element-container.selected {
+    border-color: var(--selected-border-color);
+    /* Shadow removed as requested */
+}
+/* Add this new class for elements with permanent border */
+.has-permanent-border {
+    border-color: var(--selected-border-color) !important;
+}
     </style>
 </head>
 <body>
@@ -747,6 +761,18 @@ mark {
             <div class="option-values">
                 <a href="#" class="option-value" data-highlight="false">No</a>
                 <a href="#" class="option-value" data-highlight="true">Yes</a>
+            </div>
+        </div>
+        <div class="style-option">
+            <div class="option-label">
+                Card Border?
+                <span class="shortcut-badges">
+                    <span class="shortcut-badge" title="Toggle Border">7</span>
+                </span>
+            </div>
+            <div class="option-values">
+                <a href="#" class="option-value" data-border="false">No</a>
+                <a href="#" class="option-value" data-border="true">Yes</a>
             </div>
         </div>
         

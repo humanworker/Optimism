@@ -169,13 +169,14 @@ if (this.model.selectedElement &&
     if (element && element.type === 'text') {
         let styleUpdated = false;
         
-        // 0 = reset to default (small text, black, no header, no highlight)
+        // 0 = reset to default (small text, black, no header, no highlight, no border)
 if (e.key === '0') {
     this.controller.updateElementStyle(this.model.selectedElement, { 
         textSize: 'small', 
         textColor: 'default', 
         hasHeader: false,
-        isHighlighted: false
+        isHighlighted: false,
+        hasBorder: false
     });
     styleUpdated = true;
     e.preventDefault();
@@ -241,6 +242,15 @@ else if (e.key === '6') {
     // Get the current highlight setting
     const isHighlighted = element.style && element.style.isHighlighted ? true : false;
     this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
+    styleUpdated = true;
+    e.preventDefault();
+}
+
+// 7 = toggle border
+else if (e.key === '7') {
+    // Toggle current border setting
+    const hasBorder = element.style && element.style.hasBorder ? true : false;
+    this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: !hasBorder });
     styleUpdated = true;
     e.preventDefault();
 }
@@ -655,6 +665,31 @@ setupImageDropZone() {
                 option.classList.add('selected');
             });
         });
+
+
+        // Set up border option
+const borderOptions = document.querySelectorAll('.option-value[data-border]');
+
+// Add click event listeners to each border option
+borderOptions.forEach(option => {
+    option.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent closing the panel
+        
+        // Only apply if an element is selected
+        if (!this.model.selectedElement) return;
+        
+        // Get the selected border setting
+        const hasBorder = option.dataset.border === 'true';
+        
+        // Update the element's style
+        this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: hasBorder });
+        
+        // Update the UI to show which option is selected
+        borderOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+    });
+});
         
         // Set up reset style option
         const resetOption = document.querySelector('.option-value.reset-style');
@@ -921,91 +956,98 @@ convertUrlsToLinks(text, isHighlighted = false) {
     return result;
 }
     
-    createTextElementDOM(elementData) {
-        OPTIMISM.log(`Creating text element DOM for ${elementData.id}`);
-        
-        // Create container for the element
-        const container = document.createElement('div');
-        container.className = 'element-container text-element-container';
-        container.dataset.id = elementData.id;
-        container.dataset.type = 'text';
-        container.style.left = `${elementData.x}px`;
-        container.style.top = `${elementData.y}px`;
-        
-        // Check if this element has children
-        const hasChildren = this.model.hasChildren(elementData.id);
-        
-        // Set dimensions if they exist in the data
-        if (elementData.width) {
-            container.style.width = `${elementData.width}px`;
-        } else {
-            container.style.width = `200px`; // Default width
-        }
-        
-        if (elementData.height) {
-            container.style.height = `${elementData.height}px`;
-        } else {
-            container.style.height = `100px`; // Default height
-        }
+createTextElementDOM(elementData) {
+    OPTIMISM.log(`Creating text element DOM for ${elementData.id}`);
+    
+    // Create container for the element
+    const container = document.createElement('div');
+    container.className = 'element-container text-element-container';
+    container.dataset.id = elementData.id;
+    container.dataset.type = 'text';
+    container.style.left = `${elementData.x}px`;
+    container.style.top = `${elementData.y}px`;
+    
+    // Check if this element has children
+    const hasChildren = this.model.hasChildren(elementData.id);
+    
+    // Set dimensions if they exist in the data
+    if (elementData.width) {
+        container.style.width = `${elementData.width}px`;
+    } else {
+        container.style.width = `200px`; // Default width
+    }
+    
+    if (elementData.height) {
+        container.style.height = `${elementData.height}px`;
+    } else {
+        container.style.height = `100px`; // Default height
+    }
+    
+    // Apply border if defined
+    if (elementData.style && elementData.style.hasBorder) {
+        container.classList.add('has-permanent-border');
+    }
+    
+    // Create the text editor (hidden by default)
+    const textEditor = document.createElement('textarea');
+    textEditor.className = 'text-element';
+    if (hasChildren) {
+        textEditor.classList.add('has-children');
+    }
+    textEditor.value = elementData.text || '';
+    textEditor.style.display = 'none'; // Hide by default
+    
+    // Apply highlight directly to textarea background if needed
+    if (elementData.style && elementData.style.isHighlighted) {
+        textEditor.style.backgroundColor = 'rgb(255, 255, 176)';
+    }
+    
+    // Create the text display (shown by default)
+    const textDisplay = document.createElement('div');
+    textDisplay.className = 'text-display';
+    if (hasChildren) {
+        textDisplay.classList.add('has-children');
+    }
+    
+    // Apply header formatting if set
+    const hasHeader = elementData.style && elementData.style.hasHeader;
+    const isHighlighted = elementData.style && elementData.style.isHighlighted;
 
-        // Create the text editor (hidden by default)
-        const textEditor = document.createElement('textarea');
-        textEditor.className = 'text-element';
-        if (hasChildren) {
-            textEditor.classList.add('has-children');
+    if (hasHeader) {
+        textDisplay.classList.add('has-header');
+        textDisplay.innerHTML = this.formatTextWithHeader(elementData.text || '', true, isHighlighted);
+    } else {
+        textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '', isHighlighted);
+    }
+    
+    // Apply text size if defined
+    if (elementData.style && elementData.style.textSize) {
+        if (elementData.style.textSize === 'large') {
+            textEditor.classList.add('size-large');
+            textDisplay.classList.add('size-large');
+        } else if (elementData.style.textSize === 'huge') {
+            textEditor.classList.add('size-huge');
+            textDisplay.classList.add('size-huge');
         }
-        textEditor.value = elementData.text || '';
-        textEditor.style.display = 'none'; // Hide by default
-        
-        // Apply highlight directly to textarea background if needed
-        if (elementData.style && elementData.style.isHighlighted) {
-            textEditor.style.backgroundColor = 'rgb(255, 255, 176)';
-        }
-        
-        // Create the text display (shown by default)
-        const textDisplay = document.createElement('div');
-        textDisplay.className = 'text-display';
-        if (hasChildren) {
-            textDisplay.classList.add('has-children');
-        }
-        
-        // Apply header formatting if set
-        const hasHeader = elementData.style && elementData.style.hasHeader;
-const isHighlighted = elementData.style && elementData.style.isHighlighted;
+    }
+    
+    // Apply text color if defined
+    if (elementData.style && elementData.style.textColor) {
+        textEditor.classList.add(`color-${elementData.style.textColor}`);
+        textDisplay.classList.add(`color-${elementData.style.textColor}`);
+    }
 
-if (hasHeader) {
-    textDisplay.classList.add('has-header');
-    textDisplay.innerHTML = this.formatTextWithHeader(elementData.text || '', true, isHighlighted);
-} else {
-    textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '', isHighlighted);
-}
-        
-        // Apply text size if defined
-        if (elementData.style && elementData.style.textSize) {
-            if (elementData.style.textSize === 'large') {
-                textEditor.classList.add('size-large');
-                textDisplay.classList.add('size-large');
-            } else if (elementData.style.textSize === 'huge') {
-                textEditor.classList.add('size-huge');
-                textDisplay.classList.add('size-huge');
-            }
-        }
-        
-        // Apply text color if defined
-        if (elementData.style && elementData.style.textColor) {
-            textEditor.classList.add(`color-${elementData.style.textColor}`);
-            textDisplay.classList.add(`color-${elementData.style.textColor}`);
-        }
-
-        // Apply highlight if defined
-if (elementData.style && elementData.style.isHighlighted) {
-    textEditor.classList.add('is-highlighted');
-    textDisplay.classList.add('is-highlighted');
-}
-        
-        // Create resize handle
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'resize-handle';
+    // Apply highlight if defined
+    if (elementData.style && elementData.style.isHighlighted) {
+        textEditor.classList.add('is-highlighted');
+        textDisplay.classList.add('is-highlighted');
+    }
+    
+    // Create resize handle
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'resize-handle';
+    
+    // ... rest of the method remains unchanged
         
         // Setup content listeners
         textEditor.addEventListener('input', () => {
@@ -1358,13 +1400,20 @@ container.addEventListener('mousedown', (e) => {
         if (headerOption) {
             headerOption.classList.add('selected');
         }
-
+    
         // Set the correct highlight option as selected
-const isHighlighted = elementData.style && elementData.style.isHighlighted ? 'true' : 'false';
-const highlightOption = document.querySelector(`.option-value[data-highlight="${isHighlighted}"]`);
-if (highlightOption) {
-    highlightOption.classList.add('selected');
-}
+        const isHighlighted = elementData.style && elementData.style.isHighlighted ? 'true' : 'false';
+        const highlightOption = document.querySelector(`.option-value[data-highlight="${isHighlighted}"]`);
+        if (highlightOption) {
+            highlightOption.classList.add('selected');
+        }
+        
+        // Set the correct border option as selected
+        const hasBorder = elementData.style && elementData.style.hasBorder ? 'true' : 'false';
+        const borderOption = document.querySelector(`.option-value[data-border="${hasBorder}"]`);
+        if (borderOption) {
+            borderOption.classList.add('selected');
+        }
     }
     
     deselectAllElements() {

@@ -310,27 +310,36 @@ async initialize() {
                         display.innerHTML = this.view.convertUrlsToLinks(element.text || '');
                     }
                 }
-
-// Handle highlight formatting in controller.js
-if (styleProperties.isHighlighted !== undefined) {
-    if (styleProperties.isHighlighted) {
-        textarea.classList.add('is-highlighted');
-        textarea.style.backgroundColor = 'rgb(255, 255, 176)';
-        display.classList.add('is-highlighted');
-    } else {
-        textarea.classList.remove('is-highlighted');
-        textarea.style.backgroundColor = '';
-        display.classList.remove('is-highlighted');
-    }
     
-    // Update the display content to add or remove highlighting
-    const hasHeader = element.style && element.style.hasHeader;
-    const isHighlighted = styleProperties.isHighlighted;
-    
-    if (hasHeader) {
-        display.innerHTML = this.view.formatTextWithHeader(element.text || '', true, isHighlighted);
+                // Handle highlight formatting
+                if (styleProperties.isHighlighted !== undefined) {
+                    if (styleProperties.isHighlighted) {
+                        textarea.classList.add('is-highlighted');
+                        textarea.style.backgroundColor = 'rgb(255, 255, 176)';
+                        display.classList.add('is-highlighted');
+                    } else {
+                        textarea.classList.remove('is-highlighted');
+                        textarea.style.backgroundColor = '';
+                        display.classList.remove('is-highlighted');
+                    }
+                    
+                    // Update the display content to add or remove highlighting
+                    const hasHeader = element.style && element.style.hasHeader;
+                    const isHighlighted = styleProperties.isHighlighted;
+                    
+                    if (hasHeader) {
+                        display.innerHTML = this.view.formatTextWithHeader(element.text || '', true, isHighlighted);
+                    } else {
+                        display.innerHTML = this.view.convertUrlsToLinks(element.text || '', isHighlighted);
+                    }
+                }
+                
+                // Handle border setting
+if (styleProperties.hasBorder !== undefined) {
+    if (styleProperties.hasBorder) {
+        container.classList.add('has-permanent-border');
     } else {
-        display.innerHTML = this.view.convertUrlsToLinks(element.text || '', isHighlighted);
+        container.classList.remove('has-permanent-border');
     }
 }
                 
