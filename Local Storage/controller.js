@@ -153,6 +153,7 @@ async initialize() {
     
     // In controller.js, modify the updateElement method
 // In controller.js, modify the updateElement method
+// In controller.js, update the updateElement method to call updateNavigationTitles
 async updateElement(id, properties) {
     if (!this.isInitialized) {
         OPTIMISM.logError('Cannot update element: application not initialized');
@@ -655,8 +656,7 @@ if (styleProperties.isLocked !== undefined) {
 
     // In controller.js, add this new method:
 
-    // In controller.js, modify the updateElementWithUndo method
-// In controller.js, modify the updateElementWithUndo method
+    
 async updateElementWithUndo(id, newProperties, oldProperties) {
     if (!this.isInitialized) {
         OPTIMISM.logError('Cannot update element: application not initialized');

@@ -385,57 +385,66 @@ async redo() {
                Object.keys(this.currentNode.children[elementId].children || {}).length > 0);
     }
 
-    async navigateToElement(elementId) {
-        const element = this.findElement(elementId);
-        if (!element) return false;
-    
-        if (!this.currentNode.children) {
-            this.currentNode.children = {};
-        }
-    
-        // Create a child node if it doesn't exist
-        if (!this.currentNode.children[elementId]) {
-            let nodeTitle = "Untitled";
-            
-            if (element.type === 'text') {
-                nodeTitle = element.text ? 
-                    (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : 
-                    "Untitled";
-            } else if (element.type === 'image') {
-                nodeTitle = "Image";
-            }
-                
-            this.currentNode.children[elementId] = {
-                id: elementId,
-                parentId: this.currentNode.id,
-                title: nodeTitle,
-                elements: [],
-                children: {}
-            };
-        }
-    
-        // Add to navigation stack
-        this.navigationStack.push({
-            nodeId: elementId,
-            nodeTitle: this.currentNode.children[elementId].title,
-            node: this.currentNode.children[elementId]
-        });
-        
-        // Update current node
-        this.currentNode = this.currentNode.children[elementId];
-        
-        // Clear selected element when navigating
-        this.selectedElement = null;
-        
-        // Update URL hash
-        this.updateUrlHash();
-        
-        // Update browser history
-        window.history.pushState({ nodeId: elementId }, '', this.generateUrlHash(elementId));
-        
-        await this.saveData();
-        return true;
+    // In model.js, update the navigateToElement method
+async navigateToElement(elementId) {
+    const element = this.findElement(elementId);
+    if (!element) return false;
+
+    if (!this.currentNode.children) {
+        this.currentNode.children = {};
     }
+
+    // Create a child node if it doesn't exist
+    if (!this.currentNode.children[elementId]) {
+        let nodeTitle = "Untitled";
+        
+        if (element.type === 'text') {
+            nodeTitle = element.text ? 
+                (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : 
+                "Untitled";
+        } else if (element.type === 'image') {
+            nodeTitle = "Image";
+        }
+            
+        this.currentNode.children[elementId] = {
+            id: elementId,
+            parentId: this.currentNode.id,
+            title: nodeTitle,
+            elements: [],
+            children: {}
+        };
+    } else {
+        // If the node exists but we're updating a text element, update the title
+        if (element.type === 'text') {
+            const nodeTitle = element.text ? 
+                (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : 
+                "Untitled";
+            this.currentNode.children[elementId].title = nodeTitle;
+        }
+    }
+
+    // Add to navigation stack
+    this.navigationStack.push({
+        nodeId: elementId,
+        nodeTitle: this.currentNode.children[elementId].title,
+        node: this.currentNode.children[elementId]
+    });
+    
+    // Update current node
+    this.currentNode = this.currentNode.children[elementId];
+    
+    // Clear selected element when navigating
+    this.selectedElement = null;
+    
+    // Update URL hash
+    this.updateUrlHash();
+    
+    // Update browser history
+    window.history.pushState({ nodeId: elementId }, '', this.generateUrlHash(elementId));
+    
+    await this.saveData();
+    return true;
+}
 
     // Update the navigateBack method in model.js
 // Modify the navigateBack method to update URL
@@ -1203,6 +1212,69 @@ async toggleCardLock(cardId) {
     } else {
         return await this.lockCard(cardId);
     }
+}
+
+// Add this method to the CanvasModel class in model.js
+async updateNavigationTitles(elementId, newText) {
+    // Only update titles for text elements
+    const element = this.findElement(elementId);
+    if (!element || element.type !== 'text') return;
+    
+    OPTIMISM.log(`Updating navigation titles for element ${elementId}`);
+    
+    // Check if this element is a parent of any node in the navigation stack
+    let updated = false;
+    
+    // Skip the root node (index 0)
+    for (let i = 1; i < this.navigationStack.length; i++) {
+        const navItem = this.navigationStack[i];
+        
+        // If this node's ID matches the element ID, update its title
+        if (navItem.nodeId === elementId) {
+            // Create a title from the text (limit to 60 characters)
+            const newTitle = newText ? 
+                (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) : 
+                "Untitled";
+            
+            navItem.nodeTitle = newTitle;
+            OPTIMISM.log(`Updated navigation title at level ${i} to "${newTitle}"`);
+            updated = true;
+        }
+        
+        // Also update any children nodes that have this element as parent
+        // (in case we're editing an element that is a parent of navigation nodes)
+        const node = navItem.node;
+        if (node && node.parentId === elementId) {
+            // Update the node title in the current node
+            node.title = newText ? 
+                (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) : 
+                "Untitled";
+                
+            // Also update the title in the navigation stack
+            navItem.nodeTitle = node.title;
+            
+            OPTIMISM.log(`Updated node title for child of ${elementId} to "${node.title}"`);
+            updated = true;
+        }
+    }
+    
+    // Also update titles for any child nodes that aren't in the navigation stack
+    if (this.currentNode.children && this.currentNode.children[elementId]) {
+        const childNode = this.currentNode.children[elementId];
+        childNode.title = newText ? 
+            (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) : 
+            "Untitled";
+        
+        OPTIMISM.log(`Updated title for child node ${elementId} to "${childNode.title}"`);
+        updated = true;
+    }
+    
+    // If we updated any titles, save the data
+    if (updated) {
+        await this.saveData();
+    }
+    
+    return updated;
 }
 
 }

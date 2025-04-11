@@ -870,23 +870,24 @@ this.updateLockedCardStyles();
     OPTIMISM.log('Workspace rendering complete');
 }
     
-    updatePageTitle() {
-        if (this.model.navigationStack.length === 1) {
-            // At root level, use default title
-            document.title = 'OPTIMISM';
-        } else {
-            // Get the current node title
-            const currentNode = this.model.navigationStack[this.model.navigationStack.length - 1];
-            let title = currentNode.nodeTitle || 'Untitled';
-            
-            // Truncate to 20 characters if needed
-            if (title.length > 20) {
-                title = title.substring(0, 20) + '...';
-            }
-            
-            document.title = title;
+    // In view.js, ensure the updatePageTitle method is correctly implemented
+updatePageTitle() {
+    if (this.model.navigationStack.length === 1) {
+        // At root level, use default title
+        document.title = 'OPTIMISM';
+    } else {
+        // Get the current node title
+        const currentNode = this.model.navigationStack[this.model.navigationStack.length - 1];
+        let title = currentNode.nodeTitle || 'Untitled';
+        
+        // Truncate to 20 characters if needed
+        if (title.length > 20) {
+            title = title.substring(0, 20) + '...';
         }
+        
+        document.title = title;
     }
+}
     
     renderBreadcrumbs() {
         OPTIMISM.log('Rendering breadcrumbs');
