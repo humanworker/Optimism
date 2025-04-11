@@ -2124,6 +2124,7 @@ document.head.appendChild(styleElem);
 
 
 // In view.js - full renderQuickLinks method
+// In view.js - update the renderQuickLinks method
 renderQuickLinks() {
     OPTIMISM.log('Rendering quick links');
     
@@ -2200,10 +2201,17 @@ renderQuickLinks() {
         
         quickLink.textContent = displayTitle;
         
-        // Calculate opacity based on remaining lifetime
-        const remainingLifePercentage = editsUntilExpiry / this.model.quickLinkExpiryCount;
-        const opacity = Math.max(0.3, remainingLifePercentage);
-        quickLink.style.opacity = opacity.toFixed(2);
+        // Check if we're in the critical last 10 edits
+        if (editsUntilExpiry <= 10) {
+            // For the last 10 edits, use red text and full opacity
+            quickLink.style.color = 'var(--red-text-color)';
+            quickLink.style.opacity = '1.0'; // Full opacity
+        } else {
+            // Calculate opacity based on remaining lifetime for non-critical links
+            const remainingLifePercentage = editsUntilExpiry / this.model.quickLinkExpiryCount;
+            const opacity = Math.max(0.3, remainingLifePercentage);
+            quickLink.style.opacity = opacity.toFixed(2);
+        }
         
         // Add hover event listeners for shift key state
         quickLink.addEventListener('mouseenter', () => {
@@ -2217,32 +2225,30 @@ renderQuickLinks() {
         });
         
         // Handle clicks on the link
-        // In view.js - update the click handler in renderQuickLinks method
-// Handle clicks on the link
-quickLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Check if shift key is pressed for removal
-    if (e.shiftKey) {
-        try {
-            OPTIMISM.log(`Removing quick link via shift+click: ${link.nodeId}`);
-            this.controller.removeQuickLink(link.nodeId);
-        } catch (error) {
-            OPTIMISM.logError(`Error removing quick link: ${error}`);
-        }
-        return;
-    }
-    
-    // Normal click - navigate to the node
-    try {
-        OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
-        // Use navigateToNode instead of navigateToElement
-        this.controller.navigateToNode(link.nodeId);
-    } catch (error) {
-        OPTIMISM.logError(`Error navigating to quick link: ${error}`);
-    }
-});
+        quickLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Check if shift key is pressed for removal
+            if (e.shiftKey) {
+                try {
+                    OPTIMISM.log(`Removing quick link via shift+click: ${link.nodeId}`);
+                    this.controller.removeQuickLink(link.nodeId);
+                } catch (error) {
+                    OPTIMISM.logError(`Error removing quick link: ${error}`);
+                }
+                return;
+            }
+            
+            // Normal click - navigate to the node
+            try {
+                OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
+                // Use navigateToNode instead of navigateToElement
+                this.controller.navigateToNode(link.nodeId);
+            } catch (error) {
+                OPTIMISM.logError(`Error navigating to quick link: ${error}`);
+            }
+        });
         
         linksWrapper.appendChild(quickLink);
     });
