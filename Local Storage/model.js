@@ -1142,4 +1142,23 @@ async cleanupExpiredQuickLinks() {
     return false;
 }
 
+// Add this method to the CanvasModel class in model.js
+async refreshQuickLinkExpiry(nodeId) {
+    // Find the quick link
+    const linkIndex = this.quickLinks.findIndex(link => link.nodeId === nodeId);
+    if (linkIndex === -1) {
+      OPTIMISM.log(`Quick link for node ${nodeId} not found to refresh`);
+      return false;
+    }
+    
+    // Reset the expiry counter to a new value based on the current edit counter
+    this.quickLinks[linkIndex].expiresAt = this.editCounter + this.quickLinkExpiryCount;
+    
+    OPTIMISM.log(`Refreshed quick link to node ${nodeId} (will expire after edit #${this.quickLinks[linkIndex].expiresAt})`);
+    
+    // Save state
+    await this.saveAppState();
+    return true;
+  }
+
 }

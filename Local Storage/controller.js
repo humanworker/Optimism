@@ -914,4 +914,25 @@ async navigateToNode(nodeId) {
     }
 }
 
+// Add this method to the CanvasController class in controller.js
+async refreshQuickLinkExpiry(nodeId) {
+    if (!this.isInitialized) {
+      OPTIMISM.logError('Cannot refresh quick link: application not initialized');
+      return false;
+    }
+    
+    try {
+      OPTIMISM.log(`Refreshing expiry for quick link ${nodeId}`);
+      const success = await this.model.refreshQuickLinkExpiry(nodeId);
+      if (success) {
+        this.view.renderQuickLinks();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      OPTIMISM.logError('Error refreshing quick link expiry:', error);
+      return false;
+    }
+  }
+
 }

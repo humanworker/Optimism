@@ -2265,31 +2265,39 @@ renderQuickLinks() {
             quickLink.classList.remove('shift-hover');
         });
         
-        // Handle clicks on the link
-        quickLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Check if shift key is pressed for removal
-            if (e.shiftKey) {
-                try {
-                    OPTIMISM.log(`Removing quick link via shift+click: ${link.nodeId}`);
-                    this.controller.removeQuickLink(link.nodeId);
-                } catch (error) {
-                    OPTIMISM.logError(`Error removing quick link: ${error}`);
-                }
-                return;
-            }
-            
-            // Normal click - navigate to the node
-            try {
-                OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
-                // Use navigateToNode instead of navigateToElement
-                this.controller.navigateToNode(link.nodeId);
-            } catch (error) {
-                OPTIMISM.logError(`Error navigating to quick link: ${error}`);
-            }
-        });
+        // In view.js - update the click handler in renderQuickLinks method
+quickLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Check if shift key is pressed for removal
+    if (e.shiftKey) {
+      try {
+        OPTIMISM.log(`Removing quick link via shift+click: ${link.nodeId}`);
+        this.controller.removeQuickLink(link.nodeId);
+      } catch (error) {
+        OPTIMISM.logError(`Error removing quick link: ${error}`);
+      }
+      return;
+    }
+    
+    // Refresh the expiry of the link when clicked
+    try {
+      OPTIMISM.log(`Refreshing quick link expiry on click: ${link.nodeId}`);
+      this.controller.refreshQuickLinkExpiry(link.nodeId);
+    } catch (error) {
+      OPTIMISM.logError(`Error refreshing quick link expiry: ${error}`);
+    }
+    
+    // Normal click - navigate to the node
+    try {
+      OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
+      // Use navigateToNode instead of navigateToElement
+      this.controller.navigateToNode(link.nodeId);
+    } catch (error) {
+      OPTIMISM.logError(`Error navigating to quick link: ${error}`);
+    }
+  });
         
         linksWrapper.appendChild(quickLink);
     });
