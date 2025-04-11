@@ -1263,8 +1263,9 @@ container.addEventListener('mousedown', (e) => {
         
         // Updated resize handle event listener
         resizeHandle.addEventListener('mousedown', (e) => {
-            // Don't allow resizing if images are locked
-            if (this.imagesLocked) return;
+            // Don't allow resizing for images if images are locked
+            // For text elements, always allow resizing regardless of lock state
+            if (this.model.imagesLocked && elementData.type === 'image') return;
             
             e.stopPropagation(); // Prevent other mouse handlers
             
@@ -1376,17 +1377,17 @@ if (highlightOption) {
         document.addEventListener('mousemove', (e) => {
             // Handle resizing
             if (this.resizingElement) {
+                // Get element type
+                const elementType = this.resizingElement.dataset.type;
+                
                 // Don't resize images if they're locked
-                if (this.model.imagesLocked && this.resizingElement.dataset.type === 'image') {
+                if (this.model.imagesLocked && elementType === 'image') {
                     return;
                 }
                 
                 // Calculate size delta
                 const deltaWidth = e.clientX - this.dragStartX;
                 const deltaHeight = e.clientY - this.dragStartY;
-                
-                // Get element type
-                const elementType = this.resizingElement.dataset.type;
                 
                 // Apply new dimensions with constraints based on element type
                 let newWidth, newHeight;
@@ -1448,8 +1449,11 @@ if (highlightOption) {
         document.addEventListener('mouseup', (e) => {
             // Handle end of resizing
             if (this.resizingElement) {
+                // Get element type
+                const elementType = this.resizingElement.dataset.type;
+                
                 // Don't update locked images
-                if (this.model.imagesLocked && this.resizingElement.dataset.type === 'image') {
+                if (this.model.imagesLocked && elementType === 'image') {
                     this.resizingElement = null;
                     return;
                 }
