@@ -1788,9 +1788,12 @@ document.addEventListener('mouseup', (e) => {
     // In view.js - update the handleDragOver method
 // In view.js - full handleDragOver method
 handleDragOver(e) {
-    // Remove previous highlights
-    const highlighted = document.querySelectorAll('.drag-highlight');
-    highlighted.forEach(el => el.classList.remove('drag-highlight'));
+    // Remove previous highlights - remove both highlight classes
+    const highlighted = document.querySelectorAll('.drag-highlight, .drag-over');
+    highlighted.forEach(el => {
+        el.classList.remove('drag-highlight');
+        el.classList.remove('drag-over');
+    });
     
     // First check for breadcrumb targets
     const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
