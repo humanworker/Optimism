@@ -42,6 +42,24 @@ class CanvasView {
         
         // Detect platform
         this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+            #style-panel, #settings-panel {
+                z-index: 200; /* Higher than any content z-index */
+               
+            }
+            
+            /* Make sure text elements don't appear on top of panels */
+            .text-element-container {
+                z-index: 100 !important; /* Text elements have z-index 100 */
+            }
+            
+            .image-element-container {
+                z-index: 1; /* Base z-index for images - individual images can have 1-99 */
+            }
+        `;
+        document.head.appendChild(styleElement);
     }
     
     hideLoading() {
@@ -1859,75 +1877,75 @@ findBreadcrumbDropTarget(e) {
     return null;
 }
 
-    setupSettingsPanel() {
-        OPTIMISM.log('Setting up settings panel');
+setupSettingsPanel() {
+    OPTIMISM.log('Setting up settings panel');
+    
+    // Toggle settings panel visibility when settings button is clicked
+    this.settingsToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = this.settingsPanel.style.display === 'block';
         
-        // Toggle settings panel visibility when settings button is clicked
-        this.settingsToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isVisible = this.settingsPanel.style.display === 'block';
-            
-            // Toggle visibility
-            this.settingsPanel.style.display = isVisible ? 'none' : 'block';
-            
-            // Close style panel if settings panel is opening
-            if (!isVisible) {
-                this.stylePanel.style.display = 'none';
-            }
-        });
+        // Toggle visibility
+        this.settingsPanel.style.display = isVisible ? 'none' : 'block';
         
-        // Set up settings panel options
-        document.getElementById('settings-undo-button').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.undo();
-            this.settingsPanel.style.display = 'none';
-        });
-        
-        document.getElementById('settings-redo-button').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.redo();
-            this.settingsPanel.style.display = 'none';
-        });
-        
-        document.getElementById('settings-export-button').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.exportData();
-            this.settingsPanel.style.display = 'none';
-        });
-        
-        document.getElementById('settings-export-no-images-button').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.exportDataWithoutImages();
-            this.settingsPanel.style.display = 'none';
-        });
-        
-        document.getElementById('settings-import-button').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.confirmationDialog.style.display = 'block';
-            this.settingsPanel.style.display = 'none';
-        });
-        
-        document.getElementById('settings-debug-toggle').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.toggleDebugPanel();
-            this.settingsPanel.style.display = 'none';
-        });
-        
-        document.getElementById('settings-theme-toggle').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.controller.toggleTheme();
-            this.settingsPanel.style.display = 'none';
-        });
-        
-        OPTIMISM.log('Settings panel set up successfully');
-    }
+        // Close style panel if settings panel is opening
+        if (!isVisible) {
+            this.stylePanel.style.display = 'none';
+        }
+    });
+    
+    // Set up settings panel options - remove all instances of hiding the panel
+    document.getElementById('settings-undo-button').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.controller.undo();
+        // Remove: this.settingsPanel.style.display = 'none';
+    });
+    
+    document.getElementById('settings-redo-button').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.controller.redo();
+        // Remove: this.settingsPanel.style.display = 'none';
+    });
+    
+    document.getElementById('settings-export-button').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.controller.exportData();
+        // Remove: this.settingsPanel.style.display = 'none';
+    });
+    
+    document.getElementById('settings-export-no-images-button').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.controller.exportDataWithoutImages();
+        // Remove: this.settingsPanel.style.display = 'none';
+    });
+    
+    document.getElementById('settings-import-button').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.confirmationDialog.style.display = 'block';
+        // Remove: this.settingsPanel.style.display = 'none';
+    });
+    
+    document.getElementById('settings-debug-toggle').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.controller.toggleDebugPanel();
+        // Remove: this.settingsPanel.style.display = 'none';
+    });
+    
+    document.getElementById('settings-theme-toggle').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.controller.toggleTheme();
+        // Remove: this.settingsPanel.style.display = 'none';
+    });
+    
+    OPTIMISM.log('Settings panel set up successfully');
+}
 
     // Add this method to the CanvasView class in view.js
 // In view.js
