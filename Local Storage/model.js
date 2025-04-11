@@ -18,6 +18,10 @@ class CanvasModel {
         this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         this.imagesLocked = false; // Add this property to track image lock state
         
+        // Quick links in the nav bar (new)
+        this.quickLinks = [];
+        this.quickLinkExpiryCount = 100; // Links expire after 100 edits
+        
         // Command history for undo/redo
         this.undoStack = [];
         this.redoStack = [];
@@ -73,62 +77,68 @@ async initialize() {
     
     // In model.js, modify the loadData method
     // In model.js, modify the loadData method
-async loadData() {
-    try {
-        let data = await this.db.getData('canvasData', 'root');
-        
-        if (!data) {
-            OPTIMISM.log('No existing data, creating default structure');
-            data = { 
-                id: 'root', 
-                title: 'Home', 
-                elements: [], 
-                children: {} 
-            };
-            await this.db.put('canvasData', data);
-        }
-        
-        this.data = data;
-        this.navigationStack[0].node = this.data;
-        this.currentNode = this.data;
-        
-        // Load app state (including edit counter and backup reminder)
+    async loadData() {
         try {
-            const appState = await this.db.getData('canvasData', 'appState');
-            if (appState) {
-                if (appState.deletedImageQueue) {
-                    this.deletedImageQueue = appState.deletedImageQueue;
-                    OPTIMISM.log(`Loaded deleted image queue with ${this.deletedImageQueue.length} entries`);
-                }
-                
-                // Load edit counter and backup reminder
-                if (appState.editCounter !== undefined) {
-                    this.editCounter = appState.editCounter;
-                    OPTIMISM.log(`Loaded edit counter: ${this.editCounter}`);
-                }
-                
-                if (appState.lastBackupReminder !== undefined) {
-                    this.lastBackupReminder = appState.lastBackupReminder;
-                    OPTIMISM.log(`Loaded last backup reminder: ${this.lastBackupReminder}`);
-                }
-                
-                // Add this block to load the imagesLocked state
-                if (appState.imagesLocked !== undefined) {
-                    this.imagesLocked = appState.imagesLocked;
-                    OPTIMISM.log(`Loaded images locked state: ${this.imagesLocked}`);
-                }
+            let data = await this.db.getData('canvasData', 'root');
+            
+            if (!data) {
+                OPTIMISM.log('No existing data, creating default structure');
+                data = { 
+                    id: 'root', 
+                    title: 'Home', 
+                    elements: [], 
+                    children: {} 
+                };
+                await this.db.put('canvasData', data);
             }
+            
+            this.data = data;
+            this.navigationStack[0].node = this.data;
+            this.currentNode = this.data;
+            
+            // Load app state (including edit counter and backup reminder)
+            try {
+                const appState = await this.db.getData('canvasData', 'appState');
+                if (appState) {
+                    if (appState.deletedImageQueue) {
+                        this.deletedImageQueue = appState.deletedImageQueue;
+                        OPTIMISM.log(`Loaded deleted image queue with ${this.deletedImageQueue.length} entries`);
+                    }
+                    
+                    // Load edit counter and backup reminder
+                    if (appState.editCounter !== undefined) {
+                        this.editCounter = appState.editCounter;
+                        OPTIMISM.log(`Loaded edit counter: ${this.editCounter}`);
+                    }
+                    
+                    if (appState.lastBackupReminder !== undefined) {
+                        this.lastBackupReminder = appState.lastBackupReminder;
+                        OPTIMISM.log(`Loaded last backup reminder: ${this.lastBackupReminder}`);
+                    }
+                    
+                    // Add this block to load the imagesLocked state
+                    if (appState.imagesLocked !== undefined) {
+                        this.imagesLocked = appState.imagesLocked;
+                        OPTIMISM.log(`Loaded images locked state: ${this.imagesLocked}`);
+                    }
+                    
+                    // Load quick links (new)
+                    if (appState.quickLinks !== undefined) {
+                        this.quickLinks = appState.quickLinks;
+                        OPTIMISM.log(`Loaded ${this.quickLinks.length} quick links`);
+                    }
+                }
+            } catch (error) {
+                OPTIMISM.logError('Error loading app state:', error);
+                // Continue with default values
+            }
+            
+            return data;
         } catch (error) {
-            OPTIMISM.logError('Error loading app state:', error);
-            // Continue with default values
+            OPTIMISM.logError('Error loading data:', error);
+            throw error;
         }
-        
-        return data;
-    } catch (error) {
-        OPTIMISM.logError('Error loading data:', error);
-        throw error;
     }
-}
 
     async saveData() {
         try {
@@ -711,36 +721,40 @@ async navigateToNode(nodeId) {
     }
 
     // In model.js, modify the incrementEditCounter method:
-// In model.js, modify the incrementEditCounter method
-incrementEditCounter() {
-    this.editCounter++;
-    
-    // Add logging for edit counter and thresholds
-    const editsUntilBackup = this.backupReminderThreshold - (this.editCounter - this.lastBackupReminder);
-    OPTIMISM.log(`Edit #${this.editCounter} (${editsUntilBackup} until backup reminder)`);
-    
-    // If there are deleted images in the queue, log information about them
-    if (this.deletedImageQueue.length > 0) {
-        const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
-        const editsUntilDeletion = nextDeletion - this.editCounter;
-        OPTIMISM.log(`Images pending deletion: ${this.deletedImageQueue.length} (next in ${editsUntilDeletion} edits)`);
+    incrementEditCounter() {
+        this.editCounter++;
+        
+        // Add logging for edit counter and thresholds
+        const editsUntilBackup = this.backupReminderThreshold - (this.editCounter - this.lastBackupReminder);
+        OPTIMISM.log(`Edit #${this.editCounter} (${editsUntilBackup} until backup reminder)`);
+        
+        // If there are deleted images in the queue, log information about them
+        if (this.deletedImageQueue.length > 0) {
+            const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
+            const editsUntilDeletion = nextDeletion - this.editCounter;
+            OPTIMISM.log(`Images pending deletion: ${this.deletedImageQueue.length} (next in ${editsUntilDeletion} edits)`);
+        }
+        
+        // Check if there are any images to clean up
+        if (this.deletedImageQueue.length > 0) {
+            this.cleanupDeletedImages();
+        }
+        
+        // Check for expired quick links
+        if (this.quickLinks.length > 0) {
+            this.cleanupExpiredQuickLinks();
+        }
+        
+        // Save the app state after incrementing edit counter
+        this.saveAppState();
+        
+        // Check if we need to show a backup reminder
+        if (this.editCounter - this.lastBackupReminder >= this.backupReminderThreshold) {
+            return true; // Signal to show backup reminder
+        }
+        
+        return false;
     }
-    
-    // Check if there are any images to clean up
-    if (this.deletedImageQueue.length > 0) {
-        this.cleanupDeletedImages();
-    }
-    
-    // Save the app state after incrementing edit counter
-    this.saveAppState();
-    
-    // Check if we need to show a backup reminder
-    if (this.editCounter - this.lastBackupReminder >= this.backupReminderThreshold) {
-        return true; // Signal to show backup reminder
-    }
-    
-    return false;
-}
     
     // In model.js, modify the resetBackupReminder method
 resetBackupReminder() {
@@ -792,17 +806,18 @@ resetBackupReminder() {
 
     // In model.js, update the saveAppState method
    // In model.js, update the saveAppState method
-async saveAppState() {
+   async saveAppState() {
     try {
         const appState = {
             id: 'appState',
             deletedImageQueue: this.deletedImageQueue,
             editCounter: this.editCounter,
             lastBackupReminder: this.lastBackupReminder,
-            imagesLocked: this.imagesLocked // Add this line
+            imagesLocked: this.imagesLocked,
+            quickLinks: this.quickLinks // Add this line
         };
         
-        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked})`);
+        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length})`);
         await this.db.put('canvasData', appState);
     } catch (error) {
         OPTIMISM.logError('Error saving app state:', error);
@@ -1061,6 +1076,70 @@ async toggleImagesLocked() {
     OPTIMISM.log(`Images locked state set to: ${this.imagesLocked}`);
     await this.saveAppState();
     return this.imagesLocked;
+}
+
+// Add a quick link to the nav bar
+async addQuickLink(nodeId, nodeTitle) {
+    // Don't add if already exists
+    if (this.quickLinks.some(link => link.nodeId === nodeId)) {
+        OPTIMISM.log(`Quick link for node ${nodeId} already exists`);
+        return false;
+    }
+    
+    // Check if we already have 3 links, if so, remove the oldest one
+    if (this.quickLinks.length >= 3) {
+        this.quickLinks.shift(); // Remove oldest
+        OPTIMISM.log('Removed oldest quick link to make room for new one');
+    }
+    
+    // Create new quick link with expiry timestamp
+    const newLink = {
+        nodeId,
+        nodeTitle,
+        addedAt: this.editCounter,
+        expiresAt: this.editCounter + this.quickLinkExpiryCount
+    };
+    
+    // Add to the end of the array
+    this.quickLinks.push(newLink);
+    OPTIMISM.log(`Added quick link to node ${nodeId} (${nodeTitle})`);
+    
+    // Save state
+    await this.saveAppState();
+    return true;
+}
+
+// Remove a quick link from the nav bar
+async removeQuickLink(nodeId) {
+    const initialLength = this.quickLinks.length;
+    this.quickLinks = this.quickLinks.filter(link => link.nodeId !== nodeId);
+    
+    if (initialLength !== this.quickLinks.length) {
+        OPTIMISM.log(`Removed quick link to node ${nodeId}`);
+        await this.saveAppState();
+        return true;
+    }
+    
+    OPTIMISM.log(`Quick link to node ${nodeId} not found`);
+    return false;
+}
+
+// Check and remove expired links
+async cleanupExpiredQuickLinks() {
+    const initialLength = this.quickLinks.length;
+    
+    // Filter out expired links
+    this.quickLinks = this.quickLinks.filter(link => 
+        link.expiresAt > this.editCounter
+    );
+    
+    if (initialLength !== this.quickLinks.length) {
+        OPTIMISM.log(`Removed ${initialLength - this.quickLinks.length} expired quick link(s)`);
+        await this.saveAppState();
+        return true;
+    }
+    
+    return false;
 }
 
 }

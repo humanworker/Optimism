@@ -860,4 +860,66 @@ async toggleImagesLocked() {
     }
 }
 
+async addQuickLink(nodeId, nodeTitle) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot add quick link: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Adding quick link for node ${nodeId}`);
+        const success = await this.model.addQuickLink(nodeId, nodeTitle);
+        if (success) {
+            this.view.renderQuickLinks();
+            return true;
+        }
+        return false;
+    } catch (error) {
+        OPTIMISM.logError('Error adding quick link:', error);
+        return false;
+    }
+}
+
+async removeQuickLink(nodeId) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot remove quick link: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Removing quick link for node ${nodeId}`);
+        const success = await this.model.removeQuickLink(nodeId);
+        if (success) {
+            this.view.renderQuickLinks();
+            return true;
+        }
+        return false;
+    } catch (error) {
+        OPTIMISM.logError('Error removing quick link:', error);
+        return false;
+    }
+}
+
+// In controller.js
+async navigateToNode(nodeId) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot navigate to node: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Navigating to node ${nodeId}`);
+        if (await this.model.navigateToNode(nodeId)) {
+            OPTIMISM.log('Navigation successful');
+            this.view.renderWorkspace();
+            return true;
+        }
+        OPTIMISM.log('Navigation failed');
+        return false;
+    } catch (error) {
+        OPTIMISM.logError('Error navigating to node:', error);
+        return false;
+    }
+}
+
 }

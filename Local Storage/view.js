@@ -1,45 +1,48 @@
 // View to handle UI interactions
 class CanvasView {
     // Modify the constructor in CanvasView to remove the imagesLocked property initialization:
-constructor(model, controller) {
-    this.model = model;
-    this.controller = controller;
-    this.workspace = document.getElementById('workspace');
-    this.titleBar = document.getElementById('title-bar');
-    this.breadcrumbContainer = document.getElementById('breadcrumb-container');
-    this.stylePanel = document.getElementById('style-panel');
-    this.settingsPanel = document.getElementById('settings-panel');
-    this.themeToggle = document.getElementById('theme-toggle');
-    this.settingsToggle = document.getElementById('settings-toggle');
-    this.lockImagesButton = document.getElementById('lock-images-button');
-    this.undoButton = document.getElementById('undo-button');
-    this.redoButton = document.getElementById('redo-button');
-    this.loadingOverlay = document.getElementById('loading-overlay');
-    this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
-    this.debugPanel = document.getElementById('debug-panel');
-    this.debugToggle = document.getElementById('debug-toggle');
-    this.progressContainer = document.getElementById('progress-container');
-    this.progressBar = document.getElementById('progress-bar');
-    this.progressText = document.getElementById('progress-text');
-    this.exportButton = document.getElementById('export-button');
-    this.importButton = document.getElementById('import-button');
-    this.confirmationDialog = document.getElementById('confirmation-dialog');
-    this.cancelImportButton = document.getElementById('cancel-import');
-    this.confirmImportButton = document.getElementById('confirm-import');
-    // Remove the imagesLocked = false; line (it's now in the model)
-    this.draggedElement = null;
-    this.resizingElement = null;
-    this.dragStartX = 0;
-    this.dragStartY = 0;
-    this.elemOffsetX = 0;
-    this.elemOffsetY = 0;
-    
-    this.initialWidth = 0;
-    this.initialHeight = 0;
-    
-    // Detect platform
-    this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-}
+    constructor(model, controller) {
+        this.model = model;
+        this.controller = controller;
+        this.workspace = document.getElementById('workspace');
+        this.titleBar = document.getElementById('title-bar');
+        this.breadcrumbContainer = document.getElementById('breadcrumb-container');
+        this.stylePanel = document.getElementById('style-panel');
+        this.settingsPanel = document.getElementById('settings-panel');
+        this.themeToggle = document.getElementById('theme-toggle');
+        this.settingsToggle = document.getElementById('settings-toggle');
+        this.lockImagesButton = document.getElementById('lock-images-button');
+        this.undoButton = document.getElementById('undo-button');
+        this.redoButton = document.getElementById('redo-button');
+        this.loadingOverlay = document.getElementById('loading-overlay');
+        this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
+        this.debugPanel = document.getElementById('debug-panel');
+        this.debugToggle = document.getElementById('debug-toggle');
+        this.progressContainer = document.getElementById('progress-container');
+        this.progressBar = document.getElementById('progress-bar');
+        this.progressText = document.getElementById('progress-text');
+        this.exportButton = document.getElementById('export-button');
+        this.importButton = document.getElementById('import-button');
+        this.confirmationDialog = document.getElementById('confirmation-dialog');
+        this.cancelImportButton = document.getElementById('cancel-import');
+        this.confirmImportButton = document.getElementById('confirm-import');
+        
+        // Quick links container
+        this.quickLinksContainer = null; // Will be created in setupQuickLinks method
+        
+        this.draggedElement = null;
+        this.resizingElement = null;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.elemOffsetX = 0;
+        this.elemOffsetY = 0;
+        
+        this.initialWidth = 0;
+        this.initialHeight = 0;
+        
+        // Detect platform
+        this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    }
     
     hideLoading() {
         OPTIMISM.log('Application loaded');
@@ -71,6 +74,8 @@ constructor(model, controller) {
         this.setupBackupReminderModal();
         this.setupSettingsPanel();
         this.setupLockImagesToggle();  // Add this line
+        this.setupQuickLinks(); // Add this line
+        this.setupQuickLinkDragEvents(); // Add this line
         
         // Add Copy Link button
         const copyLinkButton = document.createElement('button');
@@ -376,22 +381,29 @@ this.settingsPanel.style.display = 'none';
     }
     
     // For view.js - Updated setupImageDropZone method
-setupImageDropZone() {
-    OPTIMISM.log('Setting up image drop zone');
-    const dropZoneIndicator = this.dropZoneIndicator;
-    
-    // Show drop zone when dragging over the document
-    document.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZoneIndicator.style.display = 'block';
-    });
-    
-    // Hide drop zone when leaving the document
-    document.addEventListener('dragleave', (e) => {
-        if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
-            dropZoneIndicator.style.display = 'none';
-        }
-    });
+    setupImageDropZone() {
+        OPTIMISM.log('Setting up image drop zone');
+        const dropZoneIndicator = this.dropZoneIndicator;
+        
+        // Show drop zone when dragging over the document
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            
+            // Don't show drop zone for quick links
+            if (e.dataTransfer.types.includes('application/quicklink')) {
+                dropZoneIndicator.style.display = 'none';
+                return;
+            }
+            
+            dropZoneIndicator.style.display = 'block';
+        });
+        
+        // Hide drop zone when leaving the document
+        document.addEventListener('dragleave', (e) => {
+            if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
+                dropZoneIndicator.style.display = 'none';
+            }
+        });
     
     // Handle drop events
     document.addEventListener('drop', async (e) => {
@@ -740,6 +752,9 @@ renderWorkspace() {
     
     // Update breadcrumbs
     this.renderBreadcrumbs();
+
+     // Update quick links
+     this.renderQuickLinks();
     
     // Render elements
     if (this.model.currentNode.elements) {
@@ -1047,295 +1062,296 @@ createTextElementDOM(elementData) {
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
     
-    // ... rest of the method remains unchanged
-        
-        // Setup content listeners
-        textEditor.addEventListener('input', () => {
-            // We don't immediately update the model on every keystroke anymore
-            // Just update display for immediate feedback if needed
-        });
+    // Setup content listeners
+    textEditor.addEventListener('input', () => {
+        // We don't immediately update the model on every keystroke anymore
+        // Just update display for immediate feedback if needed
+    });
 
-        textEditor.addEventListener('mousedown', (e) => {
-            // Stop propagation to prevent the container's mousedown handler from firing
-            e.stopPropagation();
-        });
-        
-        textEditor.addEventListener('click', (e) => {
-            // Stop propagation to prevent the container's click handler from firing
-            e.stopPropagation();
-        });
-        
-        textEditor.addEventListener('input', () => {
-            // We don't immediately update the model on every keystroke anymore
-            // Just update display for immediate feedback if needed
-        });
-        
-        textEditor.addEventListener('blur', () => {
-            // Get the original element's text before any changes
-            const element = this.model.findElement(elementData.id);
-            const originalText = element ? element.text : '';
-            const newText = textEditor.value;
-            
-            // Check if text is now empty (including whitespace-only)
-            if (newText.trim() === '') {
-                // The text is empty, delete the element
-                this.controller.deleteElement(elementData.id);
-                return; // Don't continue since the element is deleted
-            }
-            
-            // Only create an undo command if the text actually changed
-            if (originalText !== newText) {
-                this.controller.updateElementWithUndo(elementData.id, {
-                    text: newText
-                }, {
-                    text: originalText
-                });
-            }
-            
-            // Don't process if element was deleted due to empty text
-            if (!this.model.findElement(elementData.id)) {
-                return;
-            }
-            
-            // Update display content with converted links and header format if needed
-            const updatedElement = this.model.findElement(elementData.id);
-            const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
-            const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
-            
-            if (hasHeader) {
-                textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
-            } else {
-                textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
-            }
-            
-            // Toggle visibility
-            textEditor.style.display = 'none';
-            textDisplay.style.display = 'block';
-        });
-
-        // Handle link clicks within the display div
-        textDisplay.addEventListener('click', (e) => {
-            // Check if we clicked on a link
-            if (e.target.tagName === 'A') {
-                e.stopPropagation(); // Don't bubble up to select the container
-                return true; // Allow default link behavior
-            }
-        });
-        
-        // This is the click handler for text elements:
-        container.addEventListener('click', (e) => {
-            // If CMD/CTRL is pressed, navigate into the element regardless of lock state
-            if (this.isModifierKeyPressed(e)) {
-                this.controller.navigateToElement(elementData.id);
-                e.stopPropagation();
-                return;
-            }
-            
-            // Don't select if images are locked and this is an image
-            if (this.model.imagesLocked && elementData.type === 'image') {
-                return;
-            }
-            
-            this.selectElement(container, elementData);
-        });
-        
-        // Handle double-click to edit text
-        container.addEventListener('dblclick', (e) => {
-            // Don't handle dblclicks on links
-            if (e.target.tagName === 'A') return;
-            
-            // Switch to edit mode
-            textDisplay.style.display = 'none';
-            textEditor.style.display = 'block';
-            textEditor.focus();
-            e.stopPropagation(); // Prevent creating a new element
-        });
-        
-        container.addEventListener('mousedown', (e) => {
-            // Don't handle if not left mouse button
-            if (e.button !== 0) return;
-            
-            // Don't start drag when on resize handle
-            if (e.target === resizeHandle) return;
-            
-            this.selectElement(container, elementData);
-            
-            this.draggedElement = container;
-            this.model.selectedElement = elementData.id;
-            
-            // Calculate offset
-            const rect = container.getBoundingClientRect();
-            this.elemOffsetX = e.clientX - rect.left;
-            this.elemOffsetY = e.clientY - rect.top;
-            
-            container.classList.add('dragging');
-            e.preventDefault();
-        });
-        
-        // In createTextElementDOM method in view.js
-// In createImageElementDOM method in view.js
-// In createTextElementDOM method in view.js
-resizeHandle.addEventListener('mousedown', (e) => {
-    // Don't check image lock status for text elements
-    // Text elements should always be resizable regardless of image lock
+    textEditor.addEventListener('mousedown', (e) => {
+        // Stop propagation to prevent the container's mousedown handler from firing
+        e.stopPropagation();
+    });
     
-    e.stopPropagation(); // Prevent other mouse handlers
+    textEditor.addEventListener('click', (e) => {
+        // Stop propagation to prevent the container's click handler from firing
+        e.stopPropagation();
+    });
     
-    this.selectElement(container, elementData);
-    this.resizingElement = container;
+    textEditor.addEventListener('input', () => {
+        // We don't immediately update the model on every keystroke anymore
+        // Just update display for immediate feedback if needed
+    });
     
-    // Save initial dimensions
-    this.initialWidth = container.offsetWidth;
-    this.initialHeight = container.offsetHeight;
-    
-    // Save initial mouse position
-    this.dragStartX = e.clientX;
-    this.dragStartY = e.clientY;
-    
-    e.preventDefault();
-});
+    textEditor.addEventListener('blur', () => {
+        // Get the original element's text before any changes
+        const element = this.model.findElement(elementData.id);
+        const originalText = element ? element.text : '';
+        const newText = textEditor.value;
         
-        // Append all elements to the container
-        container.appendChild(textEditor);
-        container.appendChild(textDisplay);
-        container.appendChild(resizeHandle);
-        
-        // Add to workspace
-        this.workspace.appendChild(container);
-        return container;
-    }
-    
-    async createImageElementDOM(elementData) {
-        OPTIMISM.log(`Creating image element DOM for ${elementData.id}`);
-        
-        // Create container for the element
-        const container = document.createElement('div');
-        container.className = 'element-container image-element-container';
-        container.dataset.id = elementData.id;
-        container.dataset.type = 'image';
-        container.style.left = `${elementData.x}px`;
-        container.style.top = `${elementData.y}px`;
-        
-        // Check if this element has children
-        const hasChildren = this.model.hasChildren(elementData.id);
-        if (hasChildren) {
-            container.classList.add('has-children');
+        // Check if text is now empty (including whitespace-only)
+        if (newText.trim() === '') {
+            // The text is empty, delete the element
+            this.controller.deleteElement(elementData.id);
+            return; // Don't continue since the element is deleted
         }
         
-        // Set dimensions if they exist in the data
-        if (elementData.width) {
-            container.style.width = `${elementData.width}px`;
+        // Only create an undo command if the text actually changed
+        if (originalText !== newText) {
+            this.controller.updateElementWithUndo(elementData.id, {
+                text: newText
+            }, {
+                text: originalText
+            });
         }
         
-        if (elementData.height) {
-            container.style.height = `${elementData.height}px`;
+        // Don't process if element was deleted due to empty text
+        if (!this.model.findElement(elementData.id)) {
+            return;
         }
-    
-        // INSERT THIS UPDATED CODE HERE - RIGHT AFTER DIMENSIONS
-        if (elementData.zIndex) {
-            // Ensure z-index stays below text elements
-            container.style.zIndex = Math.min(parseInt(elementData.zIndex), 99);
+        
+        // Update display content with converted links and header format if needed
+        const updatedElement = this.model.findElement(elementData.id);
+        const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
+        const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
+        
+        if (hasHeader) {
+            textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
         } else {
-            container.style.zIndex = '1'; // Default z-index for images
+            textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
         }
         
-        // Create the image element
-        const imageElement = document.createElement('img');
-        imageElement.className = 'image-element';
-        // Make the image take up the full container size while maintaining aspect ratio
-        imageElement.style.width = '100%';
-        imageElement.style.height = '100%';
-        imageElement.style.objectFit = 'contain';
-        
-        // Load image data
-        try {
-            OPTIMISM.log(`Loading image data for ${elementData.imageDataId}`);
-            const imageData = await this.model.getImageData(elementData.imageDataId);
-            if (imageData) {
-                imageElement.src = imageData;
-                OPTIMISM.log('Image data loaded successfully');
-            } else {
-                OPTIMISM.logError(`Image data not found for ${elementData.imageDataId}`);
-                imageElement.alt = 'Image could not be loaded';
-            }
-        } catch (error) {
-            OPTIMISM.logError('Error loading image data:', error);
-            imageElement.alt = 'Error loading image';
+        // Toggle visibility
+        textEditor.style.display = 'none';
+        textDisplay.style.display = 'block';
+    });
+
+    // Handle link clicks within the display div
+    textDisplay.addEventListener('click', (e) => {
+        // Check if we clicked on a link
+        if (e.target.tagName === 'A') {
+            e.stopPropagation(); // Don't bubble up to select the container
+            return true; // Allow default link behavior
+        }
+    });
+    
+    // This is the click handler for text elements:
+    container.addEventListener('click', (e) => {
+        // If CMD/CTRL is pressed, navigate into the element regardless of lock state
+        if (this.isModifierKeyPressed(e)) {
+            this.controller.navigateToElement(elementData.id);
+            e.stopPropagation();
+            return;
         }
         
-        // Create resize handle
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'resize-handle';
-    
-        // Updated click handler
-        // This is the click handler for image elements:
-        container.addEventListener('click', (e) => {
-            // If CMD/CTRL is pressed, navigate into the element regardless of lock state
-            if (this.isModifierKeyPressed(e)) {
-                this.controller.navigateToElement(elementData.id);
-                e.stopPropagation();
-                return;
-            }
-            
-            // Don't select if images are locked
-            if (this.model.imagesLocked) {
-                return;
-            }
-            
-            this.selectElement(container, elementData);
-        });
-        // In createTextElementDOM method
-container.addEventListener('mousedown', (e) => {
-    // Don't handle if not left mouse button
-    if (e.button !== 0) return;
-    
-    // Don't start drag when on resize handle
-    if (e.target === resizeHandle) return;
-    
-    this.selectElement(container, elementData);
-    
-    this.draggedElement = container;
-    this.model.selectedElement = elementData.id;
-    
-    // Calculate offset
-    const rect = container.getBoundingClientRect();
-    this.elemOffsetX = e.clientX - rect.left;
-    this.elemOffsetY = e.clientY - rect.top;
-    
-    container.classList.add('dragging');
-    e.preventDefault();
-});
+        // Don't select if images are locked and this is an image
+        if (this.model.imagesLocked && elementData.type === 'image') {
+            return;
+        }
         
-        // Updated resize handle event listener
-        resizeHandle.addEventListener('mousedown', (e) => {
-            // Don't allow resizing for images if images are locked
-            // For text elements, always allow resizing regardless of lock state
-            if (this.model.imagesLocked && elementData.type === 'image') return;
-            
-            e.stopPropagation(); // Prevent other mouse handlers
-            
-            this.selectElement(container, elementData);
-            this.resizingElement = container;
-            
-            // Save initial dimensions
-            this.initialWidth = container.offsetWidth;
-            this.initialHeight = container.offsetHeight;
-            
-            // Save initial mouse position
-            this.dragStartX = e.clientX;
-            this.dragStartY = e.clientY;
-            
-            e.preventDefault();
-        });
+        this.selectElement(container, elementData);
+    });
+    
+    // Handle double-click to edit text
+    container.addEventListener('dblclick', (e) => {
+        // Don't handle dblclicks on links
+        if (e.target.tagName === 'A') return;
         
-        // Append all elements to the container
-        container.appendChild(imageElement);
-        container.appendChild(resizeHandle);
+        // Switch to edit mode
+        textDisplay.style.display = 'none';
+        textEditor.style.display = 'block';
+        textEditor.focus();
+        e.stopPropagation(); // Prevent creating a new element
+    });
+    
+    container.addEventListener('mousedown', (e) => {
+        // Don't handle if not left mouse button
+        if (e.button !== 0) return;
         
-        // Add to workspace
-        this.workspace.appendChild(container);
-        return container;
+        // Don't start drag when on resize handle
+        if (e.target === resizeHandle) return;
+        
+        this.selectElement(container, elementData);
+        
+        this.draggedElement = container;
+        this.model.selectedElement = elementData.id;
+        
+        // Store original position for potential snap back
+        container.dataset.originalLeft = container.style.left;
+        container.dataset.originalTop = container.style.top;
+        
+        // Calculate offset
+        const rect = container.getBoundingClientRect();
+        this.elemOffsetX = e.clientX - rect.left;
+        this.elemOffsetY = e.clientY - rect.top;
+        
+        container.classList.add('dragging');
+        e.preventDefault();
+    });
+    
+    resizeHandle.addEventListener('mousedown', (e) => {
+        // Don't check image lock status for text elements
+        // Text elements should always be resizable regardless of image lock
+        
+        e.stopPropagation(); // Prevent other mouse handlers
+        
+        this.selectElement(container, elementData);
+        this.resizingElement = container;
+        
+        // Save initial dimensions
+        this.initialWidth = container.offsetWidth;
+        this.initialHeight = container.offsetHeight;
+        
+        // Save initial mouse position
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+        
+        e.preventDefault();
+    });
+    
+    // Append all elements to the container
+    container.appendChild(textEditor);
+    container.appendChild(textDisplay);
+    container.appendChild(resizeHandle);
+    
+    // Add to workspace
+    this.workspace.appendChild(container);
+    return container;
+}
+    
+async createImageElementDOM(elementData) {
+    OPTIMISM.log(`Creating image element DOM for ${elementData.id}`);
+    
+    // Create container for the element
+    const container = document.createElement('div');
+    container.className = 'element-container image-element-container';
+    container.dataset.id = elementData.id;
+    container.dataset.type = 'image';
+    container.style.left = `${elementData.x}px`;
+    container.style.top = `${elementData.y}px`;
+    
+    // Check if this element has children
+    const hasChildren = this.model.hasChildren(elementData.id);
+    if (hasChildren) {
+        container.classList.add('has-children');
     }
+    
+    // Set dimensions if they exist in the data
+    if (elementData.width) {
+        container.style.width = `${elementData.width}px`;
+    }
+    
+    if (elementData.height) {
+        container.style.height = `${elementData.height}px`;
+    }
+    
+    if (elementData.zIndex) {
+        // Ensure z-index stays below text elements
+        container.style.zIndex = Math.min(parseInt(elementData.zIndex), 99);
+    } else {
+        container.style.zIndex = '1'; // Default z-index for images
+    }
+    
+    // Create the image element
+    const imageElement = document.createElement('img');
+    imageElement.className = 'image-element';
+    // Make the image take up the full container size while maintaining aspect ratio
+    imageElement.style.width = '100%';
+    imageElement.style.height = '100%';
+    imageElement.style.objectFit = 'contain';
+    
+    // Load image data
+    try {
+        OPTIMISM.log(`Loading image data for ${elementData.imageDataId}`);
+        const imageData = await this.model.getImageData(elementData.imageDataId);
+        if (imageData) {
+            imageElement.src = imageData;
+            OPTIMISM.log('Image data loaded successfully');
+        } else {
+            OPTIMISM.logError(`Image data not found for ${elementData.imageDataId}`);
+            imageElement.alt = 'Image could not be loaded';
+        }
+    } catch (error) {
+        OPTIMISM.logError('Error loading image data:', error);
+        imageElement.alt = 'Error loading image';
+    }
+    
+    // Create resize handle
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'resize-handle';
+    
+    // This is the click handler for image elements:
+    container.addEventListener('click', (e) => {
+        // If CMD/CTRL is pressed, navigate into the element regardless of lock state
+        if (this.isModifierKeyPressed(e)) {
+            this.controller.navigateToElement(elementData.id);
+            e.stopPropagation();
+            return;
+        }
+        
+        // Don't select if images are locked
+        if (this.model.imagesLocked) {
+            return;
+        }
+        
+        this.selectElement(container, elementData);
+    });
+    
+    container.addEventListener('mousedown', (e) => {
+        // Don't handle if not left mouse button
+        if (e.button !== 0) return;
+        
+        // Don't start drag when on resize handle
+        if (e.target === resizeHandle) return;
+        
+        this.selectElement(container, elementData);
+        
+        this.draggedElement = container;
+        this.model.selectedElement = elementData.id;
+        
+        // Store original position for potential snap back
+        container.dataset.originalLeft = container.style.left;
+        container.dataset.originalTop = container.style.top;
+        
+        // Calculate offset
+        const rect = container.getBoundingClientRect();
+        this.elemOffsetX = e.clientX - rect.left;
+        this.elemOffsetY = e.clientY - rect.top;
+        
+        container.classList.add('dragging');
+        e.preventDefault();
+    });
+    
+    // Updated resize handle event listener
+    resizeHandle.addEventListener('mousedown', (e) => {
+        // Don't allow resizing for images if images are locked
+        // For text elements, always allow resizing regardless of lock state
+        if (this.model.imagesLocked && elementData.type === 'image') return;
+        
+        e.stopPropagation(); // Prevent other mouse handlers
+        
+        this.selectElement(container, elementData);
+        this.resizingElement = container;
+        
+        // Save initial dimensions
+        this.initialWidth = container.offsetWidth;
+        this.initialHeight = container.offsetHeight;
+        
+        // Save initial mouse position
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+        
+        e.preventDefault();
+    });
+    
+    // Append all elements to the container
+    container.appendChild(imageElement);
+    container.appendChild(resizeHandle);
+    
+    // Add to workspace
+    this.workspace.appendChild(container);
+    return container;
+}
     
     selectElement(element, elementData) {
         // Check if this is an image and images are locked
@@ -1423,145 +1439,260 @@ container.addEventListener('mousedown', (e) => {
         this.model.selectedElement = null;
     }
     
-    setupDragListeners() {
-        OPTIMISM.log('Setting up drag listeners');
+    // In view.js - full method with changes
+setupDragListeners() {
+    OPTIMISM.log('Setting up drag listeners');
+    
+    // Add drag events to nav-controls for quick link addition
+    const navControls = document.getElementById('nav-controls');
+    
+    navControls.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         
-        document.addEventListener('mousemove', (e) => {
-            // Handle resizing
-            if (this.resizingElement) {
-                // Get element type
-                const elementType = this.resizingElement.dataset.type;
+        // Check if we're dragging an element from the workspace
+        if (this.draggedElement) {
+            // Only highlight if not over a breadcrumb (which has its own drop behavior)
+            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+            if (!breadcrumbTarget) {
+                navControls.classList.add('nav-drag-highlight');
+            }
+        }
+        
+        // Allow dropping of quick links for removal
+        const quickLinkBeing = e.dataTransfer && e.dataTransfer.types.includes('text/plain');
+        if (quickLinkBeing && !navControls.contains(e.target)) {
+            const linkElement = e.target.closest('.quick-link');
+            if (linkElement) {
+                linkElement.classList.add('drag-over');
+            }
+        }
+    });
+    
+    navControls.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        
+        // Check if leaving the nav controls entirely
+        if (!navControls.contains(e.relatedTarget)) {
+            navControls.classList.remove('nav-drag-highlight');
+        }
+        
+        // Clear highlight on links
+        document.querySelectorAll('.quick-link.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+        });
+    });
+    
+    navControls.addEventListener('drop', (e) => {
+        e.preventDefault();
+        navControls.classList.remove('nav-drag-highlight');
+        
+        // If dragging from the workspace to the nav bar (not over a breadcrumb)
+        if (this.draggedElement) {
+            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+            if (!breadcrumbTarget) {
+                // Add as a quick link if it's in the nav area
+                const draggedId = this.draggedElement.dataset.id;
+                const element = this.model.findElement(draggedId);
                 
-                // Don't resize images if they're locked
-                if (this.model.imagesLocked && elementType === 'image') {
-                    return;
+                if (element) {
+                    let title = "Untitled";
+                    if (element.type === 'text' && element.text) {
+                        title = element.text.substring(0, 60);
+                    } else if (element.type === 'image') {
+                        title = "Image";
+                    }
+                    
+                    OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
+                    this.controller.addQuickLink(draggedId, title);
                 }
+            }
+        } else if (e.dataTransfer && e.dataTransfer.types.includes('text/plain')) {
+            // Handle dropping a quick link outside the nav bar for removal
+            const nodeId = e.dataTransfer.getData('text/plain');
+            if (nodeId && !navControls.contains(e.target)) {
+                OPTIMISM.log(`Removing quick link ${nodeId}`);
+                this.controller.removeQuickLink(nodeId);
+            }
+        }
+        
+        // Clear all drag highlights
+        document.querySelectorAll('.quick-link.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+        });
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        // Handle resizing
+        if (this.resizingElement) {
+            // Get element type
+            const elementType = this.resizingElement.dataset.type;
+            
+            // Don't resize images if they're locked
+            if (this.model.imagesLocked && elementType === 'image') {
+                return;
+            }
+            
+            // Calculate size delta
+            const deltaWidth = e.clientX - this.dragStartX;
+            const deltaHeight = e.clientY - this.dragStartY;
+            
+            // Apply new dimensions with constraints based on element type
+            let newWidth, newHeight;
+            
+            if (elementType === 'image') {
+                // For images, limit max size to 600px while maintaining aspect ratio
+                const aspectRatio = this.initialHeight / this.initialWidth;
                 
-                // Calculate size delta
-                const deltaWidth = e.clientX - this.dragStartX;
-                const deltaHeight = e.clientY - this.dragStartY;
+                // Calculate new dimensions without enforcing aspect ratio yet
+                newWidth = Math.max(50, this.initialWidth + deltaWidth);
+                newHeight = Math.max(50, this.initialHeight + deltaHeight);
                 
-                // Apply new dimensions with constraints based on element type
-                let newWidth, newHeight;
-                
-                if (elementType === 'image') {
-                    // For images, limit max size to 600px while maintaining aspect ratio
-                    const aspectRatio = this.initialHeight / this.initialWidth;
-                    
-                    // Calculate new dimensions without enforcing aspect ratio yet
-                    newWidth = Math.max(50, this.initialWidth + deltaWidth);
-                    newHeight = Math.max(50, this.initialHeight + deltaHeight);
-                    
-                    // Now enforce the 600px max dimension
-                    if (newWidth > newHeight) {
-                        // Width is longest dimension
-                        if (newWidth > 600) {
-                            newWidth = 600;
-                            newHeight = Math.round(newWidth * aspectRatio);
-                        }
-                    } else {
-                        // Height is longest dimension
-                        if (newHeight > 600) {
-                            newHeight = 600;
-                            newWidth = Math.round(newHeight / aspectRatio);
-                        }
+                // Now enforce the 600px max dimension
+                if (newWidth > newHeight) {
+                    // Width is longest dimension
+                    if (newWidth > 600) {
+                        newWidth = 600;
+                        newHeight = Math.round(newWidth * aspectRatio);
                     }
                 } else {
-                    // For text elements, use original constraints
-                    newWidth = Math.max(100, this.initialWidth + deltaWidth);
-                    newHeight = Math.max(30, this.initialHeight + deltaHeight);
+                    // Height is longest dimension
+                    if (newHeight > 600) {
+                        newHeight = 600;
+                        newWidth = Math.round(newHeight / aspectRatio);
+                    }
                 }
-                
-                this.resizingElement.style.width = `${newWidth}px`;
-                this.resizingElement.style.height = `${newHeight}px`;
-                
-                return;
+            } else {
+                // For text elements, use original constraints
+                newWidth = Math.max(100, this.initialWidth + deltaWidth);
+                newHeight = Math.max(30, this.initialHeight + deltaHeight);
             }
             
-            // Handle dragging
-            if (!this.draggedElement) return;
+            this.resizingElement.style.width = `${newWidth}px`;
+            this.resizingElement.style.height = `${newHeight}px`;
             
-            // Don't drag images if they're locked
-            if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
-                return;
-            }
-            
-            // Calculate new position
-            const newX = e.clientX - this.elemOffsetX;
-            const newY = e.clientY - this.elemOffsetY;
-            
-            // Apply new position
-            this.draggedElement.style.left = `${newX}px`;
-            this.draggedElement.style.top = `${newY}px`;
-            
-            // Highlight potential drop targets
-            this.handleDragOver(e);
-        });
+            return;
+        }
         
-        document.addEventListener('mouseup', (e) => {
-            // Handle end of resizing
-            if (this.resizingElement) {
-                // Get element type
-                const elementType = this.resizingElement.dataset.type;
-                
-                // Don't update locked images
-                if (this.model.imagesLocked && elementType === 'image') {
-                    this.resizingElement = null;
-                    return;
-                }
-                
-                const id = this.resizingElement.dataset.id;
-                const width = parseFloat(this.resizingElement.style.width);
-                const height = parseFloat(this.resizingElement.style.height);
-                
-                OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
-                this.controller.updateElement(id, { width, height });
-                
+        // Handle dragging
+        if (!this.draggedElement) return;
+        
+        // Don't drag images if they're locked
+        if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
+            return;
+        }
+        
+        // Calculate new position
+        const newX = e.clientX - this.elemOffsetX;
+        const newY = e.clientY - this.elemOffsetY;
+        
+        // Apply new position
+        this.draggedElement.style.left = `${newX}px`;
+        this.draggedElement.style.top = `${newY}px`;
+        
+        // Highlight potential drop targets
+        this.handleDragOver(e);
+    });
+    
+    document.addEventListener('mouseup', (e) => {
+        // Handle end of resizing
+        if (this.resizingElement) {
+            // Get element type
+            const elementType = this.resizingElement.dataset.type;
+            
+            // Don't update locked images
+            if (this.model.imagesLocked && elementType === 'image') {
                 this.resizingElement = null;
                 return;
             }
             
-            // Handle end of dragging
-            if (!this.draggedElement) return;
+            const id = this.resizingElement.dataset.id;
+            const width = parseFloat(this.resizingElement.style.width);
+            const height = parseFloat(this.resizingElement.style.height);
             
-            // Don't update locked images
-            if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
-                this.draggedElement.classList.remove('dragging');
-                this.draggedElement = null;
+            OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
+            this.controller.updateElement(id, { width, height });
+            
+            this.resizingElement = null;
+            return;
+        }
+        
+        // Handle end of dragging
+        if (!this.draggedElement) return;
+        
+        // Store original values to potentially restore
+        const originalLeft = this.draggedElement.dataset.originalLeft;
+        const originalTop = this.draggedElement.dataset.originalTop;
+        
+        // Don't update locked images
+        if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
+            this.draggedElement.classList.remove('dragging');
+            this.draggedElement = null;
+            
+            // Remove highlights
+            const highlighted = document.querySelectorAll('.drag-over');
+            highlighted.forEach(el => el.classList.remove('drag-over'));
+            return;
+        }
+        
+        const draggedId = this.draggedElement.dataset.id;
+        
+        // Check if this is an image element
+        const isImage = this.draggedElement.dataset.type === 'image';
+        
+        // If this is an image, bring it to front of other images
+        if (isImage) {
+            const newZIndex = this.findHighestImageZIndex() + 1;
+            // Make sure we don't exceed our maximum for images
+            const cappedZIndex = Math.min(newZIndex, 99);
+            this.draggedElement.style.zIndex = cappedZIndex;
+        }
+        
+        // First check if dragged over a breadcrumb
+        const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+        if (breadcrumbTarget) {
+            const navIndex = parseInt(breadcrumbTarget.dataset.index);
+            
+            OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
+            
+            // Deselect all elements before moving
+            this.deselectAllElements();
+            
+            // Move the element to the target navigation level
+            this.controller.moveElementToBreadcrumb(draggedId, navIndex);
+        } 
+        // Check if dragging to the nav bar but not over a breadcrumb (for quick links)
+        else {
+            const navControls = document.getElementById('nav-controls');
+            const navRect = navControls.getBoundingClientRect();
+            
+            if (e.clientX >= navRect.left && e.clientX <= navRect.right &&
+                e.clientY >= navRect.top && e.clientY <= navRect.bottom &&
+                !this.findBreadcrumbDropTarget(e)) {
                 
-                // Remove highlights
-                const highlighted = document.querySelectorAll('.drag-over');
-                highlighted.forEach(el => el.classList.remove('drag-over'));
-                return;
+                // Add as a quick link
+                const element = this.model.findElement(draggedId);
+                
+                if (element) {
+                    let title = "Untitled";
+                    if (element.type === 'text' && element.text) {
+                        title = element.text.substring(0, 60);
+                    } else if (element.type === 'image') {
+                        title = "Image";
+                    }
+                    
+                    OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
+                    this.controller.addQuickLink(draggedId, title);
+                    
+                    // Snap back to the original position if we added as a quick link
+                    if (originalLeft && originalTop) {
+                        this.draggedElement.style.left = originalLeft;
+                        this.draggedElement.style.top = originalTop;
+                        OPTIMISM.log(`Snapping card back to original position: ${originalLeft}, ${originalTop}`);
+                    }
+                }
             }
-            
-            const draggedId = this.draggedElement.dataset.id;
-            
-            // Check if this is an image element
-            const isImage = this.draggedElement.dataset.type === 'image';
-            
-            // If this is an image, bring it to front of other images
-            if (isImage) {
-                const newZIndex = this.findHighestImageZIndex() + 1;
-                // Make sure we don't exceed our maximum for images
-                const cappedZIndex = Math.min(newZIndex, 99);
-                this.draggedElement.style.zIndex = cappedZIndex;
-            }
-            
-            // First check if dragged over a breadcrumb
-            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-            if (breadcrumbTarget) {
-                const navIndex = parseInt(breadcrumbTarget.dataset.index);
-                
-                OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
-                
-                // Deselect all elements before moving
-                this.deselectAllElements();
-                
-                // Move the element to the target navigation level
-                this.controller.moveElementToBreadcrumb(draggedId, navIndex);
-            } 
-            // If not on a breadcrumb, check if dragged over another element
+            // If not on a breadcrumb or for a quick link, check if dragged over another element
             else {
                 const dropTarget = this.findDropTarget(e);
                 if (dropTarget && dropTarget !== this.draggedElement) {
@@ -1592,18 +1723,22 @@ container.addEventListener('mousedown', (e) => {
                     }
                 }
             }
-            
-            // Reset drag state
-            this.draggedElement.classList.remove('dragging');
-            this.draggedElement = null;
-            
-            // Remove highlights
-            const highlighted = document.querySelectorAll('.drag-over');
-            highlighted.forEach(el => el.classList.remove('drag-over'));
-        });
+        }
         
-        OPTIMISM.log('Drag listeners set up successfully');
-    }
+        // Reset drag state
+        this.draggedElement.classList.remove('dragging');
+        this.draggedElement = null;
+        
+        // Remove highlights
+        const highlighted = document.querySelectorAll('.drag-over');
+        highlighted.forEach(el => el.classList.remove('drag-over'));
+        
+        // Remove nav controls highlight
+        document.getElementById('nav-controls').classList.remove('nav-drag-highlight');
+    });
+    
+    OPTIMISM.log('Drag listeners set up successfully');
+}
     
     handleDragOver(e) {
         // Remove previous highlights
@@ -1869,6 +2004,168 @@ updateImagesLockState(isLocked) {
     } else {
         styleElem.textContent = '';
     }
+}
+
+// In view.js
+setupQuickLinks() {
+    OPTIMISM.log('Setting up quick links container');
+    
+    // Create the quick links container if it doesn't exist
+    if (!this.quickLinksContainer) {
+        this.quickLinksContainer = document.createElement('div');
+        this.quickLinksContainer.id = 'quick-links-container';
+        this.quickLinksContainer.className = 'quick-links-container';
+        this.quickLinksContainer.style.display = 'flex';
+        this.quickLinksContainer.style.alignItems = 'center';
+        this.quickLinksContainer.style.justifyContent = 'center'; // Center alignment
+        this.quickLinksContainer.style.flex = '1'; // Take up remaining space
+        this.quickLinksContainer.style.height = '100%';
+        
+        // Add it to the nav bar between breadcrumbs and right controls
+        const navControls = document.getElementById('nav-controls');
+        navControls.appendChild(this.quickLinksContainer);
+        
+        // Modify nav-controls style to properly distribute space
+        navControls.style.display = 'flex';
+        navControls.style.flex = '1';
+        navControls.style.justifyContent = 'space-between';
+        
+        // Make breadcrumb container take just the space it needs
+        const breadcrumbContainer = document.getElementById('breadcrumb-container');
+        breadcrumbContainer.style.flex = '0 1 auto';
+        
+        // Add drag over highlight styles
+        const styleElem = document.createElement('style');
+        styleElem.textContent = `
+            #nav-controls.nav-drag-highlight {
+                outline: 2px dashed var(--element-border-color);
+                background-color: rgba(128, 128, 128, 0.1);
+            }
+            .quick-link {
+                padding: 4px 8px;
+                color: var(--element-text-color);
+                text-decoration: underline;
+                margin: 0 10px;
+                cursor: pointer;
+                font-size: 14px;
+                display: inline-block;
+                max-width: 120px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .quick-link.drag-over {
+                outline: 2px dashed var(--element-border-color);
+                background-color: rgba(128, 128, 128, 0.2);
+            }
+            .quick-links-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+        `;
+        document.head.appendChild(styleElem);
+    }
+    
+    // Render the current quick links
+    this.renderQuickLinks();
+    
+    OPTIMISM.log('Quick links container set up successfully');
+}
+
+// In view.js
+renderQuickLinks() {
+    OPTIMISM.log('Rendering quick links');
+    
+    if (!this.quickLinksContainer) {
+        this.setupQuickLinks();
+        return;
+    }
+    
+    // Clear existing links
+    this.quickLinksContainer.innerHTML = '';
+    
+    // Render each quick link
+    this.model.quickLinks.forEach(link => {
+        const quickLink = document.createElement('a');
+        quickLink.className = 'quick-link';
+        quickLink.dataset.nodeId = link.nodeId;
+        
+        // Truncate title if needed
+        let displayTitle = link.nodeTitle || 'Untitled';
+        if (displayTitle.length > 10) {
+            displayTitle = displayTitle.substring(0, 10) + '...';
+        }
+        
+        // Add expiry info to title attribute
+        const editsUntilExpiry = link.expiresAt - this.model.editCounter;
+        quickLink.title = `${link.nodeTitle} (expires in ${editsUntilExpiry} edits)`;
+        
+        quickLink.textContent = displayTitle;
+        
+        // Make link navigable
+        quickLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            try {
+                OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
+                this.controller.navigateToNode(link.nodeId);
+            } catch (error) {
+                OPTIMISM.logError(`Error navigating to quick link: ${error}`);
+            }
+        });
+        
+        // Make link draggable (for removal)
+        quickLink.setAttribute('draggable', 'true');
+        
+        quickLink.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('application/quicklink', link.nodeId);
+            e.dataTransfer.setData('text/plain', link.nodeId); // Keep this for backward compatibility
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        
+        this.quickLinksContainer.appendChild(quickLink);
+    });
+    
+    OPTIMISM.log(`Rendered ${this.model.quickLinks.length} quick links`);
+}
+
+// In view.js
+setupQuickLinkDragEvents() {
+    // Add this custom drag handler for quick links
+    document.addEventListener('dragstart', (e) => {
+        // Check if we're dragging a quick link
+        if (e.target.classList.contains('quick-link')) {
+            // Hide the drop zone indicator that's used for images
+            this.dropZoneIndicator.style.display = 'none';
+            
+            // Set a custom data attribute to identify this as a quick link drag
+            e.dataTransfer.setData('application/quicklink', e.target.dataset.nodeId);
+        }
+    });
+    
+    // Prevent default drop zone from showing for quick links
+    document.addEventListener('dragover', (e) => {
+        // Check if we're dragging a quick link
+        if (e.dataTransfer.types.includes('application/quicklink')) {
+            // Only prevent default and hide indicator when outside nav-controls
+            const navControls = document.getElementById('nav-controls');
+            if (!navControls.contains(e.target)) {
+                e.preventDefault();
+                this.dropZoneIndicator.style.display = 'none';
+            }
+        }
+    });
+    
+    // Hide the drop zone when the drag ends
+    document.addEventListener('dragend', (e) => {
+        if (e.target.classList.contains('quick-link')) {
+            this.dropZoneIndicator.style.display = 'none';
+        }
+    });
+    
+    OPTIMISM.log('Quick link drag events set up successfully');
 }
     
 }
