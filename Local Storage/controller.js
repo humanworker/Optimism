@@ -151,97 +151,94 @@ async initialize() {
         }
     }
     
-    async updateElement(id, properties) {
-        if (!this.isInitialized) {
-            OPTIMISM.logError('Cannot update element: application not initialized');
+    // In controller.js, modify the updateElement method
+// In controller.js, modify the updateElement method
+async updateElement(id, properties) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot update element: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Updating element ${id} with properties:`, properties);
+        
+        // Special case for text elements with empty text
+        const element = this.model.findElement(id);
+        if (element && element.type === 'text' && 
+            properties.text !== undefined && 
+            (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
+            
+            // Create a delete command instead of an update command
+            OPTIMISM.log(`Text is empty, deleting element ${id}`);
+            return await this.deleteElement(id);
+        }
+        
+        // Create an update element command
+        const command = new UpdateElementCommand(this.model, id, properties);
+        
+        // Execute the command
+        const { result, showBackupReminder } = await this.model.execute(command);
+        
+        const updatedElement = this.model.findElement(id);
+        if (!updatedElement) {
+            OPTIMISM.log('Element deleted during update');
+            this.view.renderWorkspace();
             return false;
         }
         
-        try {
-            OPTIMISM.log(`Updating element ${id} with properties:`, properties);
+        // Handle additional updates based on element type
+        if (updatedElement.type === 'text' && properties.text !== undefined) {
+            // Update the navigation titles if this element appears in any navigation paths
+            await this.model.updateNavigationTitles(id, properties.text);
             
-            // Special case for text elements with empty text
-            const element = this.model.findElement(id);
-            if (element && element.type === 'text' && 
-                properties.text !== undefined && 
-                (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
-                
-                // Create a delete command instead of an update command
-                OPTIMISM.log(`Text is empty, deleting element ${id}`);
-                return await this.deleteElement(id);
-            }
+            // Render breadcrumbs to show updated titles
+            this.view.renderBreadcrumbs();
             
-            // Create an update element command
-            const command = new UpdateElementCommand(this.model, id, properties);
+            // Update page title
+            this.view.updatePageTitle();
             
-            // Execute the command
-            const { result, showBackupReminder } = await this.model.execute(command);
-            
-            const updatedElement = this.model.findElement(id);
-            if (!updatedElement) {
-                OPTIMISM.log('Element deleted during update');
-                this.view.renderWorkspace();
-                return false;
-            }
-            
-            // Handle additional updates based on element type
-            if (updatedElement.type === 'text' && properties.text !== undefined) {
-                // Update the card title in all navigation stacks
-                const elementIndex = this.model.navigationStack.findIndex(item => item.nodeId === id);
-                if (elementIndex !== -1) {
-                    const newTitle = properties.text.substring(0, 60);
-                    OPTIMISM.log(`Updating navigation title to: ${newTitle}`);
-                    this.model.navigationStack[elementIndex].nodeTitle = newTitle;
-                    this.view.renderBreadcrumbs();
-                    
-                    // Update page title if we're on this level
-                    if (elementIndex === this.model.navigationStack.length - 1) {
-                        this.view.updatePageTitle();
-                    }
-                }
-                
-                // If this element is in the current view, update its display
-                const container = document.querySelector(`.element-container[data-id="${id}"]`);
-                if (container && container.dataset.type === 'text') {
-                    const display = container.querySelector('.text-display');
-                    if (display) {
-                        // Check if we need to apply header formatting
-                        if (updatedElement.style && updatedElement.style.hasHeader) {
-                            display.innerHTML = this.view.formatTextWithHeader(properties.text || '', true);
-                        } else {
-                            display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
-                        }
+            // If this element is in the current view, update its display
+            const container = document.querySelector(`.element-container[data-id="${id}"]`);
+            if (container && container.dataset.type === 'text') {
+                const display = container.querySelector('.text-display');
+                if (display) {
+                    // Check if we need to apply header formatting
+                    if (updatedElement.style && updatedElement.style.hasHeader) {
+                        display.innerHTML = this.view.formatTextWithHeader(properties.text || '', true);
+                    } else {
+                        display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
                     }
                 }
             }
-            
-            // If dimensions were updated
-            if (properties.width !== undefined || properties.height !== undefined) {
-                const container = document.querySelector(`.element-container[data-id="${id}"]`);
-                if (container) {
-                    if (properties.width !== undefined) {
-                        container.style.width = `${properties.width}px`;
-                    }
-                    if (properties.height !== undefined) {
-                        container.style.height = `${properties.height}px`;
-                    }
-                    OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
-                }
-            }
-            
-            // Show backup reminder if needed
-            if (showBackupReminder) {
-                this.view.showBackupReminderModal();
-            }
-            
-            // Update undo/redo buttons
-            this.view.updateUndoRedoButtons();
-            return true;
-        } catch (error) {
-            OPTIMISM.logError('Error updating element:', error);
-            return false;
         }
+        
+        // If dimensions were updated
+        if (properties.width !== undefined || properties.height !== undefined) {
+            const container = document.querySelector(`.element-container[data-id="${id}"]`);
+            if (container) {
+                if (properties.width !== undefined) {
+                    container.style.width = `${properties.width}px`;
+                }
+                if (properties.height !== undefined) {
+                    container.style.height = `${properties.height}px`;
+                }
+                OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
+            }
+        }
+        
+        // Show backup reminder if needed
+        if (showBackupReminder) {
+            this.view.showBackupReminderModal();
+        }
+        
+        // Update undo/redo buttons
+        this.view.updateUndoRedoButtons();
+        return true;
+    } catch (error) {
+        OPTIMISM.logError('Error updating element:', error);
+        return false;
     }
+}
     
     async updateElementStyle(id, styleProperties) {
         if (!this.isInitialized) {
@@ -648,89 +645,84 @@ if (styleProperties.hasBorder !== undefined) {
 
     // In controller.js, add this new method:
 
-    async updateElementWithUndo(id, newProperties, oldProperties) {
-        if (!this.isInitialized) {
-            OPTIMISM.logError('Cannot update element: application not initialized');
-            return;
+    // In controller.js, modify the updateElementWithUndo method
+// In controller.js, modify the updateElementWithUndo method
+async updateElementWithUndo(id, newProperties, oldProperties) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot update element: application not initialized');
+        return;
+    }
+    
+    try {
+        OPTIMISM.log(`Updating element ${id} with properties for undo:`, newProperties);
+        // Create an update element command with explicit old properties
+        const command = new UpdateElementCommand(this.model, id, newProperties, oldProperties);
+        
+        // Execute the command
+        const { result, showBackupReminder } = await this.model.execute(command);
+        
+        const element = this.model.findElement(id);
+        if (!element) return; // Element might have been deleted
+        
+        // Handle additional updates based on element type
+        if (element.type === 'text' && newProperties.text !== undefined) {
+            // If text is empty, the element might have been deleted
+            if (newProperties.text === '' || newProperties.text === null || newProperties.text.trim() === '') {
+                OPTIMISM.log('Text was empty, element likely deleted');
+                // Just update UI since the element is gone
+                this.view.renderWorkspace();
+                return;
+            }
+            
+            // Update the navigation titles if this element appears in any navigation paths
+            await this.model.updateNavigationTitles(id, newProperties.text);
+            
+            // Render breadcrumbs to show updated titles
+            this.view.renderBreadcrumbs();
+            
+            // Update page title
+            this.view.updatePageTitle();
+            
+            // If this element is in the current view, update its display
+            const container = document.querySelector(`.element-container[data-id="${id}"]`);
+            if (container && container.dataset.type === 'text') {
+                const display = container.querySelector('.text-display');
+                if (display) {
+                    // Check if we need to apply header formatting
+                    if (element.style && element.style.hasHeader) {
+                        display.innerHTML = this.view.formatTextWithHeader(newProperties.text || '', true);
+                    } else {
+                        display.innerHTML = this.view.convertUrlsToLinks(newProperties.text || '');
+                    }
+                }
+            }
         }
         
-        try {
-            OPTIMISM.log(`Updating element ${id} with properties for undo:`, newProperties);
-            // Create an update element command with explicit old properties
-            const command = new UpdateElementCommand(this.model, id, newProperties, oldProperties);
-            
-            // Execute the command
-            const { result, showBackupReminder } = await this.model.execute(command);
-            
-            const element = this.model.findElement(id);
-            if (!element) return; // Element might have been deleted
-            
-            // Handle additional updates based on element type
-            if (element.type === 'text' && newProperties.text !== undefined) {
-                // If text is empty, the element might have been deleted
-                if (newProperties.text === '' || newProperties.text === null || newProperties.text.trim() === '') {
-                    OPTIMISM.log('Text was empty, element likely deleted');
-                    // Just update UI since the element is gone
-                    this.view.renderWorkspace();
-                    return;
+        // If dimensions were updated
+        if (newProperties.width !== undefined || newProperties.height !== undefined) {
+            const container = document.querySelector(`.element-container[data-id="${id}"]`);
+            if (container) {
+                if (newProperties.width !== undefined) {
+                    container.style.width = `${newProperties.width}px`;
                 }
-                
-                // Update the card title in all navigation stacks
-                const elementIndex = this.model.navigationStack.findIndex(item => item.nodeId === id);
-                if (elementIndex !== -1) {
-                    const newTitle = newProperties.text.substring(0, 60);
-                    OPTIMISM.log(`Updating navigation title to: ${newTitle}`);
-                    this.model.navigationStack[elementIndex].nodeTitle = newTitle;
-                    this.view.renderBreadcrumbs();
-                    
-                    // Update page title if we're on this level
-                    if (elementIndex === this.model.navigationStack.length - 1) {
-                        this.view.updatePageTitle();
-                    }
+                if (newProperties.height !== undefined) {
+                    container.style.height = `${newProperties.height}px`;
                 }
-                
-                // If this element is in the current view, update its display
-                const container = document.querySelector(`.element-container[data-id="${id}"]`);
-                if (container && container.dataset.type === 'text') {
-                    const display = container.querySelector('.text-display');
-                    if (display) {
-                        // Check if we need to apply header formatting
-                        if (element.style && element.style.hasHeader) {
-                            display.innerHTML = this.view.formatTextWithHeader(newProperties.text || '', true);
-                        } else {
-                            display.innerHTML = this.view.convertUrlsToLinks(newProperties.text || '');
-                        }
-                    }
-                }
+                OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
             }
-
-            
-            
-            // If dimensions were updated
-            if (newProperties.width !== undefined || newProperties.height !== undefined) {
-                const container = document.querySelector(`.element-container[data-id="${id}"]`);
-                if (container) {
-                    if (newProperties.width !== undefined) {
-                        container.style.width = `${newProperties.width}px`;
-                    }
-                    if (newProperties.height !== undefined) {
-                        container.style.height = `${newProperties.height}px`;
-                    }
-                    OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
-                }
-            }
-            
-            // Show backup reminder if needed
-            if (showBackupReminder) {
-                this.view.showBackupReminderModal();
-            }
-            
-            // Update undo/redo buttons
-            this.view.updateUndoRedoButtons();
-        } catch (error) {
-            OPTIMISM.logError('Error updating element:', error);
         }
+        
+        // Show backup reminder if needed
+        if (showBackupReminder) {
+            this.view.showBackupReminderModal();
+        }
+        
+        // Update undo/redo buttons
+        this.view.updateUndoRedoButtons();
+    } catch (error) {
+        OPTIMISM.logError('Error updating element:', error);
     }
+}
 
     // For controller.js - Updated addImageFromUrl method
 async addImageFromUrl(url, x, y) {

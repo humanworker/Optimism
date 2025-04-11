@@ -1105,48 +1105,50 @@ container.dataset.numY = parseFloat(elementData.y);
         // Just update display for immediate feedback if needed
     });
     
-    textEditor.addEventListener('blur', () => {
-        // Get the original element's text before any changes
-        const element = this.model.findElement(elementData.id);
-        const originalText = element ? element.text : '';
-        const newText = textEditor.value;
-        
-        // Check if text is now empty (including whitespace-only)
-        if (newText.trim() === '') {
-            // The text is empty, delete the element
-            this.controller.deleteElement(elementData.id);
-            return; // Don't continue since the element is deleted
-        }
-        
-        // Only create an undo command if the text actually changed
-        if (originalText !== newText) {
-            this.controller.updateElementWithUndo(elementData.id, {
-                text: newText
-            }, {
-                text: originalText
-            });
-        }
-        
-        // Don't process if element was deleted due to empty text
-        if (!this.model.findElement(elementData.id)) {
-            return;
-        }
-        
-        // Update display content with converted links and header format if needed
-        const updatedElement = this.model.findElement(elementData.id);
-        const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
-        const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
-        
-        if (hasHeader) {
-            textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
-        } else {
-            textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
-        }
-        
-        // Toggle visibility
-        textEditor.style.display = 'none';
-        textDisplay.style.display = 'block';
-    });
+    // In view.js, modify the blur event handler in the createTextElementDOM method
+// In view.js, modify the blur event handler in the createTextElementDOM method
+textEditor.addEventListener('blur', () => {
+    // Get the original element's text before any changes
+    const element = this.model.findElement(elementData.id);
+    const originalText = element ? element.text : '';
+    const newText = textEditor.value;
+    
+    // Check if text is now empty (including whitespace-only)
+    if (newText.trim() === '') {
+        // The text is empty, delete the element
+        this.controller.deleteElement(elementData.id);
+        return; // Don't continue since the element is deleted
+    }
+    
+    // Only create an undo command if the text actually changed
+    if (originalText !== newText) {
+        this.controller.updateElementWithUndo(elementData.id, {
+            text: newText
+        }, {
+            text: originalText
+        });
+    }
+    
+    // Don't process if element was deleted due to empty text
+    if (!this.model.findElement(elementData.id)) {
+        return;
+    }
+    
+    // Update display content with converted links and header format if needed
+    const updatedElement = this.model.findElement(elementData.id);
+    const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
+    const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
+    
+    if (hasHeader) {
+        textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
+    } else {
+        textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
+    }
+    
+    // Toggle visibility
+    textEditor.style.display = 'none';
+    textDisplay.style.display = 'block';
+});
 
     // Handle link clicks within the display div
     textDisplay.addEventListener('click', (e) => {
