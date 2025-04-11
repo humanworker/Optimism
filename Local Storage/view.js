@@ -277,6 +277,15 @@ else if (e.key === '7') {
     styleUpdated = true;
     e.preventDefault();
 }
+
+// 9 = toggle card lock
+else if (e.key === '9') {
+    // Toggle current lock setting
+    const isLocked = this.model.isCardLocked(this.model.selectedElement);
+    this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
+    styleUpdated = true;
+    e.preventDefault();
+}
         
         // Update style panel if any style changed
         if (styleUpdated) {
@@ -695,31 +704,54 @@ this.settingsPanel.style.display = 'none';
                 option.classList.add('selected');
             });
         });
-
-
+    
         // Set up border option
-const borderOptions = document.querySelectorAll('.option-value[data-border]');
-
-// Add click event listeners to each border option
-borderOptions.forEach(option => {
-    option.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation(); // Prevent closing the panel
+        const borderOptions = document.querySelectorAll('.option-value[data-border]');
+    
+        // Add click event listeners to each border option
+        borderOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent closing the panel
+                
+                // Only apply if an element is selected
+                if (!this.model.selectedElement) return;
+                
+                // Get the selected border setting
+                const hasBorder = option.dataset.border === 'true';
+                
+                // Update the element's style
+                this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: hasBorder });
+                
+                // Update the UI to show which option is selected
+                borderOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            });
+        });
         
-        // Only apply if an element is selected
-        if (!this.model.selectedElement) return;
-        
-        // Get the selected border setting
-        const hasBorder = option.dataset.border === 'true';
-        
-        // Update the element's style
-        this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: hasBorder });
-        
-        // Update the UI to show which option is selected
-        borderOptions.forEach(opt => opt.classList.remove('selected'));
-        option.classList.add('selected');
-    });
-});
+        // Set up card lock option
+        const lockOptions = document.querySelectorAll('.option-value[data-lock]');
+    
+        // Add click event listeners to each lock option
+        lockOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent closing the panel
+                
+                // Only apply if an element is selected
+                if (!this.model.selectedElement) return;
+                
+                // Get the selected lock setting
+                const isLocked = option.dataset.lock === 'true';
+                
+                // Update the element's style
+                this.controller.updateElementStyle(this.model.selectedElement, { isLocked: isLocked });
+                
+                // Update the UI to show which option is selected
+                lockOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            });
+        });
         
         // Set up reset style option
         const resetOption = document.querySelector('.option-value.reset-style');
@@ -807,6 +839,17 @@ renderWorkspace() {
     } else {
         OPTIMISM.log('No elements to render');
     }
+
+    // Apply locked state to cards if needed
+this.model.lockedCards.forEach(cardId => {
+    const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+    if (container) {
+        container.classList.add('card-locked');
+    }
+});
+
+// Update styles for locked cards
+this.updateLockedCardStyles();
 
     // Apply locked state to images if needed
     if (this.model.imagesLocked) {
@@ -999,10 +1042,8 @@ createTextElementDOM(elementData) {
     container.dataset.type = 'text';
     container.style.left = `${elementData.x}px`;
     container.style.top = `${elementData.y}px`;
-
-    // In both createTextElementDOM and createImageElementDOM, after setting container.style.left and top:
-container.dataset.numX = parseFloat(elementData.x);
-container.dataset.numY = parseFloat(elementData.y);
+    container.dataset.numX = parseFloat(elementData.x);
+    container.dataset.numY = parseFloat(elementData.y);
     
     // Check if this element has children
     const hasChildren = this.model.hasChildren(elementData.id);
@@ -1025,9 +1066,15 @@ container.dataset.numY = parseFloat(elementData.y);
         container.classList.add('has-permanent-border');
     }
     
+    // Check if this card is locked - ADD THIS HERE
+    if (this.model.isCardLocked(elementData.id)) {
+        container.classList.add('card-locked');
+    }
+    
     // Create the text editor (hidden by default)
     const textEditor = document.createElement('textarea');
     textEditor.className = 'text-element';
+    // ... rest of the method continues
     if (hasChildren) {
         textEditor.classList.add('has-children');
     }
@@ -1190,6 +1237,8 @@ textEditor.addEventListener('blur', () => {
     
     // For both text and image element containers:
 container.addEventListener('mousedown', (e) => {
+     // Don't handle if card is locked - ADD THIS CHECK
+     if (this.model.isCardLocked(elementData.id)) return;
     // Don't handle if not left mouse button
     if (e.button !== 0) return;
     
@@ -1257,10 +1306,8 @@ async createImageElementDOM(elementData) {
     container.dataset.type = 'image';
     container.style.left = `${elementData.x}px`;
     container.style.top = `${elementData.y}px`;
-
-    // In both createTextElementDOM and createImageElementDOM, after setting container.style.left and top:
-container.dataset.numX = parseFloat(elementData.x);
-container.dataset.numY = parseFloat(elementData.y);
+    container.dataset.numX = parseFloat(elementData.x);
+    container.dataset.numY = parseFloat(elementData.y);
     
     // Check if this element has children
     const hasChildren = this.model.hasChildren(elementData.id);
@@ -1284,8 +1331,14 @@ container.dataset.numY = parseFloat(elementData.y);
         container.style.zIndex = '1'; // Default z-index for images
     }
     
+    // Check if this card is locked - ADD THIS HERE
+    if (this.model.isCardLocked(elementData.id)) {
+        container.classList.add('card-locked');
+    }
+    
     // Create the image element
     const imageElement = document.createElement('img');
+    // ... rest of the method continues
     imageElement.className = 'image-element';
     // Make the image take up the full container size while maintaining aspect ratio
     imageElement.style.width = '100%';
@@ -1331,6 +1384,8 @@ container.dataset.numY = parseFloat(elementData.y);
     
     // For both text and image element containers:
 container.addEventListener('mousedown', (e) => {
+     // Don't handle if card is locked - ADD THIS CHECK
+     if (this.model.isCardLocked(elementData.id)) return;
     // Don't handle if not left mouse button
     if (e.button !== 0) return;
     
@@ -1466,7 +1521,16 @@ container.addEventListener('mousedown', (e) => {
         if (borderOption) {
             borderOption.classList.add('selected');
         }
+// Set the correct lock option as selected
+const isLocked = this.model.isCardLocked(elementData.id) ? 'true' : 'false';
+const lockOption = document.querySelector(`.option-value[data-lock="${isLocked}"]`);
+if (lockOption) {
+    lockOption.classList.add('selected');
+}
+
     }
+
+    
     
     deselectAllElements() {
         document.querySelectorAll('.element-container.selected').forEach(el => {
@@ -2344,6 +2408,67 @@ isOverQuickLinksArea(e) {
     }
     
     return false;
+}
+
+// Update the lock state of a specific card
+updateCardLockState(cardId, isLocked) {
+    const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+    if (!container) return;
+    
+    if (isLocked) {
+        container.classList.add('card-locked');
+    } else {
+        container.classList.remove('card-locked');
+    }
+    
+    // Update style panel if the card is currently selected
+    if (this.model.selectedElement === cardId) {
+        const lockOption = document.querySelector(`.option-value[data-lock="${isLocked ? 'true' : 'false'}"]`);
+        if (lockOption) {
+            document.querySelectorAll('.option-value[data-lock]').forEach(opt => opt.classList.remove('selected'));
+            lockOption.classList.add('selected');
+        }
+    }
+    
+    // Add CSS to handle locked cards
+    this.updateLockedCardStyles();
+}
+
+// Update the CSS for locked cards
+updateLockedCardStyles() {
+    let styleElem = document.getElementById('card-lock-style');
+    if (!styleElem) {
+        styleElem = document.createElement('style');
+        styleElem.id = 'card-lock-style';
+        document.head.appendChild(styleElem);
+    }
+    
+    styleElem.textContent = `
+        .card-locked {
+            cursor: default !important;
+            pointer-events: none;
+        }
+        .card-locked .resize-handle {
+            display: none !important;
+        }
+        .card-locked::after {
+            content: '🔒';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 14px;
+            opacity: 0.6;
+            z-index: 10;
+            pointer-events: none;
+        }
+        /* Override pointer-events for selecting locked cards */
+        .card-locked {
+            pointer-events: auto;
+        }
+        .card-locked * {
+            pointer-events: none;
+        }
+    `;
 }
     
 }

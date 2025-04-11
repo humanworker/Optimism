@@ -17,7 +17,7 @@ class CanvasModel {
         this.backupReminderThreshold = 100;
         this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         this.imagesLocked = false; // Add this property to track image lock state
-        
+        this.lockedCards = []; // Array to store IDs of individually locked cards
         // Quick links in the nav bar (new)
         this.quickLinks = [];
         this.quickLinkExpiryCount = 100; // Links expire after 100 edits
@@ -127,6 +127,12 @@ async initialize() {
                         this.quickLinks = appState.quickLinks;
                         OPTIMISM.log(`Loaded ${this.quickLinks.length} quick links`);
                     }
+
+                    // Load locked cards
+if (appState.lockedCards !== undefined) {
+    this.lockedCards = appState.lockedCards;
+    OPTIMISM.log(`Loaded ${this.lockedCards.length} locked cards`);
+}
                 }
             } catch (error) {
                 OPTIMISM.logError('Error loading app state:', error);
@@ -814,10 +820,11 @@ resetBackupReminder() {
             editCounter: this.editCounter,
             lastBackupReminder: this.lastBackupReminder,
             imagesLocked: this.imagesLocked,
-            quickLinks: this.quickLinks // Add this line
+            quickLinks: this.quickLinks,
+            lockedCards: this.lockedCards // Add this line
         };
         
-        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length})`);
+        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length})`);
         await this.db.put('canvasData', appState);
     } catch (error) {
         OPTIMISM.logError('Error saving app state:', error);
@@ -1160,5 +1167,42 @@ async refreshQuickLinkExpiry(nodeId) {
     await this.saveAppState();
     return true;
   }
+
+  // Check if a card is locked
+isCardLocked(cardId) {
+    return this.lockedCards.includes(cardId);
+}
+
+// Lock a card
+async lockCard(cardId) {
+    if (!this.isCardLocked(cardId)) {
+        this.lockedCards.push(cardId);
+        OPTIMISM.log(`Card ${cardId} locked`);
+        await this.saveAppState();
+        return true;
+    }
+    return false;
+}
+
+// Unlock a card
+async unlockCard(cardId) {
+    const index = this.lockedCards.indexOf(cardId);
+    if (index !== -1) {
+        this.lockedCards.splice(index, 1);
+        OPTIMISM.log(`Card ${cardId} unlocked`);
+        await this.saveAppState();
+        return true;
+    }
+    return false;
+}
+
+// Toggle card lock state
+async toggleCardLock(cardId) {
+    if (this.isCardLocked(cardId)) {
+        return await this.unlockCard(cardId);
+    } else {
+        return await this.lockCard(cardId);
+    }
+}
 
 }

@@ -339,6 +339,16 @@ if (styleProperties.hasBorder !== undefined) {
         container.classList.remove('has-permanent-border');
     }
 }
+
+// Handle card lock setting
+if (styleProperties.isLocked !== undefined) {
+    if (styleProperties.isLocked) {
+        await this.model.lockCard(id);
+    } else {
+        await this.model.unlockCard(id);
+    }
+    this.view.updateCardLockState(id, styleProperties.isLocked);
+}
                 
                 OPTIMISM.log('Element style updated successfully');
             }
@@ -934,5 +944,23 @@ async refreshQuickLinkExpiry(nodeId) {
       return false;
     }
   }
+
+  async toggleCardLock(cardId) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle card lock: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Toggling lock state for card ${cardId}`);
+        const isLocked = await this.model.toggleCardLock(cardId);
+        this.view.updateCardLockState(cardId, isLocked);
+        OPTIMISM.log(`Card lock state set to ${isLocked}`);
+        return isLocked;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling card lock state:', error);
+        return this.model.isCardLocked(cardId);
+    }
+}
 
 }
