@@ -999,6 +999,10 @@ createTextElementDOM(elementData) {
     container.dataset.type = 'text';
     container.style.left = `${elementData.x}px`;
     container.style.top = `${elementData.y}px`;
+
+    // In both createTextElementDOM and createImageElementDOM, after setting container.style.left and top:
+container.dataset.numX = parseFloat(elementData.x);
+container.dataset.numY = parseFloat(elementData.y);
     
     // Check if this element has children
     const hasChildren = this.model.hasChildren(elementData.id);
@@ -1182,30 +1186,34 @@ createTextElementDOM(elementData) {
         e.stopPropagation(); // Prevent creating a new element
     });
     
-    container.addEventListener('mousedown', (e) => {
-        // Don't handle if not left mouse button
-        if (e.button !== 0) return;
-        
-        // Don't start drag when on resize handle
-        if (e.target === resizeHandle) return;
-        
-        this.selectElement(container, elementData);
-        
-        this.draggedElement = container;
-        this.model.selectedElement = elementData.id;
-        
-        // Store original position for potential snap back
-        container.dataset.originalLeft = container.style.left;
-        container.dataset.originalTop = container.style.top;
-        
-        // Calculate offset
-        const rect = container.getBoundingClientRect();
-        this.elemOffsetX = e.clientX - rect.left;
-        this.elemOffsetY = e.clientY - rect.top;
-        
-        container.classList.add('dragging');
-        e.preventDefault();
-    });
+    // For both text and image element containers:
+container.addEventListener('mousedown', (e) => {
+    // Don't handle if not left mouse button
+    if (e.button !== 0) return;
+    
+    // Don't start drag when on resize handle
+    if (e.target === resizeHandle) return;
+    
+    this.selectElement(container, elementData);
+    
+    this.draggedElement = container;
+    this.model.selectedElement = elementData.id;
+    
+    // Store original position for potential snap back
+    container.dataset.originalLeft = container.style.left;
+    container.dataset.originalTop = container.style.top;
+    
+    // Get current numerical position values
+    const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
+    const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
+    
+    // Calculate the offset from the current position
+    this.elemOffsetX = e.clientX - currentX;
+    this.elemOffsetY = e.clientY - currentY;
+    
+    container.classList.add('dragging');
+    e.preventDefault();
+});
     
     resizeHandle.addEventListener('mousedown', (e) => {
         // Don't check image lock status for text elements
@@ -1247,6 +1255,10 @@ async createImageElementDOM(elementData) {
     container.dataset.type = 'image';
     container.style.left = `${elementData.x}px`;
     container.style.top = `${elementData.y}px`;
+
+    // In both createTextElementDOM and createImageElementDOM, after setting container.style.left and top:
+container.dataset.numX = parseFloat(elementData.x);
+container.dataset.numY = parseFloat(elementData.y);
     
     // Check if this element has children
     const hasChildren = this.model.hasChildren(elementData.id);
@@ -1315,30 +1327,34 @@ async createImageElementDOM(elementData) {
         this.selectElement(container, elementData);
     });
     
-    container.addEventListener('mousedown', (e) => {
-        // Don't handle if not left mouse button
-        if (e.button !== 0) return;
-        
-        // Don't start drag when on resize handle
-        if (e.target === resizeHandle) return;
-        
-        this.selectElement(container, elementData);
-        
-        this.draggedElement = container;
-        this.model.selectedElement = elementData.id;
-        
-        // Store original position for potential snap back
-        container.dataset.originalLeft = container.style.left;
-        container.dataset.originalTop = container.style.top;
-        
-        // Calculate offset
-        const rect = container.getBoundingClientRect();
-        this.elemOffsetX = e.clientX - rect.left;
-        this.elemOffsetY = e.clientY - rect.top;
-        
-        container.classList.add('dragging');
-        e.preventDefault();
-    });
+    // For both text and image element containers:
+container.addEventListener('mousedown', (e) => {
+    // Don't handle if not left mouse button
+    if (e.button !== 0) return;
+    
+    // Don't start drag when on resize handle
+    if (e.target === resizeHandle) return;
+    
+    this.selectElement(container, elementData);
+    
+    this.draggedElement = container;
+    this.model.selectedElement = elementData.id;
+    
+    // Store original position for potential snap back
+    container.dataset.originalLeft = container.style.left;
+    container.dataset.originalTop = container.style.top;
+    
+    // Get current numerical position values
+    const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
+    const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
+    
+    // Calculate the offset from the current position
+    this.elemOffsetX = e.clientX - currentX;
+    this.elemOffsetY = e.clientY - currentY;
+    
+    container.classList.add('dragging');
+    e.preventDefault();
+});
     
     // Updated resize handle event listener
     resizeHandle.addEventListener('mousedown', (e) => {
@@ -1611,20 +1627,22 @@ document.addEventListener('drop', (e) => {
         }
         
         // Handle dragging
-        if (!this.draggedElement) return;
-        
-        // Don't drag images if they're locked
-        if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
-            return;
-        }
-        
-        // Calculate new position
-        const newX = e.clientX - this.elemOffsetX;
-        const newY = e.clientY - this.elemOffsetY;
-        
-        // Apply new position
-        this.draggedElement.style.left = `${newX}px`;
-        this.draggedElement.style.top = `${newY}px`;
+if (!this.draggedElement) return;
+
+// Don't drag images if they're locked
+if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
+    return;
+}
+
+// Calculate new position
+const newX = e.clientX - this.elemOffsetX;
+const newY = e.clientY - this.elemOffsetY;
+
+// Update both style and dataset for consistency
+this.draggedElement.style.left = `${newX}px`;
+this.draggedElement.style.top = `${newY}px`;
+this.draggedElement.dataset.numX = newX;
+this.draggedElement.dataset.numY = newY;
         
         // Highlight potential drop targets
         this.handleDragOver(e);
