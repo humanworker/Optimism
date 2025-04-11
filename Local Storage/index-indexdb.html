@@ -52,32 +52,39 @@
             background-size: 20px 20px;
         }
 
-        #title-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 40px;
-            background-color: var(--bg-color);
-            border-bottom: 1px solid var(--element-border-color);
-            display: flex !important;
-            align-items: center;
-            padding: 0 10px;
-            z-index: 100;
-            justify-content: space-between; /* Add space for theme toggle */
-            visibility: visible !important;
-        }
+        /* Add to the existing style tag in index-indexdb.html */
+#title-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--element-border-color);
+    display: flex !important;
+    align-items: center;
+    padding: 0 10px;
+    z-index: 100;
+    justify-content: space-between; /* Add space for theme toggle */
+    visibility: visible !important;
+    position: relative; /* Add this to allow absolute positioning within */
+}
 
-        #nav-controls {
-            display: flex;
-            align-items: center;
-            flex: 1;
-        }
+#nav-controls {
+    display: flex;
+    align-items: center;
+    /* Remove flex: 1 to not stretch */
+    position: relative;
+    width: 40%; /* Give it a fixed width on the left */
+}
 
-        #right-controls {
-            display: flex;
-            align-items: center;
-        }
+#right-controls {
+    display: flex;
+    align-items: center;
+    width: 40%; /* Give it a fixed width on the right */
+    justify-content: flex-end;
+    position: relative;
+}
 
         #right-controls .nav-link {
             margin-left: 10px;
@@ -106,7 +113,13 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+          
         }
+
+        .breadcrumb-item.drag-highlight {
+    color: var(--green-text-color) !important;
+    
+}
 
         .breadcrumb-separator {
             margin: 0 5px;

@@ -1078,7 +1078,7 @@ async toggleImagesLocked() {
     return this.imagesLocked;
 }
 
-// Add a quick link to the nav bar
+// In model.js
 async addQuickLink(nodeId, nodeTitle) {
     // Don't add if already exists
     if (this.quickLinks.some(link => link.nodeId === nodeId)) {

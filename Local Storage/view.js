@@ -73,9 +73,9 @@ class CanvasView {
     
         this.setupBackupReminderModal();
         this.setupSettingsPanel();
-        this.setupLockImagesToggle();  // Add this line
-        this.setupQuickLinks(); // Add this line
-        this.setupQuickLinkDragEvents(); // Add this line
+        this.setupLockImagesToggle();
+        this.setupQuickLinks();
+        this.setupQuickLinkDragEvents();
         
         // Add Copy Link button
         const copyLinkButton = document.createElement('button');
@@ -1442,6 +1442,24 @@ async createImageElementDOM(elementData) {
     // In view.js - full method with changes
 setupDragListeners() {
     OPTIMISM.log('Setting up drag listeners');
+
+    // Add this inside setupDragListeners in view.js (before or after existing code)
+// This will ensure we properly remove quick links when dragged off
+document.addEventListener('drop', (e) => {
+    const navControls = document.getElementById('nav-controls');
+    if (e.dataTransfer && e.dataTransfer.types.includes('application/quicklink')) {
+        e.preventDefault();
+        
+        const nodeId = e.dataTransfer.getData('application/quicklink');
+        const navRect = navControls.getBoundingClientRect();
+        
+        if (nodeId && (e.clientX < navRect.left || e.clientX > navRect.right ||
+                        e.clientY < navRect.top || e.clientY > navRect.bottom)) {
+            OPTIMISM.log(`Removing quick link ${nodeId} (dropped outside navbar)`);
+            this.controller.removeQuickLink(nodeId);
+        }
+    }
+});
     
     // Add drag events to nav-controls for quick link addition
     const navControls = document.getElementById('nav-controls');
@@ -1594,170 +1612,181 @@ setupDragListeners() {
         this.handleDragOver(e);
     });
     
-    document.addEventListener('mouseup', (e) => {
-        // Handle end of resizing
-        if (this.resizingElement) {
-            // Get element type
-            const elementType = this.resizingElement.dataset.type;
-            
-            // Don't update locked images
-            if (this.model.imagesLocked && elementType === 'image') {
-                this.resizingElement = null;
-                return;
-            }
-            
-            const id = this.resizingElement.dataset.id;
-            const width = parseFloat(this.resizingElement.style.width);
-            const height = parseFloat(this.resizingElement.style.height);
-            
-            OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
-            this.controller.updateElement(id, { width, height });
-            
+    // In view.js - partial update to the mouseup event handler in setupDragListeners
+document.addEventListener('mouseup', (e) => {
+    // Handle end of resizing
+    if (this.resizingElement) {
+        // Get element type
+        const elementType = this.resizingElement.dataset.type;
+        
+        // Don't update locked images
+        if (this.model.imagesLocked && elementType === 'image') {
             this.resizingElement = null;
             return;
         }
         
-        // Handle end of dragging
-        if (!this.draggedElement) return;
+        const id = this.resizingElement.dataset.id;
+        const width = parseFloat(this.resizingElement.style.width);
+        const height = parseFloat(this.resizingElement.style.height);
         
-        // Store original values to potentially restore
-        const originalLeft = this.draggedElement.dataset.originalLeft;
-        const originalTop = this.draggedElement.dataset.originalTop;
+        OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
+        this.controller.updateElement(id, { width, height });
         
-        // Don't update locked images
-        if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
-            this.draggedElement.classList.remove('dragging');
-            this.draggedElement = null;
-            
-            // Remove highlights
-            const highlighted = document.querySelectorAll('.drag-over');
-            highlighted.forEach(el => el.classList.remove('drag-over'));
-            return;
-        }
-        
-        const draggedId = this.draggedElement.dataset.id;
-        
-        // Check if this is an image element
-        const isImage = this.draggedElement.dataset.type === 'image';
-        
-        // If this is an image, bring it to front of other images
-        if (isImage) {
-            const newZIndex = this.findHighestImageZIndex() + 1;
-            // Make sure we don't exceed our maximum for images
-            const cappedZIndex = Math.min(newZIndex, 99);
-            this.draggedElement.style.zIndex = cappedZIndex;
-        }
-        
-        // First check if dragged over a breadcrumb
-        const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-        if (breadcrumbTarget) {
-            const navIndex = parseInt(breadcrumbTarget.dataset.index);
-            
-            OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
-            
-            // Deselect all elements before moving
-            this.deselectAllElements();
-            
-            // Move the element to the target navigation level
-            this.controller.moveElementToBreadcrumb(draggedId, navIndex);
-        } 
-        // Check if dragging to the nav bar but not over a breadcrumb (for quick links)
-        else {
-            const navControls = document.getElementById('nav-controls');
-            const navRect = navControls.getBoundingClientRect();
-            
-            if (e.clientX >= navRect.left && e.clientX <= navRect.right &&
-                e.clientY >= navRect.top && e.clientY <= navRect.bottom &&
-                !this.findBreadcrumbDropTarget(e)) {
-                
-                // Add as a quick link
-                const element = this.model.findElement(draggedId);
-                
-                if (element) {
-                    let title = "Untitled";
-                    if (element.type === 'text' && element.text) {
-                        title = element.text.substring(0, 60);
-                    } else if (element.type === 'image') {
-                        title = "Image";
-                    }
-                    
-                    OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
-                    this.controller.addQuickLink(draggedId, title);
-                    
-                    // Snap back to the original position if we added as a quick link
-                    if (originalLeft && originalTop) {
-                        this.draggedElement.style.left = originalLeft;
-                        this.draggedElement.style.top = originalTop;
-                        OPTIMISM.log(`Snapping card back to original position: ${originalLeft}, ${originalTop}`);
-                    }
-                }
-            }
-            // If not on a breadcrumb or for a quick link, check if dragged over another element
-            else {
-                const dropTarget = this.findDropTarget(e);
-                if (dropTarget && dropTarget !== this.draggedElement) {
-                    const targetId = dropTarget.dataset.id;
-                    
-                    OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
-                    
-                    // Deselect all elements before moving
-                    this.deselectAllElements();
-                    
-                    this.controller.moveElement(draggedId, targetId);
-                } else {
-                    // Not dropped on any target, just update position
-                    const newX = parseFloat(this.draggedElement.style.left);
-                    const newY = parseFloat(this.draggedElement.style.top);
-                    
-                    OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-                    
-                    // If it's an image, also update z-index
-                    if (isImage) {
-                        this.controller.updateElement(draggedId, { 
-                            x: newX, 
-                            y: newY,
-                            zIndex: parseInt(this.draggedElement.style.zIndex) || 1
-                        });
-                    } else {
-                        this.controller.updateElement(draggedId, { x: newX, y: newY });
-                    }
-                }
-            }
-        }
-        
-        // Reset drag state
+        this.resizingElement = null;
+        return;
+    }
+    
+    // Handle end of dragging
+    if (!this.draggedElement) return;
+    
+    // Don't update locked images
+    if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
         this.draggedElement.classList.remove('dragging');
         this.draggedElement = null;
         
         // Remove highlights
         const highlighted = document.querySelectorAll('.drag-over');
         highlighted.forEach(el => el.classList.remove('drag-over'));
+        return;
+    }
+    
+    const draggedId = this.draggedElement.dataset.id;
+    
+    // Check if this is an image element
+    const isImage = this.draggedElement.dataset.type === 'image';
+    
+    // If this is an image, bring it to front of other images
+    if (isImage) {
+        const newZIndex = this.findHighestImageZIndex() + 1;
+        // Make sure we don't exceed our maximum for images
+        const cappedZIndex = Math.min(newZIndex, 99);
+        this.draggedElement.style.zIndex = cappedZIndex;
+    }
+    
+    // First check if dragged over a breadcrumb
+    const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+    if (breadcrumbTarget) {
+        const navIndex = parseInt(breadcrumbTarget.dataset.index);
         
-        // Remove nav controls highlight
-        document.getElementById('nav-controls').classList.remove('nav-drag-highlight');
-    });
+        OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
+        
+        // Deselect all elements before moving
+        this.deselectAllElements();
+        
+        // Move the element to the target navigation level
+        this.controller.moveElementToBreadcrumb(draggedId, navIndex);
+    } 
+    // If not on a breadcrumb, check if dragged over the quick links area to create a bookmark
+    else if (this.isOverQuickLinksArea(e)) {
+        // Add as a quick link
+        const element = this.model.findElement(draggedId);
+        
+        if (element) {
+            let title = "Untitled";
+            if (element.type === 'text' && element.text) {
+                title = element.text.substring(0, 60);
+            } else if (element.type === 'image') {
+                title = "Image";
+            }
+            
+            OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
+            this.controller.addQuickLink(draggedId, title);
+            
+            // Snap back to the original position
+            if (this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
+                this.draggedElement.style.left = this.draggedElement.dataset.originalLeft;
+                this.draggedElement.style.top = this.draggedElement.dataset.originalTop;
+                OPTIMISM.log(`Snapping card back to original position`);
+            }
+        }
+    }
+    // If not on a breadcrumb or for a quick link, check if dragged over another element
+    else {
+        const dropTarget = this.findDropTarget(e);
+        if (dropTarget && dropTarget !== this.draggedElement) {
+            const targetId = dropTarget.dataset.id;
+            
+            OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
+            
+            // Deselect all elements before moving
+            this.deselectAllElements();
+            
+            this.controller.moveElement(draggedId, targetId);
+        } else {
+            // Not dropped on any target, just update position
+            const newX = parseFloat(this.draggedElement.style.left);
+            const newY = parseFloat(this.draggedElement.style.top);
+            
+            OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
+            
+            // If it's an image, also update z-index
+            if (isImage) {
+                this.controller.updateElement(draggedId, { 
+                    x: newX, 
+                    y: newY,
+                    zIndex: parseInt(this.draggedElement.style.zIndex) || 1
+                });
+            } else {
+                this.controller.updateElement(draggedId, { x: newX, y: newY });
+            }
+        }
+    }
+    
+    // Reset drag state
+    this.draggedElement.classList.remove('dragging');
+    this.draggedElement = null;
+    
+    // Remove highlights
+    const highlighted = document.querySelectorAll('.drag-over');
+    highlighted.forEach(el => el.classList.remove('drag-over'));
+    
+    // Remove nav controls highlight
+    document.getElementById('nav-controls').classList.remove('nav-drag-highlight');
+});
     
     OPTIMISM.log('Drag listeners set up successfully');
 }
     
-    handleDragOver(e) {
-        // Remove previous highlights
-        const highlighted = document.querySelectorAll('.drag-over');
-        highlighted.forEach(el => el.classList.remove('drag-over'));
-        
-        // First check for breadcrumb targets (they have priority)
-        const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-        if (breadcrumbTarget) {
-            breadcrumbTarget.classList.add('drag-over');
-            return;
-        }
-        
-        // Then check for element targets
-        const dropTarget = this.findDropTarget(e);
-        if (dropTarget && dropTarget !== this.draggedElement) {
-            dropTarget.classList.add('drag-over');
-        }
+    // In view.js - update the handleDragOver method
+// In view.js - full handleDragOver method
+handleDragOver(e) {
+    // Remove previous highlights
+    const highlighted = document.querySelectorAll('.drag-highlight');
+    highlighted.forEach(el => el.classList.remove('drag-highlight'));
+    
+    // First check for breadcrumb targets
+    const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+    if (breadcrumbTarget) {
+        // Add green text highlight class
+        breadcrumbTarget.classList.add('drag-highlight');
+        return;
     }
+    
+    // Check if dragging over the quick links area
+    if (this.isOverQuickLinksArea(e)) {
+        // Highlight the quick links by turning them green
+        if (this.quickLinksContainer) {
+            // Highlight placeholder if no links
+            const placeholder = this.quickLinksContainer.querySelector('.quick-link-placeholder');
+            if (placeholder) {
+                placeholder.classList.add('drag-highlight');
+            } else {
+                // Highlight all quick links
+                const quickLinks = this.quickLinksContainer.querySelectorAll('.quick-link');
+                quickLinks.forEach(link => {
+                    link.classList.add('drag-highlight');
+                });
+            }
+        }
+        return;
+    }
+    
+    // Then check for element targets
+    const dropTarget = this.findDropTarget(e);
+    if (dropTarget && dropTarget !== this.draggedElement) {
+        dropTarget.classList.add('drag-over');  // Keep original style for elements
+    }
+}
     
     findDropTarget(e) {
         const elements = document.elementsFromPoint(e.clientX, e.clientY);
@@ -1813,19 +1842,22 @@ setupDragListeners() {
         OPTIMISM.log('Backup reminder modal set up successfully');
     }
 
-    findBreadcrumbDropTarget(e) {
-        const breadcrumbs = document.querySelectorAll('.breadcrumb-item');
-        for (let i = 0; i < breadcrumbs.length - 1; i++) { // Skip the last one (current level)
-            const breadcrumb = breadcrumbs[i];
-            const rect = breadcrumb.getBoundingClientRect();
-            
-            if (e.clientX >= rect.left && e.clientX <= rect.right &&
-                e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                return breadcrumb;
-            }
+    // In view.js - full findBreadcrumbDropTarget method
+findBreadcrumbDropTarget(e) {
+    const breadcrumbs = document.querySelectorAll('.breadcrumb-item');
+    for (let i = 0; i < breadcrumbs.length - 1; i++) { // Skip the last one (current level)
+        const breadcrumb = breadcrumbs[i];
+        const rect = breadcrumb.getBoundingClientRect();
+        
+        // Add a bit more tolerance around the element
+        const tolerance = 5; // 5px tolerance
+        if (e.clientX >= rect.left - tolerance && e.clientX <= rect.right + tolerance &&
+            e.clientY >= rect.top - tolerance && e.clientY <= rect.bottom + tolerance) {
+            return breadcrumb;
         }
-        return null;
     }
+    return null;
+}
 
     setupSettingsPanel() {
         OPTIMISM.log('Setting up settings panel');
@@ -2007,64 +2039,81 @@ updateImagesLockState(isLocked) {
 }
 
 // In view.js
+// In view.js
+// In view.js - full setupQuickLinks method
 setupQuickLinks() {
     OPTIMISM.log('Setting up quick links container');
     
     // Create the quick links container if it doesn't exist
     if (!this.quickLinksContainer) {
+        // Create a fixed-position container for the links
         this.quickLinksContainer = document.createElement('div');
         this.quickLinksContainer.id = 'quick-links-container';
         this.quickLinksContainer.className = 'quick-links-container';
+        
+        // Style the container for center positioning
+        this.quickLinksContainer.style.position = 'absolute';
+        this.quickLinksContainer.style.left = '50%';
+        this.quickLinksContainer.style.transform = 'translateX(-50%)';
         this.quickLinksContainer.style.display = 'flex';
+        this.quickLinksContainer.style.justifyContent = 'center';
         this.quickLinksContainer.style.alignItems = 'center';
-        this.quickLinksContainer.style.justifyContent = 'center'; // Center alignment
-        this.quickLinksContainer.style.flex = '1'; // Take up remaining space
         this.quickLinksContainer.style.height = '100%';
+        this.quickLinksContainer.style.top = '0';
+        this.quickLinksContainer.style.pointerEvents = 'auto';
         
-        // Add it to the nav bar between breadcrumbs and right controls
-        const navControls = document.getElementById('nav-controls');
-        navControls.appendChild(this.quickLinksContainer);
+        // Add it to the title bar
+        this.titleBar.appendChild(this.quickLinksContainer);
         
-        // Modify nav-controls style to properly distribute space
-        navControls.style.display = 'flex';
-        navControls.style.flex = '1';
-        navControls.style.justifyContent = 'space-between';
-        
-        // Make breadcrumb container take just the space it needs
-        const breadcrumbContainer = document.getElementById('breadcrumb-container');
-        breadcrumbContainer.style.flex = '0 1 auto';
-        
-        // Add drag over highlight styles
-        const styleElem = document.createElement('style');
-        styleElem.textContent = `
-            #nav-controls.nav-drag-highlight {
-                outline: 2px dashed var(--element-border-color);
-                background-color: rgba(128, 128, 128, 0.1);
-            }
-            .quick-link {
-                padding: 4px 8px;
-                color: var(--element-text-color);
-                text-decoration: underline;
-                margin: 0 10px;
-                cursor: pointer;
-                font-size: 14px;
-                display: inline-block;
-                max-width: 120px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            .quick-link.drag-over {
-                outline: 2px dashed var(--element-border-color);
-                background-color: rgba(128, 128, 128, 0.2);
-            }
-            .quick-links-container {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-        `;
-        document.head.appendChild(styleElem);
+        // Add styles
+        // In view.js - update the CSS portion of setupQuickLinks method
+const styleElem = document.createElement('style');
+styleElem.textContent = `
+    .quick-link {
+        padding: 4px 8px;
+        color: var(--element-text-color);
+        text-decoration: underline;
+        margin: 0 10px;
+        cursor: pointer;
+        font-size: 14px;
+        display: inline-block;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        position: relative; top: 1px;
+       
+    }
+        .quick-link-placeholder {
+        color: var(--element-text-color);
+        font-size: 14px;
+        padding: 4px 8px;
+        opacity: 0.7;
+        position: relative;
+        top: 1px; /* Move text down by 1px */
+    }
+    .quick-links-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 5;
+    }
+    .breadcrumb-item.drag-highlight,
+    .quick-link.drag-highlight,
+    .quick-link-placeholder.drag-highlight {
+        color: var(--green-text-color) !important;
+       
+       
+    }
+    .quick-link.shift-hover {
+        color: var(--red-text-color) !important;
+       
+    }
+    .element-container.drag-over {
+        border: 2px dashed var(--element-border-color) !important;
+    }
+`;
+document.head.appendChild(styleElem);
     }
     
     // Render the current quick links
@@ -2073,7 +2122,8 @@ setupQuickLinks() {
     OPTIMISM.log('Quick links container set up successfully');
 }
 
-// In view.js
+
+// In view.js - full renderQuickLinks method
 renderQuickLinks() {
     OPTIMISM.log('Rendering quick links');
     
@@ -2084,6 +2134,53 @@ renderQuickLinks() {
     
     // Clear existing links
     this.quickLinksContainer.innerHTML = '';
+    
+    // Check if we have any quick links
+    if (this.model.quickLinks.length === 0) {
+        // Show placeholder text
+        const placeholderText = document.createElement('span');
+        placeholderText.className = 'quick-link-placeholder';
+        placeholderText.textContent = 'Drag cards here to bookmark';
+        placeholderText.style.color = 'var(--element-text-color)';
+        placeholderText.style.fontSize = '14px';  // Match other nav links
+        placeholderText.style.padding = '4px 8px';
+        placeholderText.style.opacity = '0.7';  // Slightly faded
+        
+        this.quickLinksContainer.appendChild(placeholderText);
+        OPTIMISM.log('No quick links, showing placeholder text');
+        return;
+    }
+    
+    // Create a flex container for centered alignment
+    const linksWrapper = document.createElement('div');
+    linksWrapper.style.display = 'flex';
+    linksWrapper.style.justifyContent = 'center';
+    linksWrapper.style.alignItems = 'center';
+    linksWrapper.style.gap = '20px'; // Space between links
+    
+    // Create a variable to track shift key state
+    const shiftKeyState = { pressed: false };
+    
+    // Add global event listeners for shift key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Shift') {
+            shiftKeyState.pressed = true;
+            // Update all quick links
+            document.querySelectorAll('.quick-link:hover').forEach(link => {
+                link.classList.add('shift-hover');
+            });
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'Shift') {
+            shiftKeyState.pressed = false;
+            // Update all quick links
+            document.querySelectorAll('.quick-link.shift-hover').forEach(link => {
+                link.classList.remove('shift-hover');
+            });
+        }
+    });
     
     // Render each quick link
     this.model.quickLinks.forEach(link => {
@@ -2099,73 +2196,99 @@ renderQuickLinks() {
         
         // Add expiry info to title attribute
         const editsUntilExpiry = link.expiresAt - this.model.editCounter;
-        quickLink.title = `${link.nodeTitle} (expires in ${editsUntilExpiry} edits)`;
+        quickLink.title = `${link.nodeTitle} (expires in ${editsUntilExpiry} edits) - Shift+click to remove`;
         
         quickLink.textContent = displayTitle;
         
-        // Make link navigable
-        quickLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            try {
-                OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
-                this.controller.navigateToNode(link.nodeId);
-            } catch (error) {
-                OPTIMISM.logError(`Error navigating to quick link: ${error}`);
+        // Calculate opacity based on remaining lifetime
+        const remainingLifePercentage = editsUntilExpiry / this.model.quickLinkExpiryCount;
+        const opacity = Math.max(0.3, remainingLifePercentage);
+        quickLink.style.opacity = opacity.toFixed(2);
+        
+        // Add hover event listeners for shift key state
+        quickLink.addEventListener('mouseenter', () => {
+            if (shiftKeyState.pressed) {
+                quickLink.classList.add('shift-hover');
             }
         });
         
-        // Make link draggable (for removal)
-        quickLink.setAttribute('draggable', 'true');
-        
-        quickLink.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('application/quicklink', link.nodeId);
-            e.dataTransfer.setData('text/plain', link.nodeId); // Keep this for backward compatibility
-            e.dataTransfer.effectAllowed = 'move';
+        quickLink.addEventListener('mouseleave', () => {
+            quickLink.classList.remove('shift-hover');
         });
         
-        this.quickLinksContainer.appendChild(quickLink);
+        // Handle clicks on the link
+        // In view.js - update the click handler in renderQuickLinks method
+// Handle clicks on the link
+quickLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Check if shift key is pressed for removal
+    if (e.shiftKey) {
+        try {
+            OPTIMISM.log(`Removing quick link via shift+click: ${link.nodeId}`);
+            this.controller.removeQuickLink(link.nodeId);
+        } catch (error) {
+            OPTIMISM.logError(`Error removing quick link: ${error}`);
+        }
+        return;
+    }
+    
+    // Normal click - navigate to the node
+    try {
+        OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
+        // Use navigateToNode instead of navigateToElement
+        this.controller.navigateToNode(link.nodeId);
+    } catch (error) {
+        OPTIMISM.logError(`Error navigating to quick link: ${error}`);
+    }
+});
+        
+        linksWrapper.appendChild(quickLink);
     });
+    
+    // Add the wrapper to the container
+    this.quickLinksContainer.appendChild(linksWrapper);
     
     OPTIMISM.log(`Rendered ${this.model.quickLinks.length} quick links`);
 }
 
-// In view.js
+
 setupQuickLinkDragEvents() {
-    // Add this custom drag handler for quick links
+    // We no longer need drag and drop for quick links
+    // This method is now mostly empty since we're using shift+click instead
+    
+    // Prevent quick links from being draggable
     document.addEventListener('dragstart', (e) => {
-        // Check if we're dragging a quick link
         if (e.target.classList.contains('quick-link')) {
-            // Hide the drop zone indicator that's used for images
-            this.dropZoneIndicator.style.display = 'none';
-            
-            // Set a custom data attribute to identify this as a quick link drag
-            e.dataTransfer.setData('application/quicklink', e.target.dataset.nodeId);
-        }
-    });
-    
-    // Prevent default drop zone from showing for quick links
-    document.addEventListener('dragover', (e) => {
-        // Check if we're dragging a quick link
-        if (e.dataTransfer.types.includes('application/quicklink')) {
-            // Only prevent default and hide indicator when outside nav-controls
-            const navControls = document.getElementById('nav-controls');
-            if (!navControls.contains(e.target)) {
-                e.preventDefault();
-                this.dropZoneIndicator.style.display = 'none';
-            }
-        }
-    });
-    
-    // Hide the drop zone when the drag ends
-    document.addEventListener('dragend', (e) => {
-        if (e.target.classList.contains('quick-link')) {
-            this.dropZoneIndicator.style.display = 'none';
+            e.preventDefault();
+            e.stopPropagation();
         }
     });
     
     OPTIMISM.log('Quick link drag events set up successfully');
+}
+
+// Add this method to view.js
+isOverQuickLinksArea(e) {
+    // Check if the event is over the title bar (where the quick links are)
+    const titleBar = document.getElementById('title-bar');
+    if (!titleBar) return false;
+    
+    const rect = titleBar.getBoundingClientRect();
+    
+    // Check if mouse position is within the title bar bounds
+    if (e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        
+        // Check if it's in the middle third of the title bar (approximate quick links area)
+        const leftBound = rect.left + rect.width * 0.3;
+        const rightBound = rect.right - rect.width * 0.3;
+        
+        return e.clientX >= leftBound && e.clientX <= rightBound;
+    }
+    
+    return false;
 }
     
 }
