@@ -1130,25 +1130,28 @@ if (elementData.style && elementData.style.isHighlighted) {
             e.preventDefault();
         });
         
-        resizeHandle.addEventListener('mousedown', (e) => {
-            // Don't allow resizing if images are locked
-            if (this.model.imagesLocked) return;
-            
-            e.stopPropagation(); // Prevent other mouse handlers
-            
-            this.selectElement(container, elementData);
-            this.resizingElement = container;
-            
-            // Save initial dimensions
-            this.initialWidth = container.offsetWidth;
-            this.initialHeight = container.offsetHeight;
-            
-            // Save initial mouse position
-            this.dragStartX = e.clientX;
-            this.dragStartY = e.clientY;
-            
-            e.preventDefault();
-        });
+        // In createTextElementDOM method in view.js
+// In createImageElementDOM method in view.js
+// In createTextElementDOM method in view.js
+resizeHandle.addEventListener('mousedown', (e) => {
+    // Don't check image lock status for text elements
+    // Text elements should always be resizable regardless of image lock
+    
+    e.stopPropagation(); // Prevent other mouse handlers
+    
+    this.selectElement(container, elementData);
+    this.resizingElement = container;
+    
+    // Save initial dimensions
+    this.initialWidth = container.offsetWidth;
+    this.initialHeight = container.offsetHeight;
+    
+    // Save initial mouse position
+    this.dragStartX = e.clientX;
+    this.dragStartY = e.clientY;
+    
+    e.preventDefault();
+});
         
         // Append all elements to the container
         container.appendChild(textEditor);
