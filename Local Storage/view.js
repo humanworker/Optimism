@@ -1893,19 +1893,25 @@ handleDragOver(e) {
     }
 }
     
-    findDropTarget(e) {
-        const elements = document.elementsFromPoint(e.clientX, e.clientY);
-        for (const element of elements) {
-            if (element.classList.contains('element-container') && element !== this.draggedElement) {
-                // Don't allow dropping onto images if images are locked
-                if (this.model.imagesLocked && element.dataset.type === 'image') {
-                    continue;
-                }
-                return element;
+findDropTarget(e) {
+    const elements = document.elementsFromPoint(e.clientX, e.clientY);
+    for (const element of elements) {
+        if (element.classList.contains('element-container') && element !== this.draggedElement) {
+            // Don't allow dropping onto images if images are locked
+            if (this.model.imagesLocked && element.dataset.type === 'image') {
+                continue;
             }
+            
+            // Don't allow dropping onto locked cards
+            if (this.model.isCardLocked(element.dataset.id)) {
+                continue;
+            }
+            
+            return element;
         }
-        return null;
     }
+    return null;
+}
     
     updateTheme(isDarkTheme) {
         OPTIMISM.log(`Updating theme to ${isDarkTheme ? 'dark' : 'light'}`);
@@ -2434,7 +2440,6 @@ updateCardLockState(cardId, isLocked) {
     this.updateLockedCardStyles();
 }
 
-// Update the CSS for locked cards
 updateLockedCardStyles() {
     let styleElem = document.getElementById('card-lock-style');
     if (!styleElem) {
@@ -2451,7 +2456,7 @@ updateLockedCardStyles() {
         .card-locked .resize-handle {
             display: none !important;
         }
-        .card-locked::after {
+        .card-locked.selected::after {
             content: '🔒';
             position: absolute;
             top: 5px;
