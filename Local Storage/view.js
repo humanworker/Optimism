@@ -60,7 +60,24 @@ class CanvasView {
             }
         `;
         document.head.appendChild(styleElement);
+
+         const cmdCursorStyle = document.createElement('style');
+    cmdCursorStyle.textContent = `
+        body.cmd-pressed .element-container:not(.card-locked) {
+            cursor: pointer !important;
+        }
+        body.cmd-pressed .text-element {
+            cursor: text !important;
+        }
+        body.cmd-pressed .text-display {
+            cursor: pointer !important;
+        }
+    `;
+    document.head.appendChild(cmdCursorStyle);
+
     }
+
+    
     
     hideLoading() {
         OPTIMISM.log('Application loaded');
@@ -88,6 +105,26 @@ class CanvasView {
     
     setupEventListeners() {
         OPTIMISM.log('Setting up event listeners');
+        
+        // Add global modifier key detection
+        document.addEventListener('keydown', (e) => {
+            // Check if CMD or CTRL key is pressed
+            if (e.metaKey || e.ctrlKey) {
+                document.body.classList.add('cmd-pressed');
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            // Check if CMD or CTRL key is released
+            if (e.key === 'Meta' || e.key === 'Control') {
+                document.body.classList.remove('cmd-pressed');
+            }
+        });
+        
+        // Add a blur handler to handle when the window loses focus
+        window.addEventListener('blur', () => {
+            document.body.classList.remove('cmd-pressed');
+        });
     
         this.setupBackupReminderModal();
         this.setupSettingsPanel();

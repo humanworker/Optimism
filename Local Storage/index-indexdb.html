@@ -697,6 +697,16 @@ mark {
 .has-permanent-border {
     border-color: var(--selected-border-color) !important;
 }
+
+/* Cursor changes when CMD/CTRL is pressed */
+.cmd-pressed .element-container:not(.card-locked) {
+    cursor: pointer !important;
+}
+
+/* Make sure locked cards don't change cursor */
+.card-locked {
+    cursor: default !important;
+}
     </style>
 </head>
 <body>
