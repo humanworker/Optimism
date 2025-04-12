@@ -482,15 +482,14 @@ this.inboxDragTarget = null;
         document.addEventListener('dragover', (e) => {
             e.preventDefault();
             
-            // Don't show drop zone for internal drags
-            if (this.draggedElement || this.inboxDragTarget) {
+            // Don't show drop zone for internal drag operations
+            if (this.draggedElement || this.isDraggingFromInbox) {
                 dropZoneIndicator.style.display = 'none';
                 return;
             }
             
-            // Don't show for quick links or inbox cards
-            if (e.dataTransfer.types.includes('application/quicklink') || 
-                e.dataTransfer.types.includes('application/inbox-card')) {
+            // Don't show for quick links
+            if (e.dataTransfer.types.includes('application/quicklink')) {
                 dropZoneIndicator.style.display = 'none';
                 return;
             }
@@ -511,7 +510,10 @@ this.inboxDragTarget = null;
             e.preventDefault();
             dropZoneIndicator.style.display = 'none';
             
-            // Skip if it's a card from inbox to canvas
+            // Skip if it's an internal drag operation
+            if (this.draggedElement || this.isDraggingFromInbox) return;
+            
+                    // Skip if it's a card from inbox to canvas
             if (this.inboxDragTarget) return;
             
             // Get correct coordinates relative to the workspace
@@ -1622,8 +1624,54 @@ if (lockOption) {
     }
     
     // In view.js - full method with changes
-setupDragListeners() {
-    OPTIMISM.log('Setting up drag listeners');
+    setupDragListeners() {
+        OPTIMISM.log('Setting up drag listeners');
+        
+        // Add workspace drop handler for inbox cards
+        this.workspace.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            
+            // If we're dragging from inbox, add a subtle visual indicator
+            if (this.isDraggingFromInbox) {
+                // Hide image drop zone
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'none';
+                }
+                
+                // We could add a custom visual indicator here if desired
+            }
+        });
+        
+        this.workspace.addEventListener('drop', (e) => {
+            e.preventDefault();
+            
+            OPTIMISM.log('Drop event on workspace');
+            
+            // Handle drops from inbox to canvas
+            if (this.isDraggingFromInbox) {
+                const cardId = e.dataTransfer.getData('text/plain');
+                if (cardId) {
+                    // Get position relative to workspace
+                    const rect = this.workspace.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
+                    this.controller.moveFromInboxToCanvas(cardId, x, y);
+                    
+                    // Reset drag state
+                    this.isDraggingFromInbox = false;
+                    
+                    // Ensure drop zone indicator is hidden
+                    if (this.dropZoneIndicator) {
+                        this.dropZoneIndicator.style.display = 'none';
+                    }
+                    
+                    // Stop propagation to prevent other handlers
+                    e.stopPropagation();
+                }
+            }
+        });
 
     // Add this inside setupDragListeners in view.js (before or after existing code)
 // This will ensure we properly remove quick links when dragged off
@@ -2838,21 +2886,35 @@ renderInboxPanel() {
         // Make card draggable
         cardElement.draggable = true;
         
-        // Add drag event listeners right on the card
+        // Add handlers for dragging FROM the inbox TO canvas
         cardElement.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('application/inbox-card', card.id);
-            cardElement.classList.add('dragging');
-            this.inboxDragTarget = cardElement;
+            OPTIMISM.log(`Starting drag of inbox card ${card.id}`);
+            // Set flag to indicate we're dragging from inbox
+            this.isDraggingFromInbox = true;
             
-            // Ensure the drop zone indicator is hidden
+            // Store card ID in dataTransfer
+            e.dataTransfer.setData('text/plain', card.id);
+            e.dataTransfer.effectAllowed = 'move';
+            
+            // Add visual indicator
+            cardElement.classList.add('dragging');
+            
+            // Hide drop zone indicator immediately
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'none';
             }
         });
         
-        cardElement.addEventListener('dragend', () => {
+        // Handle dragend for inbox cards
+        cardElement.addEventListener('dragend', (e) => {
+            OPTIMISM.log(`Ending drag of inbox card ${card.id}`);
             cardElement.classList.remove('dragging');
-            this.inboxDragTarget = null;
+            this.isDraggingFromInbox = false;
+            
+            // Ensure drop zone indicator is hidden
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
+            }
         });
         
         // Double-click to edit text cards
@@ -2880,14 +2942,25 @@ renderInboxPanel() {
 }
 
 setupInboxDragEvents() {
+    OPTIMISM.log('Setting up inbox drag events');
+    
+    // Flag to track when we're dragging from the inbox
+    this.isDraggingFromInbox = false;
+    
     // Add drop target behavior to inbox toggle
     this.inboxToggle.addEventListener('dragover', (e) => {
+        // Always prevent default to allow drop
         e.preventDefault();
-        e.stopPropagation(); // Prevent workspace handling
+        e.stopPropagation();
         
-        // Only highlight if dragging an element from workspace
-        if (this.draggedElement && !this.inboxDragTarget) {
+        // Only highlight if dragging from workspace
+        if (this.draggedElement && !this.isDraggingFromInbox) {
             this.inboxToggle.classList.add('drag-highlight');
+            
+            // Ensure the drop zone indicator is hidden
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
+            }
         }
     });
     
@@ -2895,118 +2968,107 @@ setupInboxDragEvents() {
         this.inboxToggle.classList.remove('drag-highlight');
     });
     
-    // Fix the drop handler for the inbox toggle
+    // Critical: Set a proper drop handler on the inbox toggle
     this.inboxToggle.addEventListener('drop', (e) => {
+        // Always prevent default to ensure our handler runs
         e.preventDefault();
-        e.stopPropagation(); // Prevent workspace handling
+        e.stopPropagation();
         
+        OPTIMISM.log('Drop event on inbox toggle');
         this.inboxToggle.classList.remove('drag-highlight');
         
         // Only handle if dragging from workspace
-        if (this.draggedElement && !this.inboxDragTarget) {
+        if (this.draggedElement && !this.isDraggingFromInbox) {
             const draggedId = this.draggedElement.dataset.id;
             if (draggedId) {
-                OPTIMISM.log(`Dropping element ${draggedId} onto inbox link`);
+                OPTIMISM.log(`Moving element ${draggedId} to inbox via drop`);
                 
-                // Move element to inbox - need to prevent default action
-                this.controller.moveToInbox(draggedId);
-                
-                // Reset drag state
-                this.draggedElement.classList.remove('dragging');
+                // Clear drag state before processing, as the element will be removed
+                const element = this.draggedElement;
                 this.draggedElement = null;
+                element.classList.remove('dragging');
+                
+                // Now move the element to inbox
+                // Important: This will delete the element from canvas
+                this.controller.moveToInbox(draggedId);
             }
         }
     });
     
-    // Similarly fix the drop handler for the inbox panel
-    this.inboxPanel.addEventListener('drop', (e) => {
+    // Similarly for the inbox panel
+    this.inboxPanel.addEventListener('dragover', (e) => {
+        // Always prevent default to allow drop
         e.preventDefault();
-        e.stopPropagation(); // Prevent workspace handling
+        e.stopPropagation();
         
-        this.inboxPanel.classList.remove('drag-highlight');
-        this.inboxToggle.classList.remove('drag-highlight');
-        
-        // Only handle if dragging from workspace
-        if (this.draggedElement && !this.inboxDragTarget) {
-            const draggedId = this.draggedElement.dataset.id;
-            if (draggedId) {
-                OPTIMISM.log(`Dropping element ${draggedId} onto inbox panel`);
-                
-                // Move element to inbox
-                this.controller.moveToInbox(draggedId);
-                
-                // Reset drag state
-                this.draggedElement.classList.remove('dragging');
-                this.draggedElement = null;
-            }
-        }
-    });
-    
-    // Fix dragging from inbox to canvas
-    const inboxContainer = this.inboxPanel.querySelector('.inbox-container');
-    if (inboxContainer) {
-        inboxContainer.addEventListener('dragstart', (e) => {
-            const inboxCard = e.target.closest('.inbox-card');
-            if (inboxCard) {
-                e.dataTransfer.setData('application/inbox-card', inboxCard.dataset.id);
-                inboxCard.classList.add('dragging');
-                this.inboxDragTarget = inboxCard;
-                
-                // Prevent the image drop zone indicator from showing
-                if (this.dropZoneIndicator) {
-                    this.dropZoneIndicator.style.display = 'none';
-                }
-            }
-        });
-    }
-    
-    // Update the workspace drop behavior for inbox cards
-    this.workspace.addEventListener('dragover', (e) => {
-        // Always prevent default for proper drop handling
-        e.preventDefault();
-        
-        // If we're dragging from inbox, add a visual indicator
-        if (this.inboxDragTarget) {
-            // We could add a specific visual indicator here for inbox card drops
-            // But for now, just make sure the drop zone indicator is hidden
+        // Only highlight if dragging from workspace
+        if (this.draggedElement && !this.isDraggingFromInbox) {
+            this.inboxPanel.classList.add('drag-highlight');
+            this.inboxToggle.classList.add('drag-highlight');
+            
+            // Ensure the drop zone indicator is hidden
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'none';
             }
         }
     });
     
-    // Update workspace drop handler for inbox cards
-    this.workspace.addEventListener('drop', (e) => {
+    this.inboxPanel.addEventListener('dragleave', (e) => {
+        // Only remove highlight if leaving the panel entirely
+        if (!this.inboxPanel.contains(e.relatedTarget)) {
+            this.inboxPanel.classList.remove('drag-highlight');
+            this.inboxToggle.classList.remove('drag-highlight');
+        }
+    });
+    
+    this.inboxPanel.addEventListener('drop', (e) => {
+        // Always prevent default to ensure our handler runs
         e.preventDefault();
+        e.stopPropagation();
         
-        // Only handle if dragging from inbox
-        if (this.inboxDragTarget) {
-            const cardId = e.dataTransfer.getData('application/inbox-card');
-            if (cardId) {
-                // Get position relative to workspace
-                const rect = this.workspace.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+        OPTIMISM.log('Drop event on inbox panel');
+        this.inboxPanel.classList.remove('drag-highlight');
+        this.inboxToggle.classList.remove('drag-highlight');
+        
+        // Only handle if dragging from workspace
+        if (this.draggedElement && !this.isDraggingFromInbox) {
+            const draggedId = this.draggedElement.dataset.id;
+            if (draggedId) {
+                OPTIMISM.log(`Moving element ${draggedId} to inbox via panel drop`);
                 
-                OPTIMISM.log(`Dropping inbox card ${cardId} onto workspace at (${x}, ${y})`);
+                // Clear drag state before processing, as the element will be removed
+                const element = this.draggedElement;
+                this.draggedElement = null;
+                element.classList.remove('dragging');
                 
-                // Move card from inbox to canvas
-                this.controller.moveFromInboxToCanvas(cardId, x, y);
-                
-                // Reset drag state
-                this.inboxDragTarget.classList.remove('dragging');
-                this.inboxDragTarget = null;
+                // Now move the element to inbox
+                // Important: This will delete the element from canvas
+                this.controller.moveToInbox(draggedId);
             }
         }
     });
     
-    // Add event listener to document to handle dragend for inbox cards
+    // Handle generic dragend events in case other handlers don't catch them
     document.addEventListener('dragend', (e) => {
-        if (this.inboxDragTarget) {
-            this.inboxDragTarget.classList.remove('dragging');
-            this.inboxDragTarget = null;
+        OPTIMISM.log('Global dragend event');
+        // Reset any active drag state
+        if (this.draggedElement) {
+            this.draggedElement.classList.remove('dragging');
+            this.draggedElement = null;
+        }
+        
+        // Reset inbox drag state
+        this.isDraggingFromInbox = false;
+        
+        // Ensure drop indicators are hidden
+        this.inboxToggle.classList.remove('drag-highlight');
+        this.inboxPanel.classList.remove('drag-highlight');
+        if (this.dropZoneIndicator) {
+            this.dropZoneIndicator.style.display = 'none';
         }
     });
+    
+    OPTIMISM.log('Inbox drag events setup complete');
 }
     
 }
