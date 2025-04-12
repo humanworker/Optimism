@@ -135,7 +135,27 @@ this.inboxDragTarget = null;
         this.setupLockImagesToggle();
         this.setupQuickLinks();
         this.setupQuickLinkDragEvents();
-        this.setupInboxPanel(); // Add this line
+        this.setupInboxPanel(); // Set up the inbox panel
+        
+        // Close style panel when entering inbox link or panel during drag
+        this.inboxToggle.addEventListener('mouseenter', (e) => {
+            if (this.draggedElement) {
+                // If we're dragging, ensure the style panel is hidden
+                this.stylePanel.style.display = 'none';
+                // Highlight the inbox toggle
+                this.inboxToggle.classList.add('drag-highlight');
+            }
+        });
+    
+        this.inboxPanel.addEventListener('mouseenter', (e) => {
+            if (this.draggedElement) {
+                // If we're dragging, ensure the style panel is hidden
+                this.stylePanel.style.display = 'none';
+                // Highlight the inbox panel and toggle
+                this.inboxPanel.classList.add('drag-highlight');
+                this.inboxToggle.classList.add('drag-highlight');
+            }
+        });
         
         // Add Copy Link button
         const copyLinkButton = document.createElement('button');
@@ -184,163 +204,160 @@ this.inboxDragTarget = null;
         });
         
         // Global keyboard handlers for deletion and navigation
-       // Global keyboard handlers for deletion and navigation
-document.addEventListener('keydown', (e) => {
-    // Delete/Backspace to delete selected element
-    if ((e.key === 'Delete' || e.key === 'Backspace') && 
-        this.model.selectedElement && 
-        document.activeElement.tagName !== 'TEXTAREA') {
-        this.controller.deleteElement(this.model.selectedElement);
-        e.preventDefault(); // Prevent browser back navigation on backspace
-    }
-
-    
-    
-    // Up Arrow to navigate back (zoom out) - but not when editing text
-    if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1 && 
-        document.activeElement.tagName !== 'TEXTAREA') {
-        this.controller.navigateBack();
-        e.preventDefault();
-    }
-    
-    // Down Arrow to navigate into selected element (zoom in)
-    if (e.key === 'ArrowDown' && 
-        this.model.selectedElement && 
-        this.model.hasChildren(this.model.selectedElement)) {
-        this.controller.navigateToElement(this.model.selectedElement);
-        e.preventDefault();
-    }
-    
-    // Undo with Ctrl/Cmd+Z
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-        this.controller.undo();
-        e.preventDefault();
-    }
-    
-    // Redo with Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
-    if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
-        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) {
-        this.controller.redo();
-        e.preventDefault();
-    }
-    
-   // Style shortcuts (only when an element is selected and not in edit mode)
-if (this.model.selectedElement && 
-    document.activeElement.tagName !== 'TEXTAREA') {
-    
-    const element = this.model.findElement(this.model.selectedElement);
-    
-    // Only apply styling to text elements
-    if (element && element.type === 'text') {
-        let styleUpdated = false;
-        
-        // 0 = reset to default (small text, black, no header, no highlight, no border)
-if (e.key === '0') {
-    this.controller.updateElementStyle(this.model.selectedElement, { 
-        textSize: 'small', 
-        textColor: 'default', 
-        hasHeader: false,
-        isHighlighted: false,
-        hasBorder: false
-    });
-    styleUpdated = true;
-    e.preventDefault();
-}
-        
-        // 1 = small text size
-        else if (e.key === '1') {
-            // Only apply if not already small (small is default)
-            if (element.style && element.style.textSize !== 'small') {
-                this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'small' });
-                styleUpdated = true;
+        document.addEventListener('keydown', (e) => {
+            // Delete/Backspace to delete selected element
+            if ((e.key === 'Delete' || e.key === 'Backspace') && 
+                this.model.selectedElement && 
+                document.activeElement.tagName !== 'TEXTAREA') {
+                this.controller.deleteElement(this.model.selectedElement);
+                e.preventDefault(); // Prevent browser back navigation on backspace
             }
-            e.preventDefault();
-        }
-        
-        // 2 = large text size
-        else if (e.key === '2') {
-            // Only apply if not already large
-            if (!element.style || element.style.textSize !== 'large') {
-                this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'large' });
-                styleUpdated = true;
-            }
-            e.preventDefault();
-        }
-        
-        // 3 = huge text size
-        else if (e.key === '3') {
-            // Only apply if not already huge
-            if (!element.style || element.style.textSize !== 'huge') {
-                this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'huge' });
-                styleUpdated = true;
-            }
-            e.preventDefault();
-        }
-        
-        // 4 = cycle through text colors (default -> red -> green -> default)
-        else if (e.key === '4') {
-            // Get current color
-            const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
-            let nextColor;
             
-            // Determine next color
-            if (currentColor === 'default') nextColor = 'red';
-            else if (currentColor === 'red') nextColor = 'green';
-            else nextColor = 'default'; // green or any other color goes back to default
-            
-            this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
-            styleUpdated = true;
-            e.preventDefault();
-        }
-        
-        // 5 = toggle header
-        else if (e.key === '5') {
-            // Toggle current header setting
-            const hasHeader = element.style && element.style.hasHeader ? true : false;
-            this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
-            styleUpdated = true;
-            e.preventDefault();
-        }
-
-        // 6 = toggle highlight
-else if (e.key === '6') {
-    // Get the current highlight setting
-    const isHighlighted = element.style && element.style.isHighlighted ? true : false;
-    this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
-    styleUpdated = true;
-    e.preventDefault();
-}
-
-// 7 = toggle border
-else if (e.key === '7') {
-    // Toggle current border setting
-    const hasBorder = element.style && element.style.hasBorder ? true : false;
-    this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: !hasBorder });
-    styleUpdated = true;
-    e.preventDefault();
-}
-
-// 9 = toggle card lock
-else if (e.key === '9') {
-    // Toggle current lock setting
-    const isLocked = this.model.isCardLocked(this.model.selectedElement);
-    this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
-    styleUpdated = true;
-    e.preventDefault();
-}
-        
-        // Update style panel if any style changed
-        if (styleUpdated) {
-            // Get the updated element data after the style changes
-            const updatedElement = this.model.findElement(this.model.selectedElement);
-            if (updatedElement) {
-                this.updateStylePanel(updatedElement);
+            // Up Arrow to navigate back (zoom out) - but not when editing text
+            if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1 && 
+                document.activeElement.tagName !== 'TEXTAREA') {
+                this.controller.navigateBack();
+                e.preventDefault();
             }
-        }
-    }
-}
-});
-
+            
+            // Down Arrow to navigate into selected element (zoom in)
+            if (e.key === 'ArrowDown' && 
+                this.model.selectedElement && 
+                this.model.hasChildren(this.model.selectedElement)) {
+                this.controller.navigateToElement(this.model.selectedElement);
+                e.preventDefault();
+            }
+            
+            // Undo with Ctrl/Cmd+Z
+            if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                this.controller.undo();
+                e.preventDefault();
+            }
+            
+            // Redo with Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
+            if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+                ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) {
+                this.controller.redo();
+                e.preventDefault();
+            }
+            
+            // Style shortcuts (only when an element is selected and not in edit mode)
+            if (this.model.selectedElement && 
+                document.activeElement.tagName !== 'TEXTAREA') {
+                
+                const element = this.model.findElement(this.model.selectedElement);
+                
+                // Only apply styling to text elements
+                if (element && element.type === 'text') {
+                    let styleUpdated = false;
+                    
+                    // 0 = reset to default (small text, black, no header, no highlight, no border)
+                    if (e.key === '0') {
+                        this.controller.updateElementStyle(this.model.selectedElement, { 
+                            textSize: 'small', 
+                            textColor: 'default', 
+                            hasHeader: false,
+                            isHighlighted: false,
+                            hasBorder: false
+                        });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
+                    
+                    // 1 = small text size
+                    else if (e.key === '1') {
+                        // Only apply if not already small (small is default)
+                        if (element.style && element.style.textSize !== 'small') {
+                            this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'small' });
+                            styleUpdated = true;
+                        }
+                        e.preventDefault();
+                    }
+                    
+                    // 2 = large text size
+                    else if (e.key === '2') {
+                        // Only apply if not already large
+                        if (!element.style || element.style.textSize !== 'large') {
+                            this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'large' });
+                            styleUpdated = true;
+                        }
+                        e.preventDefault();
+                    }
+                    
+                    // 3 = huge text size
+                    else if (e.key === '3') {
+                        // Only apply if not already huge
+                        if (!element.style || element.style.textSize !== 'huge') {
+                            this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'huge' });
+                            styleUpdated = true;
+                        }
+                        e.preventDefault();
+                    }
+                    
+                    // 4 = cycle through text colors (default -> red -> green -> default)
+                    else if (e.key === '4') {
+                        // Get current color
+                        const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
+                        let nextColor;
+                        
+                        // Determine next color
+                        if (currentColor === 'default') nextColor = 'red';
+                        else if (currentColor === 'red') nextColor = 'green';
+                        else nextColor = 'default'; // green or any other color goes back to default
+                        
+                        this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
+                    
+                    // 5 = toggle header
+                    else if (e.key === '5') {
+                        // Toggle current header setting
+                        const hasHeader = element.style && element.style.hasHeader ? true : false;
+                        this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
+                    
+                    // 6 = toggle highlight
+                    else if (e.key === '6') {
+                        // Get the current highlight setting
+                        const isHighlighted = element.style && element.style.isHighlighted ? true : false;
+                        this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
+                    
+                    // 7 = toggle border
+                    else if (e.key === '7') {
+                        // Toggle current border setting
+                        const hasBorder = element.style && element.style.hasBorder ? true : false;
+                        this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: !hasBorder });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
+                    
+                    // 9 = toggle card lock
+                    else if (e.key === '9') {
+                        // Toggle current lock setting
+                        const isLocked = this.model.isCardLocked(this.model.selectedElement);
+                        this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
+                    
+                    // Update style panel if any style changed
+                    if (styleUpdated) {
+                        // Get the updated element data after the style changes
+                        const updatedElement = this.model.findElement(this.model.selectedElement);
+                        if (updatedElement) {
+                            this.updateStylePanel(updatedElement);
+                        }
+                    }
+                }
+            }
+        });
+        
         // Prevent right-click context menu
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -354,14 +371,22 @@ else if (e.key === '9') {
                 this.stylePanel.style.display === 'block') {
                 this.stylePanel.style.display = 'none';
             }
-
-// Add this new section to close the settings panel
-if (!this.settingsPanel.contains(e.target) && 
-e.target !== this.settingsToggle && 
-this.settingsPanel.style.display === 'block') {
-this.settingsPanel.style.display = 'none';
-}
-
+            
+            // Add this new section to close the settings panel
+            if (!this.settingsPanel.contains(e.target) && 
+                e.target !== this.settingsToggle && 
+                this.settingsPanel.style.display === 'block') {
+                this.settingsPanel.style.display = 'none';
+            }
+            
+            // Close inbox panel when clicking outside
+            if (!this.inboxPanel.contains(e.target) && 
+                e.target !== this.inboxToggle && 
+                this.inboxPanel.style.display === 'block') {
+                this.inboxPanel.style.display = 'none';
+                this.model.isInboxVisible = false;
+                this.model.saveAppState();
+            }
         });
         
         // Setup export/import buttons
@@ -449,7 +474,6 @@ this.settingsPanel.style.display = 'none';
         }
     }
     
-    // For view.js - Updated setupImageDropZone method
     setupImageDropZone() {
         OPTIMISM.log('Setting up image drop zone');
         const dropZoneIndicator = this.dropZoneIndicator;
@@ -458,12 +482,20 @@ this.settingsPanel.style.display = 'none';
         document.addEventListener('dragover', (e) => {
             e.preventDefault();
             
-            // Don't show drop zone for quick links
-            if (e.dataTransfer.types.includes('application/quicklink')) {
+            // Don't show drop zone for internal drags
+            if (this.draggedElement || this.inboxDragTarget) {
                 dropZoneIndicator.style.display = 'none';
                 return;
             }
             
+            // Don't show for quick links or inbox cards
+            if (e.dataTransfer.types.includes('application/quicklink') || 
+                e.dataTransfer.types.includes('application/inbox-card')) {
+                dropZoneIndicator.style.display = 'none';
+                return;
+            }
+            
+            // Show for external files (like images)
             dropZoneIndicator.style.display = 'block';
         });
         
@@ -473,40 +505,43 @@ this.settingsPanel.style.display = 'none';
                 dropZoneIndicator.style.display = 'none';
             }
         });
-    
-    // Handle drop events
-    document.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        dropZoneIndicator.style.display = 'none';
         
-        // Get correct coordinates relative to the workspace
-        const rect = this.workspace.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        let handled = false;
-        
-        // First check if we have files (local files)
-        if (e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
+        // Handle drop events
+        document.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropZoneIndicator.style.display = 'none';
             
-            // Only handle image files
-            if (file.type.startsWith('image/')) {
-                OPTIMISM.log(`Image file dropped: ${file.name} (${file.type})`);
-                this.showLoading();
+            // Skip if it's a card from inbox to canvas
+            if (this.inboxDragTarget) return;
+            
+            // Get correct coordinates relative to the workspace
+            const rect = this.workspace.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            let handled = false;
+            
+            // First check if we have files (local files)
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
                 
-                try {
-                    // Process and add the image
-                    await this.controller.addImage(file, x, y);
-                    handled = true;
-                } catch (error) {
-                    OPTIMISM.logError('Error adding image file:', error);
-                    alert('Failed to add image file. Please try again.');
-                } finally {
-                    this.hideLoading();
+                // Only handle image files
+                if (file.type.startsWith('image/')) {
+                    OPTIMISM.log(`Image file dropped: ${file.name} (${file.type})`);
+                    this.showLoading();
+                    
+                    try {
+                        // Process and add the image
+                        await this.controller.addImage(file, x, y);
+                        handled = true;
+                    } catch (error) {
+                        OPTIMISM.logError('Error adding image file:', error);
+                        alert('Failed to add image file. Please try again.');
+                    } finally {
+                        this.hideLoading();
+                    }
                 }
             }
-        }
         
         // If already handled a file, don't continue
         if (handled) return;
@@ -1279,35 +1314,37 @@ textEditor.addEventListener('blur', () => {
     });
     
     // For both text and image element containers:
-container.addEventListener('mousedown', (e) => {
-     // Don't handle if card is locked - ADD THIS CHECK
-     if (this.model.isCardLocked(elementData.id)) return;
-    // Don't handle if not left mouse button
-    if (e.button !== 0) return;
-    
-    // Don't start drag when on resize handle
-    if (e.target === resizeHandle) return;
-    
-    this.selectElement(container, elementData);
-    
-    this.draggedElement = container;
-    this.model.selectedElement = elementData.id;
-    
-    // Store original position for potential snap back
-    container.dataset.originalLeft = container.style.left;
-    container.dataset.originalTop = container.style.top;
-    
-    // Get current numerical position values
-    const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
-    const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
-    
-    // Calculate the offset from the current position
-    this.elemOffsetX = e.clientX - currentX;
-    this.elemOffsetY = e.clientY - currentY;
-    
-    container.classList.add('dragging');
-    e.preventDefault();
-});
+    container.addEventListener('mousedown', (e) => {
+        // Don't handle if card is locked
+        if (this.model.isCardLocked(elementData.id)) return;
+        
+        // Don't handle if not left mouse button
+        if (e.button !== 0) return;
+        
+        // Don't start drag when on resize handle
+        if (e.target === resizeHandle) return;
+        
+        // Select the element but don't show style panel while dragging
+        this.selectElement(container, elementData, true); // Pass true to indicate we're dragging
+        
+        this.draggedElement = container;
+        this.model.selectedElement = elementData.id;
+        
+        // Store original position for potential snap back
+        container.dataset.originalLeft = container.style.left;
+        container.dataset.originalTop = container.style.top;
+        
+        // Get current numerical position values
+        const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
+        const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
+        
+        // Calculate the offset from the current position
+        this.elemOffsetX = e.clientX - currentX;
+        this.elemOffsetY = e.clientY - currentY;
+        
+        container.classList.add('dragging');
+        e.preventDefault();
+    });
     
     resizeHandle.addEventListener('mousedown', (e) => {
         // Don't check image lock status for text elements
@@ -1426,35 +1463,37 @@ async createImageElementDOM(elementData) {
     });
     
     // For both text and image element containers:
-container.addEventListener('mousedown', (e) => {
-     // Don't handle if card is locked - ADD THIS CHECK
-     if (this.model.isCardLocked(elementData.id)) return;
-    // Don't handle if not left mouse button
-    if (e.button !== 0) return;
-    
-    // Don't start drag when on resize handle
-    if (e.target === resizeHandle) return;
-    
-    this.selectElement(container, elementData);
-    
-    this.draggedElement = container;
-    this.model.selectedElement = elementData.id;
-    
-    // Store original position for potential snap back
-    container.dataset.originalLeft = container.style.left;
-    container.dataset.originalTop = container.style.top;
-    
-    // Get current numerical position values
-    const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
-    const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
-    
-    // Calculate the offset from the current position
-    this.elemOffsetX = e.clientX - currentX;
-    this.elemOffsetY = e.clientY - currentY;
-    
-    container.classList.add('dragging');
-    e.preventDefault();
-});
+    container.addEventListener('mousedown', (e) => {
+        // Don't handle if card is locked
+        if (this.model.isCardLocked(elementData.id)) return;
+        
+        // Don't handle if not left mouse button
+        if (e.button !== 0) return;
+        
+        // Don't start drag when on resize handle
+        if (e.target === resizeHandle) return;
+        
+        // Select the element but don't show style panel while dragging
+        this.selectElement(container, elementData, true); // Pass true to indicate we're dragging
+        
+        this.draggedElement = container;
+        this.model.selectedElement = elementData.id;
+        
+        // Store original position for potential snap back
+        container.dataset.originalLeft = container.style.left;
+        container.dataset.originalTop = container.style.top;
+        
+        // Get current numerical position values
+        const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
+        const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
+        
+        // Calculate the offset from the current position
+        this.elemOffsetX = e.clientX - currentX;
+        this.elemOffsetY = e.clientY - currentY;
+        
+        container.classList.add('dragging');
+        e.preventDefault();
+    });
     
     // Updated resize handle event listener
     resizeHandle.addEventListener('mousedown', (e) => {
@@ -1487,31 +1526,31 @@ container.addEventListener('mousedown', (e) => {
     return container;
 }
     
-    selectElement(element, elementData) {
-        // Check if this is an image and images are locked
-        if (elementData.type === 'image' && this.model.imagesLocked) {
-            OPTIMISM.log(`Cannot select locked image ${elementData.id}`);
-            return;
-        }
-        
-        OPTIMISM.log(`Selecting element ${elementData.id} of type ${elementData.type}`);
-        this.deselectAllElements();
-        element.classList.add('selected');
-        this.model.selectedElement = element.dataset.id;
-        
-        // Close settings panel
-        this.settingsPanel.style.display = 'none';
-        
-        // Show style panel only for text elements
-        if (element.dataset.type === 'text') {
-            this.stylePanel.style.display = 'block';
-            
-            // Update the selected option in the style panel
-            this.updateStylePanel(elementData);
-        } else {
-            this.stylePanel.style.display = 'none';
-        }
+selectElement(element, elementData, isDragging = false) {
+    // Check if this is an image and images are locked
+    if (elementData.type === 'image' && this.model.imagesLocked) {
+        OPTIMISM.log(`Cannot select locked image ${elementData.id}`);
+        return;
     }
+    
+    OPTIMISM.log(`Selecting element ${elementData.id} of type ${elementData.type}`);
+    this.deselectAllElements();
+    element.classList.add('selected');
+    this.model.selectedElement = element.dataset.id;
+    
+    // Close settings panel
+    this.settingsPanel.style.display = 'none';
+    
+    // Only show style panel if we're not dragging
+    if (element.dataset.type === 'text' && !isDragging) {
+        this.stylePanel.style.display = 'block';
+        
+        // Update the selected option in the style panel
+        this.updateStylePanel(elementData);
+    } else {
+        this.stylePanel.style.display = 'none';
+    }
+}
     
     updateStylePanel(elementData) {
         // Only update style panel for text elements
@@ -1892,8 +1931,7 @@ document.addEventListener('mouseup', (e) => {
     OPTIMISM.log('Drag listeners set up successfully');
 }
     
-    // In view.js - update the handleDragOver method
-// In view.js - full handleDragOver method
+    
 handleDragOver(e) {
     // Remove previous highlights - remove both highlight classes
     const highlighted = document.querySelectorAll('.drag-highlight, .drag-over');
@@ -1902,12 +1940,41 @@ handleDragOver(e) {
         el.classList.remove('drag-over');
     });
     
+    // If dragging from inbox, don't show any workspace drop highlights
+    if (this.inboxDragTarget) {
+        return;
+    }
+    
     // First check for breadcrumb targets
     const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
     if (breadcrumbTarget) {
         // Add green text highlight class
         breadcrumbTarget.classList.add('drag-highlight');
         return;
+    }
+    
+    // Check if dragging over the inbox toggle
+    const inboxToggle = document.getElementById('inbox-toggle');
+    const inboxPanel = document.getElementById('inbox-panel');
+    
+    if (inboxToggle) {
+        const rect = inboxToggle.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            inboxToggle.classList.add('drag-highlight');
+            return;
+        }
+    }
+    
+    // Check if dragging over the visible inbox panel
+    if (inboxPanel && inboxPanel.style.display === 'block') {
+        const rect = inboxPanel.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            inboxPanel.classList.add('drag-highlight');
+            inboxToggle.classList.add('drag-highlight');
+            return;
+        }
     }
     
     // Check if dragging over the quick links area
@@ -2590,8 +2657,9 @@ setupInboxPanel() {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 display: -webkit-box;
-                -webkit-line-clamp: 3;
+                -webkit-line-clamp: 2; /* Reduced from 3 to 2 for 30% less text */
                 -webkit-box-orient: vertical;
+                max-height: 40px; /* Limit height to roughly 2 lines */
             }
             
             .inbox-card-image {
@@ -2677,12 +2745,13 @@ updateInboxVisibility(isVisible) {
     }
     
     if (isVisible) {
-        this.inboxPanel.style.display = 'block';
-        this.renderInboxPanel();
-        
-        // Close other panels
+        // Close other panels first
         this.stylePanel.style.display = 'none';
         this.settingsPanel.style.display = 'none';
+        
+        // Show inbox panel
+        this.inboxPanel.style.display = 'block';
+        this.renderInboxPanel();
     } else {
         this.inboxPanel.style.display = 'none';
     }
@@ -2738,7 +2807,10 @@ renderInboxPanel() {
                 // Regular text card - show truncated content
                 const content = document.createElement('div');
                 content.className = 'inbox-card-content';
-                content.textContent = card.text || '';
+                // Truncate text even more for the display
+                const truncatedText = card.text ? 
+                    (card.text.length > 100 ? card.text.substring(0, 100) + '...' : card.text) : '';
+                content.textContent = truncatedText;
                 cardElement.appendChild(content);
             }
         } else if (card.type === 'image' && card.imageDataId) {
@@ -2766,12 +2838,16 @@ renderInboxPanel() {
         // Make card draggable
         cardElement.draggable = true;
         
-        // Add drag event listeners
+        // Add drag event listeners right on the card
         cardElement.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('application/inbox-card', card.id);
             cardElement.classList.add('dragging');
-            // Store reference to the dragged card
             this.inboxDragTarget = cardElement;
+            
+            // Ensure the drop zone indicator is hidden
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
+            }
         });
         
         cardElement.addEventListener('dragend', () => {
@@ -2807,6 +2883,7 @@ setupInboxDragEvents() {
     // Add drop target behavior to inbox toggle
     this.inboxToggle.addEventListener('dragover', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Prevent workspace handling
         
         // Only highlight if dragging an element from workspace
         if (this.draggedElement && !this.inboxDragTarget) {
@@ -2814,77 +2891,120 @@ setupInboxDragEvents() {
         }
     });
     
-    this.inboxToggle.addEventListener('dragleave', () => {
+    this.inboxToggle.addEventListener('dragleave', (e) => {
         this.inboxToggle.classList.remove('drag-highlight');
     });
     
+    // Fix the drop handler for the inbox toggle
     this.inboxToggle.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Prevent workspace handling
+        
         this.inboxToggle.classList.remove('drag-highlight');
         
         // Only handle if dragging from workspace
         if (this.draggedElement && !this.inboxDragTarget) {
             const draggedId = this.draggedElement.dataset.id;
-            this.controller.moveToInbox(draggedId);
+            if (draggedId) {
+                OPTIMISM.log(`Dropping element ${draggedId} onto inbox link`);
+                
+                // Move element to inbox - need to prevent default action
+                this.controller.moveToInbox(draggedId);
+                
+                // Reset drag state
+                this.draggedElement.classList.remove('dragging');
+                this.draggedElement = null;
+            }
         }
     });
     
-    // Add drop target behavior to inbox panel
-    this.inboxPanel.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        
-        // Only highlight if dragging an element from workspace
-        if (this.draggedElement && !this.inboxDragTarget) {
-            this.inboxPanel.classList.add('drag-highlight');
-            this.inboxToggle.classList.add('drag-highlight');
-        }
-    });
-    
-    this.inboxPanel.addEventListener('dragleave', (e) => {
-        // Only remove highlight if leaving the panel entirely
-        if (!this.inboxPanel.contains(e.relatedTarget)) {
-            this.inboxPanel.classList.remove('drag-highlight');
-            this.inboxToggle.classList.remove('drag-highlight');
-        }
-    });
-    
+    // Similarly fix the drop handler for the inbox panel
     this.inboxPanel.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Prevent workspace handling
+        
         this.inboxPanel.classList.remove('drag-highlight');
         this.inboxToggle.classList.remove('drag-highlight');
         
         // Only handle if dragging from workspace
         if (this.draggedElement && !this.inboxDragTarget) {
             const draggedId = this.draggedElement.dataset.id;
-            this.controller.moveToInbox(draggedId);
+            if (draggedId) {
+                OPTIMISM.log(`Dropping element ${draggedId} onto inbox panel`);
+                
+                // Move element to inbox
+                this.controller.moveToInbox(draggedId);
+                
+                // Reset drag state
+                this.draggedElement.classList.remove('dragging');
+                this.draggedElement = null;
+            }
         }
     });
     
-    // Add drop target behavior to workspace for inbox cards
+    // Fix dragging from inbox to canvas
+    const inboxContainer = this.inboxPanel.querySelector('.inbox-container');
+    if (inboxContainer) {
+        inboxContainer.addEventListener('dragstart', (e) => {
+            const inboxCard = e.target.closest('.inbox-card');
+            if (inboxCard) {
+                e.dataTransfer.setData('application/inbox-card', inboxCard.dataset.id);
+                inboxCard.classList.add('dragging');
+                this.inboxDragTarget = inboxCard;
+                
+                // Prevent the image drop zone indicator from showing
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'none';
+                }
+            }
+        });
+    }
+    
+    // Update the workspace drop behavior for inbox cards
     this.workspace.addEventListener('dragover', (e) => {
+        // Always prevent default for proper drop handling
         e.preventDefault();
         
-        // Only highlight if dragging from inbox
+        // If we're dragging from inbox, add a visual indicator
         if (this.inboxDragTarget) {
-            // We could add a visual indicator here if desired
+            // We could add a specific visual indicator here for inbox card drops
+            // But for now, just make sure the drop zone indicator is hidden
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
+            }
         }
     });
     
+    // Update workspace drop handler for inbox cards
     this.workspace.addEventListener('drop', (e) => {
         e.preventDefault();
         
         // Only handle if dragging from inbox
         if (this.inboxDragTarget) {
             const cardId = e.dataTransfer.getData('application/inbox-card');
-            if (!cardId) return;
-            
-            // Get position relative to workspace
-            const rect = this.workspace.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            // Move card from inbox to canvas
-            this.controller.moveFromInboxToCanvas(cardId, x, y);
+            if (cardId) {
+                // Get position relative to workspace
+                const rect = this.workspace.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                OPTIMISM.log(`Dropping inbox card ${cardId} onto workspace at (${x}, ${y})`);
+                
+                // Move card from inbox to canvas
+                this.controller.moveFromInboxToCanvas(cardId, x, y);
+                
+                // Reset drag state
+                this.inboxDragTarget.classList.remove('dragging');
+                this.inboxDragTarget = null;
+            }
+        }
+    });
+    
+    // Add event listener to document to handle dragend for inbox cards
+    document.addEventListener('dragend', (e) => {
+        if (this.inboxDragTarget) {
+            this.inboxDragTarget.classList.remove('dragging');
+            this.inboxDragTarget = null;
         }
     });
 }

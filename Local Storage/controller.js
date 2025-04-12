@@ -996,6 +996,11 @@ async moveToInbox(elementId) {
             return false;
         }
         
+        // Make sure inbox is visible when adding an item
+        if (!this.model.isInboxVisible) {
+            await this.toggleInboxVisibility();
+        }
+        
         // Add to inbox
         const inboxCard = await this.model.addToInbox(element);
         
@@ -1034,22 +1039,40 @@ async moveFromInboxToCanvas(cardId, x, y) {
             type: card.type,
             x: x,
             y: y,
-            text: card.text,
             width: card.width || 200,
             height: card.height || 100,
-            style: card.style || {
-                textSize: 'small',
-                textColor: 'default'
-            }
         };
         
-        // Handle image cards
-        if (card.type === 'image' && card.imageDataId) {
+        // Copy all necessary properties based on type
+        if (card.type === 'text') {
+            newElement.text = card.text || '';
+            newElement.style = card.style || {
+                textSize: 'small',
+                textColor: 'default'
+            };
+        } else if (card.type === 'image' && card.imageDataId) {
+            // For image cards, copy the image data ID and dimensions
             newElement.imageDataId = card.imageDataId;
+            newElement.storageWidth = card.storageWidth;
+            newElement.storageHeight = card.storageHeight;
         }
         
-        // Add the element to the canvas
+        // Create an add element command
         const command = new AddElementCommand(this.model, newElement);
+        
+        // For image elements, copy the image data
+        if (card.type === 'image' && card.imageDataId) {
+            try {
+                const imageData = await this.model.getImageData(card.imageDataId);
+                if (imageData) {
+                    command.setImageData(imageData);
+                }
+            } catch (error) {
+                OPTIMISM.logError(`Error copying image data for inbox card ${cardId}:`, error);
+            }
+        }
+        
+        // Execute the command to add the element to the canvas
         await this.model.execute(command);
         
         // Remove from inbox
