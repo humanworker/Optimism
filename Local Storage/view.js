@@ -39,6 +39,10 @@ class CanvasView {
         
         this.initialWidth = 0;
         this.initialHeight = 0;
+
+        this.inboxPanel = document.getElementById('inbox-panel');
+this.inboxToggle = document.getElementById('inbox-toggle');
+this.inboxDragTarget = null;
         
         // Detect platform
         this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -131,6 +135,7 @@ class CanvasView {
         this.setupLockImagesToggle();
         this.setupQuickLinks();
         this.setupQuickLinkDragEvents();
+        this.setupInboxPanel(); // Add this line
         
         // Add Copy Link button
         const copyLinkButton = document.createElement('button');
@@ -2512,6 +2517,376 @@ updateLockedCardStyles() {
             pointer-events: none;
         }
     `;
+}
+
+setupInboxPanel() {
+    OPTIMISM.log('Setting up inbox panel');
+    
+    // Create the inbox toggle button if it doesn't exist
+    if (!this.inboxToggle) {
+        this.inboxToggle = document.createElement('button');
+        this.inboxToggle.id = 'inbox-toggle';
+        this.inboxToggle.className = 'nav-link';
+        this.inboxToggle.textContent = 'Inbox';
+        
+        // Insert before the settings toggle
+        const rightControls = document.getElementById('right-controls');
+        if (rightControls && this.settingsToggle) {
+            rightControls.insertBefore(this.inboxToggle, this.settingsToggle);
+        } else if (rightControls) {
+            rightControls.appendChild(this.inboxToggle);
+        }
+    }
+    
+    // Create the inbox panel if it doesn't exist
+    if (!this.inboxPanel) {
+        this.inboxPanel = document.createElement('div');
+        this.inboxPanel.id = 'inbox-panel';
+        this.inboxPanel.className = 'side-panel';
+        this.inboxPanel.innerHTML = `
+            <div class="panel-heading">Inbox</div>
+            <div class="inbox-container"></div>
+        `;
+        document.body.appendChild(this.inboxPanel);
+        
+        // Add CSS for inbox panel
+        const styleElem = document.createElement('style');
+        styleElem.textContent = `
+            #inbox-panel {
+                position: fixed;
+                top: 41px;
+                right: 0;
+                width: var(--panel-width);
+                height: calc(100vh - 40px);
+                background-color: var(--bg-color);
+                padding: 20px;
+                padding-top: 60px;
+                box-sizing: border-box;
+                overflow-y: auto;
+                display: none;
+                z-index: 200;
+            }
+            
+            .inbox-container {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .inbox-card {
+                border: 1px solid var(--element-border-color);
+                border-radius: 4px;
+                padding: 10px;
+                font-size: 14px;
+                cursor: move;
+                position: relative;
+                background-color: var(--bg-color);
+                overflow: hidden;
+                max-height: 80px;
+            }
+            
+            .inbox-card-content {
+                white-space: pre-wrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+            }
+            
+            .inbox-card-image {
+                max-height: 60px;
+                max-width: 100%;
+                object-fit: contain;
+                display: block;
+                margin: 0 auto;
+            }
+            
+            .inbox-card.dragging {
+                opacity: 0.5;
+            }
+            
+            .inbox-card-edit {
+                width: 100%;
+                height: 100%;
+                background-color: transparent;
+                color: var(--element-text-color);
+                border: none;
+                padding: 0;
+                resize: none;
+                overflow: auto;
+                font-family: inherit;
+                box-sizing: border-box;
+                font-size: 14px;
+                min-height: 60px;
+            }
+            
+            .inbox-card-edit:focus {
+                outline: none;
+            }
+            
+            .inbox-hint {
+                color: var(--element-text-color);
+                opacity: 0.7;
+                text-align: center;
+                margin: 20px 0;
+                font-style: italic;
+            }
+            
+            #inbox-toggle.drag-highlight {
+                color: var(--green-text-color) !important;
+            }
+            
+            #inbox-panel.drag-highlight {
+                border: 2px dashed var(--green-text-color);
+            }
+        `;
+        document.head.appendChild(styleElem);
+    }
+    
+    // Set up click event for toggle
+    this.inboxToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.controller.toggleInboxVisibility();
+    });
+    
+    // Initial rendering based on current state
+    this.updateInboxVisibility(this.model.isInboxVisible);
+    
+    // Add drag event listeners for inbox
+    this.setupInboxDragEvents();
+    
+    // Add keyboard shortcut for adding blank card (A key)
+    document.addEventListener('keydown', (e) => {
+        // Only handle when not in text input
+        if (e.key.toLowerCase() === 'a' && 
+            document.activeElement.tagName !== 'TEXTAREA' && 
+            document.activeElement.tagName !== 'INPUT') {
+            e.preventDefault();
+            this.controller.addBlankCardToInbox();
+        }
+    });
+    
+    OPTIMISM.log('Inbox panel set up successfully');
+}
+
+updateInboxVisibility(isVisible) {
+    if (!this.inboxPanel) {
+        this.setupInboxPanel();
+        return;
+    }
+    
+    if (isVisible) {
+        this.inboxPanel.style.display = 'block';
+        this.renderInboxPanel();
+        
+        // Close other panels
+        this.stylePanel.style.display = 'none';
+        this.settingsPanel.style.display = 'none';
+    } else {
+        this.inboxPanel.style.display = 'none';
+    }
+}
+
+renderInboxPanel() {
+    if (!this.inboxPanel) {
+        this.setupInboxPanel();
+        return;
+    }
+    
+    const container = this.inboxPanel.querySelector('.inbox-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (this.model.inboxCards.length === 0) {
+        const hint = document.createElement('div');
+        hint.className = 'inbox-hint';
+        hint.textContent = 'Drag cards here or press "A" to add a new card';
+        container.appendChild(hint);
+        return;
+    }
+    
+    // Render each inbox card
+    this.model.inboxCards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'inbox-card';
+        cardElement.dataset.id = card.id;
+        cardElement.dataset.type = card.type;
+        
+        if (card.type === 'text') {
+            // Special handling for the first card if it's empty (new blank card)
+            if (card.id === this.model.inboxCards[0].id && (!card.text || card.text.trim() === '')) {
+                // Create textarea for editing
+                const textarea = document.createElement('textarea');
+                textarea.className = 'inbox-card-edit';
+                textarea.placeholder = 'Type here...';
+                
+                // Handle blur event to save content
+                textarea.addEventListener('blur', () => {
+                    const text = textarea.value;
+                    this.controller.updateInboxCard(card.id, { text });
+                });
+                
+                cardElement.appendChild(textarea);
+                
+                // Focus the textarea after rendering
+                setTimeout(() => {
+                    textarea.focus();
+                }, 0);
+            } else {
+                // Regular text card - show truncated content
+                const content = document.createElement('div');
+                content.className = 'inbox-card-content';
+                content.textContent = card.text || '';
+                cardElement.appendChild(content);
+            }
+        } else if (card.type === 'image' && card.imageDataId) {
+            // Image card
+            const img = document.createElement('img');
+            img.className = 'inbox-card-image';
+            
+            // Load image data
+            this.model.getImageData(card.imageDataId)
+                .then(imageData => {
+                    if (imageData) {
+                        img.src = imageData;
+                    } else {
+                        img.alt = 'Image not found';
+                    }
+                })
+                .catch(error => {
+                    OPTIMISM.logError(`Error loading image for inbox card ${card.id}:`, error);
+                    img.alt = 'Error loading image';
+                });
+            
+            cardElement.appendChild(img);
+        }
+        
+        // Make card draggable
+        cardElement.draggable = true;
+        
+        // Add drag event listeners
+        cardElement.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('application/inbox-card', card.id);
+            cardElement.classList.add('dragging');
+            // Store reference to the dragged card
+            this.inboxDragTarget = cardElement;
+        });
+        
+        cardElement.addEventListener('dragend', () => {
+            cardElement.classList.remove('dragging');
+            this.inboxDragTarget = null;
+        });
+        
+        // Double-click to edit text cards
+        if (card.type === 'text') {
+            cardElement.addEventListener('dblclick', (e) => {
+                // Replace content with textarea
+                cardElement.innerHTML = '';
+                const textarea = document.createElement('textarea');
+                textarea.className = 'inbox-card-edit';
+                textarea.value = card.text || '';
+                
+                // Handle blur event to save content
+                textarea.addEventListener('blur', () => {
+                    const text = textarea.value;
+                    this.controller.updateInboxCard(card.id, { text });
+                });
+                
+                cardElement.appendChild(textarea);
+                textarea.focus();
+            });
+        }
+        
+        container.appendChild(cardElement);
+    });
+}
+
+setupInboxDragEvents() {
+    // Add drop target behavior to inbox toggle
+    this.inboxToggle.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        
+        // Only highlight if dragging an element from workspace
+        if (this.draggedElement && !this.inboxDragTarget) {
+            this.inboxToggle.classList.add('drag-highlight');
+        }
+    });
+    
+    this.inboxToggle.addEventListener('dragleave', () => {
+        this.inboxToggle.classList.remove('drag-highlight');
+    });
+    
+    this.inboxToggle.addEventListener('drop', (e) => {
+        e.preventDefault();
+        this.inboxToggle.classList.remove('drag-highlight');
+        
+        // Only handle if dragging from workspace
+        if (this.draggedElement && !this.inboxDragTarget) {
+            const draggedId = this.draggedElement.dataset.id;
+            this.controller.moveToInbox(draggedId);
+        }
+    });
+    
+    // Add drop target behavior to inbox panel
+    this.inboxPanel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        
+        // Only highlight if dragging an element from workspace
+        if (this.draggedElement && !this.inboxDragTarget) {
+            this.inboxPanel.classList.add('drag-highlight');
+            this.inboxToggle.classList.add('drag-highlight');
+        }
+    });
+    
+    this.inboxPanel.addEventListener('dragleave', (e) => {
+        // Only remove highlight if leaving the panel entirely
+        if (!this.inboxPanel.contains(e.relatedTarget)) {
+            this.inboxPanel.classList.remove('drag-highlight');
+            this.inboxToggle.classList.remove('drag-highlight');
+        }
+    });
+    
+    this.inboxPanel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        this.inboxPanel.classList.remove('drag-highlight');
+        this.inboxToggle.classList.remove('drag-highlight');
+        
+        // Only handle if dragging from workspace
+        if (this.draggedElement && !this.inboxDragTarget) {
+            const draggedId = this.draggedElement.dataset.id;
+            this.controller.moveToInbox(draggedId);
+        }
+    });
+    
+    // Add drop target behavior to workspace for inbox cards
+    this.workspace.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        
+        // Only highlight if dragging from inbox
+        if (this.inboxDragTarget) {
+            // We could add a visual indicator here if desired
+        }
+    });
+    
+    this.workspace.addEventListener('drop', (e) => {
+        e.preventDefault();
+        
+        // Only handle if dragging from inbox
+        if (this.inboxDragTarget) {
+            const cardId = e.dataTransfer.getData('application/inbox-card');
+            if (!cardId) return;
+            
+            // Get position relative to workspace
+            const rect = this.workspace.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Move card from inbox to canvas
+            this.controller.moveFromInboxToCanvas(cardId, x, y);
+        }
+    });
 }
     
 }

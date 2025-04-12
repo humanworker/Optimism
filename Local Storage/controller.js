@@ -963,4 +963,167 @@ async refreshQuickLinkExpiry(nodeId) {
     }
 }
 
+// In controller.js, add these methods
+async toggleInboxVisibility() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle inbox: application not initialized');
+        return this.model.isInboxVisible;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling inbox panel visibility');
+        const isVisible = await this.model.toggleInboxVisibility();
+        this.view.updateInboxVisibility(isVisible);
+        OPTIMISM.log(`Inbox panel visibility set to ${isVisible}`);
+        return isVisible;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling inbox visibility:', error);
+        return this.model.isInboxVisible;
+    }
+}
+
+async moveToInbox(elementId) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot move to inbox: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Moving element ${elementId} to inbox`);
+        const element = this.model.findElement(elementId);
+        if (!element) {
+            OPTIMISM.logError(`Element ${elementId} not found`);
+            return false;
+        }
+        
+        // Add to inbox
+        const inboxCard = await this.model.addToInbox(element);
+        
+        // Delete from canvas
+        await this.deleteElement(elementId);
+        
+        // Render inbox
+        this.view.renderInboxPanel();
+        
+        return true;
+    } catch (error) {
+        OPTIMISM.logError('Error moving element to inbox:', error);
+        return false;
+    }
+}
+
+async moveFromInboxToCanvas(cardId, x, y) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot move from inbox: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Moving card ${cardId} from inbox to canvas at position (${x}, ${y})`);
+        
+        // Find the card in the inbox
+        const card = this.model.inboxCards.find(card => card.id === cardId);
+        if (!card) {
+            OPTIMISM.logError(`Card ${cardId} not found in inbox`);
+            return false;
+        }
+        
+        // Create a new element for the canvas
+        const newElement = {
+            id: crypto.randomUUID(),
+            type: card.type,
+            x: x,
+            y: y,
+            text: card.text,
+            width: card.width || 200,
+            height: card.height || 100,
+            style: card.style || {
+                textSize: 'small',
+                textColor: 'default'
+            }
+        };
+        
+        // Handle image cards
+        if (card.type === 'image' && card.imageDataId) {
+            newElement.imageDataId = card.imageDataId;
+        }
+        
+        // Add the element to the canvas
+        const command = new AddElementCommand(this.model, newElement);
+        await this.model.execute(command);
+        
+        // Remove from inbox
+        await this.model.removeFromInbox(cardId);
+        
+        // Render workspace and inbox
+        this.view.renderWorkspace();
+        this.view.renderInboxPanel();
+        
+        return true;
+    } catch (error) {
+        OPTIMISM.logError('Error moving card from inbox to canvas:', error);
+        return false;
+    }
+}
+
+async updateInboxCard(id, properties) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot update inbox card: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Updating inbox card ${id} with properties:`, properties);
+        
+        // Special case for text cards with empty text
+        const card = this.model.inboxCards.find(card => card.id === id);
+        if (card && card.type === 'text' && 
+            properties.text !== undefined && 
+            (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
+            
+            // Delete the card if text is empty
+            OPTIMISM.log(`Text is empty, deleting inbox card ${id}`);
+            await this.model.removeFromInbox(id);
+            this.view.renderInboxPanel();
+            return true;
+        }
+        
+        // Update the card
+        const result = await this.model.updateInboxCard(id, properties);
+        
+        // Render inbox panel
+        this.view.renderInboxPanel();
+        
+        return result !== null;
+    } catch (error) {
+        OPTIMISM.logError('Error updating inbox card:', error);
+        return false;
+    }
+}
+
+async addBlankCardToInbox() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot add blank card: application not initialized');
+        return null;
+    }
+    
+    try {
+        OPTIMISM.log('Adding blank card to inbox');
+        const card = await this.model.addBlankCardToInbox();
+        
+        // Ensure inbox is visible
+        if (!this.model.isInboxVisible) {
+            await this.toggleInboxVisibility();
+        }
+        
+        // Render inbox panel
+        this.view.renderInboxPanel();
+        
+        return card;
+    } catch (error) {
+        OPTIMISM.logError('Error adding blank card to inbox:', error);
+        return null;
+    }
+}
+
 }

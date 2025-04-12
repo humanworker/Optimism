@@ -29,6 +29,8 @@ class CanvasModel {
         
         // Debug panel visibility state
         this.isDebugVisible = false;
+        this.inboxCards = []; // Array to store inbox cards
+this.isInboxVisible = false; // Track inbox panel visibility
     }
 
     // In model.js, update the initialize method
@@ -133,6 +135,18 @@ if (appState.lockedCards !== undefined) {
     this.lockedCards = appState.lockedCards;
     OPTIMISM.log(`Loaded ${this.lockedCards.length} locked cards`);
 }
+
+if (appState.inboxCards !== undefined) {
+    this.inboxCards = appState.inboxCards;
+    OPTIMISM.log(`Loaded ${this.inboxCards.length} inbox cards`);
+}
+
+if (appState.isInboxVisible !== undefined) {
+    this.isInboxVisible = appState.isInboxVisible;
+    OPTIMISM.log(`Loaded inbox visibility state: ${this.isInboxVisible}`);
+}
+
+
                 }
             } catch (error) {
                 OPTIMISM.logError('Error loading app state:', error);
@@ -830,7 +844,9 @@ resetBackupReminder() {
             lastBackupReminder: this.lastBackupReminder,
             imagesLocked: this.imagesLocked,
             quickLinks: this.quickLinks,
-            lockedCards: this.lockedCards // Add this line
+            lockedCards: this.lockedCards, // Add this line
+            inboxCards: this.inboxCards, // Add inbox cards to appState
+            isInboxVisible: this.isInboxVisible // Add inbox visibility state
         };
         
         OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length})`);
@@ -1275,6 +1291,87 @@ async updateNavigationTitles(elementId, newText) {
     }
     
     return updated;
+}
+
+// Add methods to manage inbox cards
+async toggleInboxVisibility() {
+    this.isInboxVisible = !this.isInboxVisible;
+    OPTIMISM.log(`Inbox visibility set to: ${this.isInboxVisible}`);
+    await this.saveAppState();
+    return this.isInboxVisible;
+}
+
+async addToInbox(element) {
+    // Create a copy of the element with a new ID
+    const inboxCard = {
+        ...element,
+        id: crypto.randomUUID(), // Generate new ID for inbox card
+        originalId: element.id, // Keep reference to original ID
+        addedToInboxAt: new Date().toISOString() // Track when added
+    };
+    
+    // Add to inbox
+    this.inboxCards.unshift(inboxCard); // Add to beginning of array
+    OPTIMISM.log(`Added card to inbox: ${inboxCard.id}`);
+    
+    // Save state
+    await this.saveAppState();
+    return inboxCard;
+}
+
+async removeFromInbox(cardId) {
+    const initialLength = this.inboxCards.length;
+    this.inboxCards = this.inboxCards.filter(card => card.id !== cardId);
+    
+    if (initialLength !== this.inboxCards.length) {
+        OPTIMISM.log(`Removed card from inbox: ${cardId}`);
+        await this.saveAppState();
+        return true;
+    }
+    
+    OPTIMISM.log(`Inbox card ${cardId} not found`);
+    return false;
+}
+
+async addBlankCardToInbox() {
+    // Create a new blank card at the top of the inbox
+    const blankCard = {
+        id: crypto.randomUUID(),
+        type: 'text',
+        text: '',
+        addedToInboxAt: new Date().toISOString(),
+        style: {
+            textSize: 'small',
+            textColor: 'default'
+        }
+    };
+    
+    // Add to beginning of inbox
+    this.inboxCards.unshift(blankCard);
+    OPTIMISM.log(`Added blank card to inbox: ${blankCard.id}`);
+    
+    // Save state
+    await this.saveAppState();
+    return blankCard;
+}
+
+async updateInboxCard(id, properties) {
+    const card = this.inboxCards.find(card => card.id === id);
+    if (card) {
+        Object.assign(card, properties);
+        
+        // Delete card if text is empty (for text cards only)
+        if (card.type === 'text' && 
+            properties.text !== undefined && 
+            (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
+            await this.removeFromInbox(id);
+            return null; // Return null to indicate the card was deleted
+        }
+        
+        await this.saveAppState();
+        return card; // Return the updated card
+    }
+    return null; // Card not found
 }
 
 }
