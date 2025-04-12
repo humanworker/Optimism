@@ -309,17 +309,18 @@
 
         /* Style panel */
         #style-panel {
-            position: fixed;
-            top: 80px;
-            right: 0;
-            width: var(--panel-width);
-            height: calc(100vh - 40px);
-            background-color: var(--bg-color);
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-            display: none; /* Hidden by default */
-        }
+    position: fixed;
+    top: 41px; /* Changed from 80px to match navbar height */
+    right: 0;
+    width: var(--panel-width);
+    height: calc(100vh - 40px);
+    background-color: var(--bg-color);
+    padding: 20px; /* Keep existing padding */
+    padding-top: 60px; /* Add 40px extra padding to the top (20px original + 40px extra) */
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: none; /* Hidden by default */
+}
 
         .panel-heading {
             font-size: 16px;
@@ -669,12 +670,13 @@ mark {
 
 #settings-panel {
     position: fixed;
-    top: 80px;
+    top: 41px; /* Changed from 80px to match navbar height */
     right: 0;
     width: var(--panel-width);
     height: calc(100vh - 40px);
     background-color: var(--bg-color);
-    padding: 20px;
+    padding: 20px; /* Keep existing padding */
+    padding-top: 60px; /* Add 40px extra padding to the top (20px original + 40px extra) */
     box-sizing: border-box;
     overflow-y: auto;
     display: none; /* Hidden by default */
