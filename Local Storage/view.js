@@ -240,6 +240,14 @@ this.inboxDragTarget = null;
                 this.controller.redo();
                 e.preventDefault();
             }
+
+            // Toggle inbox panel with 'I' key
+    if (e.key.toLowerCase() === 'i' && 
+    document.activeElement.tagName !== 'TEXTAREA' && 
+    document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    this.controller.toggleInboxVisibility();
+}
             
             // Style shortcuts (only when an element is selected and not in edit mode)
             if (this.model.selectedElement && 
@@ -336,6 +344,16 @@ this.inboxDragTarget = null;
                         styleUpdated = true;
                         e.preventDefault();
                     }
+
+                    // 8 = move to inbox
+else if (e.key === '8') {
+    // Only if an element is selected
+    if (this.model.selectedElement) {
+        this.controller.moveToInbox(this.model.selectedElement);
+        this.stylePanel.style.display = 'none'; // Hide style panel after moving
+        e.preventDefault();
+    }
+}
                     
                     // 9 = toggle card lock
                     else if (e.key === '9') {
@@ -482,8 +500,14 @@ this.inboxDragTarget = null;
         document.addEventListener('dragover', (e) => {
             e.preventDefault();
             
-            // Don't show drop zone for internal drag operations
-            if (this.draggedElement || this.isDraggingFromInbox) {
+            // Check if we are dragging from the inbox
+            if (this.inboxDragTarget) {
+                dropZoneIndicator.style.display = 'none';
+                return;
+            }
+            
+            // Don't show drop zone for internal drags
+            if (this.draggedElement) {
                 dropZoneIndicator.style.display = 'none';
                 return;
             }
@@ -511,10 +535,7 @@ this.inboxDragTarget = null;
             dropZoneIndicator.style.display = 'none';
             
             // Skip if it's an internal drag operation
-            if (this.draggedElement || this.isDraggingFromInbox) return;
-            
-                    // Skip if it's a card from inbox to canvas
-            if (this.inboxDragTarget) return;
+            if (this.draggedElement || this.inboxDragTarget) return;
             
             // Get correct coordinates relative to the workspace
             const rect = this.workspace.getBoundingClientRect();
@@ -544,127 +565,127 @@ this.inboxDragTarget = null;
                     }
                 }
             }
-        
-        // If already handled a file, don't continue
-        if (handled) return;
-        
-        // Check all available types in the data transfer
-        const types = e.dataTransfer.types;
-        OPTIMISM.log("Available drop types: " + types.join(", "));
-        
-        // Look for HTML content first (most likely to contain image data when dragging from a webpage)
-        if (types.includes('text/html')) {
-            const html = e.dataTransfer.getData('text/html');
-            OPTIMISM.log("Received HTML: " + html.substring(0, 100) + "...");
             
-            // Look for image tags in the HTML
-            const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
-            if (imgMatch && imgMatch[1]) {
-                const imgSrc = imgMatch[1];
-                OPTIMISM.log(`Found image source in HTML: ${imgSrc}`);
+            // If already handled a file, don't continue
+            if (handled) return;
+            
+            // Check all available types in the data transfer
+            const types = e.dataTransfer.types;
+            OPTIMISM.log("Available drop types: " + types.join(", "));
+            
+            // Look for HTML content first (most likely to contain image data when dragging from a webpage)
+            if (types.includes('text/html')) {
+                const html = e.dataTransfer.getData('text/html');
+                OPTIMISM.log("Received HTML: " + html.substring(0, 100) + "...");
                 
-                this.showLoading();
-                try {
-                    await this.controller.addImageFromUrl(imgSrc, x, y);
-                    handled = true;
-                } catch (error) {
-                    OPTIMISM.logError('Error adding image from HTML source:', error);
-                    // Don't alert here, try other methods
-                } finally {
-                    this.hideLoading();
-                }
-            }
-            
-            // Also check for base64 encoded images
-            if (!handled) {
-                const base64Match = html.match(/src=["']data:image\/([^;]+);base64,([^"']+)["']/i);
-                if (base64Match) {
-                    const imageType = base64Match[1];
-                    const base64Data = base64Match[2];
+                // Look for image tags in the HTML
+                const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
+                if (imgMatch && imgMatch[1]) {
+                    const imgSrc = imgMatch[1];
+                    OPTIMISM.log(`Found image source in HTML: ${imgSrc}`);
                     
-                    OPTIMISM.log(`Base64 image data found of type: ${imageType}`);
                     this.showLoading();
-                    
                     try {
-                        // Convert base64 to blob
-                        const byteString = atob(base64Data);
-                        const ab = new ArrayBuffer(byteString.length);
-                        const ia = new Uint8Array(ab);
+                        await this.controller.addImageFromUrl(imgSrc, x, y);
+                        handled = true;
+                    } catch (error) {
+                        OPTIMISM.logError('Error adding image from HTML source:', error);
+                        // Don't alert here, try other methods
+                    } finally {
+                        this.hideLoading();
+                    }
+                }
+                
+                // Also check for base64 encoded images
+                if (!handled) {
+                    const base64Match = html.match(/src=["']data:image\/([^;]+);base64,([^"']+)["']/i);
+                    if (base64Match) {
+                        const imageType = base64Match[1];
+                        const base64Data = base64Match[2];
                         
-                        for (let i = 0; i < byteString.length; i++) {
-                            ia[i] = byteString.charCodeAt(i);
+                        OPTIMISM.log(`Base64 image data found of type: ${imageType}`);
+                        this.showLoading();
+                        
+                        try {
+                            // Convert base64 to blob
+                            const byteString = atob(base64Data);
+                            const ab = new ArrayBuffer(byteString.length);
+                            const ia = new Uint8Array(ab);
+                            
+                            for (let i = 0; i < byteString.length; i++) {
+                                ia[i] = byteString.charCodeAt(i);
+                            }
+                            
+                            const blob = new Blob([ab], { type: `image/${imageType}` });
+                            const file = new File([blob], `image.${imageType}`, { type: `image/${imageType}` });
+                            
+                            // Add the image
+                            await this.controller.addImage(file, x, y);
+                            handled = true;
+                        } catch (error) {
+                            OPTIMISM.logError('Error adding base64 image:', error);
+                            // Don't alert yet, try other methods
+                        } finally {
+                            this.hideLoading();
                         }
-                        
-                        const blob = new Blob([ab], { type: `image/${imageType}` });
-                        const file = new File([blob], `image.${imageType}`, { type: `image/${imageType}` });
-                        
-                        // Add the image
-                        await this.controller.addImage(file, x, y);
-                        handled = true;
-                    } catch (error) {
-                        OPTIMISM.logError('Error adding base64 image:', error);
-                        // Don't alert yet, try other methods
-                    } finally {
-                        this.hideLoading();
                     }
                 }
             }
-        }
-        
-        // If not handled yet, check for URL or text containing an image URL
-        if (!handled && (types.includes('text/uri-list') || types.includes('text/plain'))) {
-            let url = '';
             
-            // Try URI list first
-            if (types.includes('text/uri-list')) {
-                url = e.dataTransfer.getData('text/uri-list');
-            } 
-            // If not available, try plain text
-            else {
-                url = e.dataTransfer.getData('text/plain');
-            }
-            
-            if (url) {
-                OPTIMISM.log(`Found URL: ${url}`);
+            // If not handled yet, check for URL or text containing an image URL
+            if (!handled && (types.includes('text/uri-list') || types.includes('text/plain'))) {
+                let url = '';
                 
-                // Check if URL is for an image file
-                const isImageUrl = url.match(/\.(jpe?g|png|gif|bmp|webp|svg)(\?.*)?$/i);
+                // Try URI list first
+                if (types.includes('text/uri-list')) {
+                    url = e.dataTransfer.getData('text/uri-list');
+                } 
+                // If not available, try plain text
+                else {
+                    url = e.dataTransfer.getData('text/plain');
+                }
                 
-                if (isImageUrl) {
-                    this.showLoading();
-                    try {
-                        await this.controller.addImageFromUrl(url, x, y);
-                        handled = true;
-                    } catch (error) {
-                        OPTIMISM.logError('Error adding image from URL:', error);
-                    } finally {
-                        this.hideLoading();
-                    }
-                } else {
-                    // Not obviously an image URL, but might be a dynamic image or an image
-                    // without a file extension. Try to fetch it anyway.
-                    this.showLoading();
-                    try {
-                        await this.controller.addImageFromUrl(url, x, y);
-                        handled = true;
-                    } catch (error) {
-                        OPTIMISM.logError('URL does not appear to be an image:', error);
-                    } finally {
-                        this.hideLoading();
+                if (url) {
+                    OPTIMISM.log(`Found URL: ${url}`);
+                    
+                    // Check if URL is for an image file
+                    const isImageUrl = url.match(/\.(jpe?g|png|gif|bmp|webp|svg)(\?.*)?$/i);
+                    
+                    if (isImageUrl) {
+                        this.showLoading();
+                        try {
+                            await this.controller.addImageFromUrl(url, x, y);
+                            handled = true;
+                        } catch (error) {
+                            OPTIMISM.logError('Error adding image from URL:', error);
+                        } finally {
+                            this.hideLoading();
+                        }
+                    } else {
+                        // Not obviously an image URL, but might be a dynamic image or an image
+                        // without a file extension. Try to fetch it anyway.
+                        this.showLoading();
+                        try {
+                            await this.controller.addImageFromUrl(url, x, y);
+                            handled = true;
+                        } catch (error) {
+                            OPTIMISM.logError('URL does not appear to be an image:', error);
+                        } finally {
+                            this.hideLoading();
+                        }
                     }
                 }
             }
-        }
+            
+            // If we've tried everything and still couldn't process the drop
+            if (!handled) {
+                OPTIMISM.log('Could not process dropped content as an image');
+                alert('The dropped content could not be processed as an image.');
+            }
+        });
         
-        // If we've tried everything and still couldn't process the drop
-        if (!handled) {
-            OPTIMISM.log('Could not process dropped content as an image');
-            alert('The dropped content could not be processed as an image.');
-        }
-    });
-    
-    OPTIMISM.log('Image drop zone set up successfully');
-}
+        OPTIMISM.log('Image drop zone set up successfully');
+    }
     
     setupUndoRedoButtons() {
         OPTIMISM.log('Setting up undo/redo buttons');
@@ -688,6 +709,57 @@ this.inboxDragTarget = null;
     
     setupStylePanel() {
         OPTIMISM.log('Setting up style panel');
+        
+        // Replace the relevant part in setupStylePanel where we add the Move to Inbox option:
+
+// Add the Move to Inbox option to the style panel
+const stylePanel = document.getElementById('style-panel');
+if (stylePanel) {
+    // Check if the option already exists
+    if (!document.getElementById('move-to-inbox-option')) {
+        const moveToInboxOption = document.createElement('div');
+        moveToInboxOption.className = 'style-option';
+        moveToInboxOption.id = 'move-to-inbox-option';
+        moveToInboxOption.innerHTML = `
+            <div class="option-label">
+                Move to Inbox
+                <span class="shortcut-badges">
+                    <span class="shortcut-badge" title="Move to Inbox">8</span>
+                </span>
+            </div>
+            <div class="option-values">
+                <a href="#" class="option-value move-to-inbox">Move selected card to Inbox</a>
+            </div>
+        `;
+        
+        // Add the option to the panel
+        stylePanel.appendChild(moveToInboxOption);
+        
+        // Add click handler
+        const moveToInboxButton = moveToInboxOption.querySelector('.move-to-inbox');
+        if (moveToInboxButton) {
+            moveToInboxButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent closing the panel
+                
+                // Only apply if an element is selected
+                if (!this.model.selectedElement) return;
+                
+                OPTIMISM.log(`Moving selected element ${this.model.selectedElement} to inbox via style panel`);
+                
+                // Get a reference to the selected element ID before it's moved
+                const selectedId = this.model.selectedElement;
+                
+                // Move the element to inbox
+                this.controller.moveToInbox(selectedId);
+                
+                // Hide the style panel
+                this.stylePanel.style.display = 'none';
+            });
+        }
+    }
+}
+        
         // Get all size option elements
         const sizeOptions = document.querySelectorAll('.option-value[data-size]');
         
@@ -1988,41 +2060,12 @@ handleDragOver(e) {
         el.classList.remove('drag-over');
     });
     
-    // If dragging from inbox, don't show any workspace drop highlights
-    if (this.inboxDragTarget) {
-        return;
-    }
-    
     // First check for breadcrumb targets
     const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
     if (breadcrumbTarget) {
         // Add green text highlight class
         breadcrumbTarget.classList.add('drag-highlight');
         return;
-    }
-    
-    // Check if dragging over the inbox toggle
-    const inboxToggle = document.getElementById('inbox-toggle');
-    const inboxPanel = document.getElementById('inbox-panel');
-    
-    if (inboxToggle) {
-        const rect = inboxToggle.getBoundingClientRect();
-        if (e.clientX >= rect.left && e.clientX <= rect.right &&
-            e.clientY >= rect.top && e.clientY <= rect.bottom) {
-            inboxToggle.classList.add('drag-highlight');
-            return;
-        }
-    }
-    
-    // Check if dragging over the visible inbox panel
-    if (inboxPanel && inboxPanel.style.display === 'block') {
-        const rect = inboxPanel.getBoundingClientRect();
-        if (e.clientX >= rect.left && e.clientX <= rect.right &&
-            e.clientY >= rect.top && e.clientY <= rect.bottom) {
-            inboxPanel.classList.add('drag-highlight');
-            inboxToggle.classList.add('drag-highlight');
-            return;
-        }
     }
     
     // Check if dragging over the quick links area
@@ -2705,9 +2748,9 @@ setupInboxPanel() {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 display: -webkit-box;
-                -webkit-line-clamp: 2; /* Reduced from 3 to 2 for 30% less text */
+                -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
-                max-height: 40px; /* Limit height to roughly 2 lines */
+                max-height: 40px;
             }
             
             .inbox-card-image {
@@ -2748,14 +2791,6 @@ setupInboxPanel() {
                 margin: 20px 0;
                 font-style: italic;
             }
-            
-            #inbox-toggle.drag-highlight {
-                color: var(--green-text-color) !important;
-            }
-            
-            #inbox-panel.drag-highlight {
-                border: 2px dashed var(--green-text-color);
-            }
         `;
         document.head.appendChild(styleElem);
     }
@@ -2769,17 +2804,60 @@ setupInboxPanel() {
     // Initial rendering based on current state
     this.updateInboxVisibility(this.model.isInboxVisible);
     
-    // Add drag event listeners for inbox
-    this.setupInboxDragEvents();
-    
-    // Add keyboard shortcut for adding blank card (A key)
+    // Add keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         // Only handle when not in text input
-        if (e.key.toLowerCase() === 'a' && 
-            document.activeElement.tagName !== 'TEXTAREA' && 
+        if (document.activeElement.tagName !== 'TEXTAREA' && 
             document.activeElement.tagName !== 'INPUT') {
+                
+            // Add blank card with 'A' key
+            if (e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                this.controller.addBlankCardToInbox();
+            }
+            
+            // Toggle inbox panel with 'I' key
+            else if (e.key.toLowerCase() === 'i') {
+                e.preventDefault();
+                this.controller.toggleInboxVisibility();
+            }
+        }
+    });
+    
+    // Set up workspace drop handler for inbox cards
+    this.workspace.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        
+        // Check if we're dragging an inbox card (by checking the source element)
+        const inboxCard = e.target.closest && e.target.closest('.inbox-card');
+        if (inboxCard) {
+            // Hide the image drop zone
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
+            }
+        }
+    });
+    
+    this.workspace.addEventListener('drop', (e) => {
+        // If we're dragging from inbox, handle the drop
+        if (this.inboxDragTarget) {
             e.preventDefault();
-            this.controller.addBlankCardToInbox();
+            e.stopPropagation();
+            
+            // Get the card ID from the dataTransfer object
+            const cardId = e.dataTransfer.getData('text/plain');
+            
+            if (cardId) {
+                // Get the position relative to the workspace
+                const rect = this.workspace.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                OPTIMISM.log(`Dropping inbox card ${cardId} onto workspace at (${x}, ${y})`);
+                
+                // Move the card from the inbox to the canvas
+                this.controller.moveFromInboxToCanvas(cardId, x, y);
+            }
         }
     });
     
@@ -2819,7 +2897,7 @@ renderInboxPanel() {
     if (this.model.inboxCards.length === 0) {
         const hint = document.createElement('div');
         hint.className = 'inbox-hint';
-        hint.textContent = 'Drag cards here or press "A" to add a new card';
+        hint.textContent = 'Press "A" to add a new card';
         container.appendChild(hint);
         return;
     }
@@ -2886,35 +2964,32 @@ renderInboxPanel() {
         // Make card draggable
         cardElement.draggable = true;
         
-        // Add handlers for dragging FROM the inbox TO canvas
+        // Add drag event handlers
         cardElement.addEventListener('dragstart', (e) => {
             OPTIMISM.log(`Starting drag of inbox card ${card.id}`);
-            // Set flag to indicate we're dragging from inbox
-            this.isDraggingFromInbox = true;
             
-            // Store card ID in dataTransfer
+            // Store the card ID in the dataTransfer object
             e.dataTransfer.setData('text/plain', card.id);
+            
+            // Set drag effect
             e.dataTransfer.effectAllowed = 'move';
             
             // Add visual indicator
             cardElement.classList.add('dragging');
             
-            // Hide drop zone indicator immediately
+            // Store reference to dragged element
+            this.inboxDragTarget = cardElement;
+            
+            // Hide drop zone indicator
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'none';
             }
         });
         
-        // Handle dragend for inbox cards
         cardElement.addEventListener('dragend', (e) => {
             OPTIMISM.log(`Ending drag of inbox card ${card.id}`);
             cardElement.classList.remove('dragging');
-            this.isDraggingFromInbox = false;
-            
-            // Ensure drop zone indicator is hidden
-            if (this.dropZoneIndicator) {
-                this.dropZoneIndicator.style.display = 'none';
-            }
+            this.inboxDragTarget = null;
         });
         
         // Double-click to edit text cards
@@ -2944,127 +3019,36 @@ renderInboxPanel() {
 setupInboxDragEvents() {
     OPTIMISM.log('Setting up inbox drag events');
     
-    // Flag to track when we're dragging from the inbox
-    this.isDraggingFromInbox = false;
-    
-    // Add drop target behavior to inbox toggle
-    this.inboxToggle.addEventListener('dragover', (e) => {
-        // Always prevent default to allow drop
+    // Set up workspace drop handler for inbox cards
+    this.workspace.addEventListener('dragover', (e) => {
         e.preventDefault();
-        e.stopPropagation();
         
-        // Only highlight if dragging from workspace
-        if (this.draggedElement && !this.isDraggingFromInbox) {
-            this.inboxToggle.classList.add('drag-highlight');
-            
-            // Ensure the drop zone indicator is hidden
+        // Check if we're dragging an inbox card
+        const inboxCard = e.target.closest && e.target.closest('.inbox-card');
+        if (inboxCard) {
+            // Hide the image drop zone
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'none';
             }
         }
     });
     
-    this.inboxToggle.addEventListener('dragleave', (e) => {
-        this.inboxToggle.classList.remove('drag-highlight');
-    });
-    
-    // Critical: Set a proper drop handler on the inbox toggle
-    this.inboxToggle.addEventListener('drop', (e) => {
-        // Always prevent default to ensure our handler runs
+    this.workspace.addEventListener('drop', (e) => {
         e.preventDefault();
-        e.stopPropagation();
         
-        OPTIMISM.log('Drop event on inbox toggle');
-        this.inboxToggle.classList.remove('drag-highlight');
-        
-        // Only handle if dragging from workspace
-        if (this.draggedElement && !this.isDraggingFromInbox) {
-            const draggedId = this.draggedElement.dataset.id;
-            if (draggedId) {
-                OPTIMISM.log(`Moving element ${draggedId} to inbox via drop`);
+        // Get the inbox card element that was dragged (if any)
+        const inboxCard = e.target.closest && e.target.closest('.inbox-card');
+        if (inboxCard) {
+            const cardId = inboxCard.dataset.id;
+            if (cardId) {
+                // Get position relative to workspace
+                const rect = this.workspace.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
                 
-                // Clear drag state before processing, as the element will be removed
-                const element = this.draggedElement;
-                this.draggedElement = null;
-                element.classList.remove('dragging');
-                
-                // Now move the element to inbox
-                // Important: This will delete the element from canvas
-                this.controller.moveToInbox(draggedId);
+                OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
+                this.controller.moveFromInboxToCanvas(cardId, x, y);
             }
-        }
-    });
-    
-    // Similarly for the inbox panel
-    this.inboxPanel.addEventListener('dragover', (e) => {
-        // Always prevent default to allow drop
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Only highlight if dragging from workspace
-        if (this.draggedElement && !this.isDraggingFromInbox) {
-            this.inboxPanel.classList.add('drag-highlight');
-            this.inboxToggle.classList.add('drag-highlight');
-            
-            // Ensure the drop zone indicator is hidden
-            if (this.dropZoneIndicator) {
-                this.dropZoneIndicator.style.display = 'none';
-            }
-        }
-    });
-    
-    this.inboxPanel.addEventListener('dragleave', (e) => {
-        // Only remove highlight if leaving the panel entirely
-        if (!this.inboxPanel.contains(e.relatedTarget)) {
-            this.inboxPanel.classList.remove('drag-highlight');
-            this.inboxToggle.classList.remove('drag-highlight');
-        }
-    });
-    
-    this.inboxPanel.addEventListener('drop', (e) => {
-        // Always prevent default to ensure our handler runs
-        e.preventDefault();
-        e.stopPropagation();
-        
-        OPTIMISM.log('Drop event on inbox panel');
-        this.inboxPanel.classList.remove('drag-highlight');
-        this.inboxToggle.classList.remove('drag-highlight');
-        
-        // Only handle if dragging from workspace
-        if (this.draggedElement && !this.isDraggingFromInbox) {
-            const draggedId = this.draggedElement.dataset.id;
-            if (draggedId) {
-                OPTIMISM.log(`Moving element ${draggedId} to inbox via panel drop`);
-                
-                // Clear drag state before processing, as the element will be removed
-                const element = this.draggedElement;
-                this.draggedElement = null;
-                element.classList.remove('dragging');
-                
-                // Now move the element to inbox
-                // Important: This will delete the element from canvas
-                this.controller.moveToInbox(draggedId);
-            }
-        }
-    });
-    
-    // Handle generic dragend events in case other handlers don't catch them
-    document.addEventListener('dragend', (e) => {
-        OPTIMISM.log('Global dragend event');
-        // Reset any active drag state
-        if (this.draggedElement) {
-            this.draggedElement.classList.remove('dragging');
-            this.draggedElement = null;
-        }
-        
-        // Reset inbox drag state
-        this.isDraggingFromInbox = false;
-        
-        // Ensure drop indicators are hidden
-        this.inboxToggle.classList.remove('drag-highlight');
-        this.inboxPanel.classList.remove('drag-highlight');
-        if (this.dropZoneIndicator) {
-            this.dropZoneIndicator.style.display = 'none';
         }
     });
     
