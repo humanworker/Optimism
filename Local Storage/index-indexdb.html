@@ -799,6 +799,45 @@ mark {
         border: 2px dashed var(--green-text-color);
     }
 
+    /* CSS to add to your existing styles */
+#grid-panel {
+    position: fixed;
+    top: 41px;
+    right: 0;
+    width: var(--panel-width);
+    height: calc(100vh - 40px);
+    background-color: var(--bg-color);
+    padding: 20px;
+    padding-top: 60px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: none;
+    z-index: 200;
+}
+
+.grid-line {
+    position: absolute;
+    background-color: rgba(173, 216, 230, 0.75); /* light blue with transparency */
+    z-index: 0; /* bottom-most layer */
+    pointer-events: none; /* allow clicks to pass through */
+}
+
+.grid-line-vertical {
+    width: 1px;
+    height: 100%;
+    top: 0;
+}
+
+.grid-line-horizontal {
+    height: 1px;
+    width: 100%;
+    left: 0;
+}
+
+#grid-toggle {
+    margin-right: 10px;
+}
+
     </style>
 </head>
 <body>
@@ -981,5 +1020,33 @@ mark {
     <button id="debug-toggle" class="nav-link">Show Debug</button>
     <button id="theme-toggle" class="nav-link">Toggle Theme</button>
 </div>
+
+<!-- Grid panel to add to index-indexdb.html -->
+<div id="grid-panel" class="side-panel">
+    <div class="panel-heading">Grid Options</div>
+    
+    <div class="style-option">
+        <div class="option-label">
+            Grid
+            <span class="shortcut-badges">
+                <span class="shortcut-badge" title="Toggle Grid">G</span>
+            </span>
+        </div>
+        <div class="option-values">
+            <a href="#" class="option-value" data-grid="off">Off</a>
+            <a href="#" class="option-value" data-grid="on">On</a>
+        </div>
+    </div>
+    
+    <div class="style-option">
+        <div class="option-label">Grid Layout</div>
+        <div class="option-values">
+            <a href="#" class="option-value" data-grid-layout="1x2">1 x 2</a>
+            <a href="#" class="option-value" data-grid-layout="2x1">2 x 1</a>
+        </div>
+    </div>
+</div>
+
+
 </body>
 </html>

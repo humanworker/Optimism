@@ -129,6 +129,12 @@ this.inboxDragTarget = null;
         window.addEventListener('blur', () => {
             document.body.classList.remove('cmd-pressed');
         });
+
+        window.addEventListener('resize', () => {
+            if (this.model.isGridVisible) {
+                this.renderGrid();
+            }
+        });
     
         this.setupBackupReminderModal();
         this.setupSettingsPanel();
@@ -996,6 +1002,9 @@ this.model.lockedCards.forEach(cardId => {
     const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
     if (container) {
         container.classList.add('card-locked');
+    }
+    if (this.model.isGridVisible) {
+        this.renderGrid();
     }
 });
 
@@ -1895,6 +1904,11 @@ document.addEventListener('drop', (e) => {
         }
         
         // Handle dragging
+// Modify the mousemove event handler in setupDragListeners method in view.js
+// Find the section handling dragging in document.addEventListener('mousemove', (e) => {...})
+
+// Replace or modify the dragging section to add snapping:
+// Handle dragging
 if (!this.draggedElement) return;
 
 // Don't drag images if they're locked
@@ -1903,17 +1917,45 @@ if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
 }
 
 // Calculate new position
-const newX = e.clientX - this.elemOffsetX;
-const newY = e.clientY - this.elemOffsetY;
+let newX = e.clientX - this.elemOffsetX;
+let newY = e.clientY - this.elemOffsetY;
+
+// Check for grid snapping if grid is visible
+if (this.model.isGridVisible) {
+    // Get grid lines
+    const gridContainer = document.getElementById('grid-container');
+    if (gridContainer) {
+        const vertLines = gridContainer.querySelectorAll('.grid-line-vertical');
+        const horzLines = gridContainer.querySelectorAll('.grid-line-horizontal');
+        
+        // Check for vertical line snapping
+        vertLines.forEach(line => {
+            const lineX = parseInt(line.style.left);
+            // If within 10px of the line, snap to it
+            if (Math.abs(newX - lineX) < 10) {
+                newX = lineX;
+            }
+        });
+        
+        // Check for horizontal line snapping
+        horzLines.forEach(line => {
+            const lineY = parseInt(line.style.top);
+            // If within 10px of the line, snap to it
+            if (Math.abs(newY - lineY) < 10) {
+                newY = lineY;
+            }
+        });
+    }
+}
 
 // Update both style and dataset for consistency
 this.draggedElement.style.left = `${newX}px`;
 this.draggedElement.style.top = `${newY}px`;
 this.draggedElement.dataset.numX = newX;
 this.draggedElement.dataset.numY = newY;
-        
-        // Highlight potential drop targets
-        this.handleDragOver(e);
+
+// Highlight potential drop targets
+this.handleDragOver(e);
     });
     
     // In view.js - partial update to the mouseup event handler in setupDragListeners
@@ -2816,12 +2858,23 @@ setupInboxPanel() {
                 this.controller.addBlankCardToInbox();
             }
             
-            // Toggle inbox panel with 'I' key
-            else if (e.key.toLowerCase() === 'i') {
-                e.preventDefault();
-                this.controller.toggleInboxVisibility();
-            }
+            
         }
+
+        if (e.key.toLowerCase() === 'g' && 
+    document.activeElement.tagName !== 'TEXTAREA' && 
+    document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    this.controller.toggleGridVisibility();
+}
+
+if (e.key.toLowerCase() === 'i' && 
+document.activeElement.tagName !== 'TEXTAREA' && 
+document.activeElement.tagName !== 'INPUT') {
+e.preventDefault();
+this.controller.toggleInboxVisibility();
+}
+
     });
     
     // Set up workspace drop handler for inbox cards
@@ -3053,6 +3106,185 @@ setupInboxDragEvents() {
     });
     
     OPTIMISM.log('Inbox drag events setup complete');
+}
+
+// Add these methods to the CanvasView class in view.js
+
+setupGridPanel() {
+    OPTIMISM.log('Setting up grid panel');
+    
+    // Create the grid toggle button
+    const gridToggle = document.createElement('button');
+    gridToggle.id = 'grid-toggle';
+    gridToggle.className = 'nav-link';
+    gridToggle.textContent = 'Grid';
+    
+    // Add to the right controls before the inbox toggle
+    const rightControls = document.getElementById('right-controls');
+    if (rightControls && this.inboxToggle) {
+        rightControls.insertBefore(gridToggle, this.inboxToggle);
+    } else if (rightControls) {
+        rightControls.appendChild(gridToggle);
+    }
+    
+    // Update the click event to toggle panel visibility instead of grid state
+    gridToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleGridPanel(); // Call a new method to toggle panel visibility
+    });
+    
+    // Set up grid panel options
+    const gridOptions = document.querySelectorAll('.option-value[data-grid]');
+    gridOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const isVisible = option.dataset.grid === 'on';
+            if (isVisible !== this.model.isGridVisible) {
+                this.controller.toggleGridVisibility();
+            }
+            
+            // Update selected option
+            gridOptions.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+        });
+    });
+    
+    // Set up grid layout options
+    const layoutOptions = document.querySelectorAll('.option-value[data-grid-layout]');
+    layoutOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const layout = option.dataset.gridLayout;
+            this.controller.setGridLayout(layout);
+        });
+    });
+    
+    // Set initial selection states
+    this.updateGridVisibility(this.model.isGridVisible);
+    this.updateGridLayoutSelection(this.model.gridLayout);
+    
+    OPTIMISM.log('Grid panel setup complete');
+}
+
+updateGridVisibility(isVisible) {
+    // Update the toggle button styling (optional - keep it subtle)
+    const gridToggle = document.getElementById('grid-toggle');
+    if (gridToggle) {
+        // We're not making the nav link active since it controls panel now, not grid state
+        // Just update the panel options
+    }
+    
+    // Update the panel options to show the current grid state
+    const gridOptions = document.querySelectorAll('.option-value[data-grid]');
+    gridOptions.forEach(option => {
+        option.classList.remove('selected');
+        if ((option.dataset.grid === 'on' && isVisible) || 
+            (option.dataset.grid === 'off' && !isVisible)) {
+            option.classList.add('selected');
+        }
+    });
+    
+    // Show or hide the grid
+    if (isVisible) {
+        this.renderGrid();
+    } else {
+        this.clearGrid();
+    }
+    
+    // Note: We no longer toggle panel visibility here
+    // Panel visibility is controlled separately in toggleGridPanel
+}
+
+updateGridLayoutSelection(layout) {
+    const layoutOptions = document.querySelectorAll('.option-value[data-grid-layout]');
+    layoutOptions.forEach(option => {
+        option.classList.remove('selected');
+        if (option.dataset.gridLayout === layout) {
+            option.classList.add('selected');
+        }
+    });
+}
+
+renderGrid() {
+    OPTIMISM.log(`Rendering grid with layout: ${this.model.gridLayout}`);
+    
+    // Clear any existing grid
+    this.clearGrid();
+    
+    // If grid is not visible, don't render
+    if (!this.model.isGridVisible) return;
+    
+    // Create grid container if it doesn't exist
+    let gridContainer = document.getElementById('grid-container');
+    if (!gridContainer) {
+        gridContainer = document.createElement('div');
+        gridContainer.id = 'grid-container';
+        gridContainer.style.position = 'absolute';
+        gridContainer.style.top = '0';
+        gridContainer.style.left = '0';
+        gridContainer.style.width = '100%';
+        gridContainer.style.height = '100%';
+        gridContainer.style.zIndex = '0';
+        gridContainer.style.pointerEvents = 'none';
+        this.workspace.appendChild(gridContainer);
+    }
+    
+    // Get workspace dimensions
+    const workspaceWidth = this.workspace.clientWidth;
+    const workspaceHeight = this.workspace.clientHeight;
+    
+    // Create grid lines based on layout
+    if (this.model.gridLayout === '1x2') {
+        // One vertical line in the middle
+        const vertLine = document.createElement('div');
+        vertLine.className = 'grid-line grid-line-vertical';
+        vertLine.style.left = `${workspaceWidth / 2}px`;
+        gridContainer.appendChild(vertLine);
+    } 
+    else if (this.model.gridLayout === '2x1') {
+        // One horizontal line in the middle
+        const horzLine = document.createElement('div');
+        horzLine.className = 'grid-line grid-line-horizontal';
+        horzLine.style.top = `${workspaceHeight / 2}px`;
+        gridContainer.appendChild(horzLine);
+    }
+    
+    OPTIMISM.log('Grid rendered successfully');
+}
+
+clearGrid() {
+    const gridContainer = document.getElementById('grid-container');
+    if (gridContainer) {
+        gridContainer.innerHTML = '';
+        OPTIMISM.log('Grid cleared');
+    }
+}
+
+toggleGridPanel() {
+    OPTIMISM.log('Toggling grid panel visibility');
+    
+    const gridPanel = document.getElementById('grid-panel');
+    if (gridPanel) {
+        const isVisible = gridPanel.style.display === 'block';
+        
+        // Toggle visibility
+        gridPanel.style.display = isVisible ? 'none' : 'block';
+        
+        // Close other panels when opening grid panel
+        if (!isVisible) {
+            this.stylePanel.style.display = 'none';
+            this.settingsPanel.style.display = 'none';
+            if (this.inboxPanel) {
+                this.inboxPanel.style.display = 'none';
+            }
+        }
+        
+        OPTIMISM.log(`Grid panel visibility set to: ${!isVisible}`);
+    }
 }
     
 }

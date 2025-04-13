@@ -31,6 +31,8 @@ class CanvasModel {
         this.isDebugVisible = false;
         this.inboxCards = []; // Array to store inbox cards
 this.isInboxVisible = false; // Track inbox panel visibility
+this.isGridVisible = false;
+this.gridLayout = '1x2'; // Default layout
     }
 
     // In model.js, update the initialize method
@@ -77,8 +79,7 @@ async initialize() {
     }
 }
     
-    // In model.js, modify the loadData method
-    // In model.js, modify the loadData method
+
     async loadData() {
         try {
             let data = await this.db.getData('canvasData', 'root');
@@ -146,6 +147,16 @@ if (appState.isInboxVisible !== undefined) {
     OPTIMISM.log(`Loaded inbox visibility state: ${this.isInboxVisible}`);
 }
 
+// Add to the existing loadData method in model.js, in the section where it loads appState
+if (appState.isGridVisible !== undefined) {
+    this.isGridVisible = appState.isGridVisible;
+    OPTIMISM.log(`Loaded grid visibility state: ${this.isGridVisible}`);
+}
+
+if (appState.gridLayout !== undefined) {
+    this.gridLayout = appState.gridLayout;
+    OPTIMISM.log(`Loaded grid layout: ${this.gridLayout}`);
+}
 
                 }
             } catch (error) {
@@ -833,8 +844,7 @@ resetBackupReminder() {
         }
     }
 
-    // In model.js, update the saveAppState method
-   // In model.js, update the saveAppState method
+
    async saveAppState() {
     try {
         const appState = {
@@ -844,12 +854,14 @@ resetBackupReminder() {
             lastBackupReminder: this.lastBackupReminder,
             imagesLocked: this.imagesLocked,
             quickLinks: this.quickLinks,
-            lockedCards: this.lockedCards, // Add this line
-            inboxCards: this.inboxCards, // Add inbox cards to appState
-            isInboxVisible: this.isInboxVisible // Add inbox visibility state
+            lockedCards: this.lockedCards,
+            inboxCards: this.inboxCards,
+            isInboxVisible: this.isInboxVisible,
+            isGridVisible: this.isGridVisible,
+            gridLayout: this.gridLayout
         };
         
-        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length})`);
+        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout})`);
         await this.db.put('canvasData', appState);
     } catch (error) {
         OPTIMISM.logError('Error saving app state:', error);

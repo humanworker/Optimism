@@ -8,6 +8,7 @@ class CanvasController {
     }
     
 // In controller.js, remove the updateUrlHash from initialize
+// Update initialize method in controller.js to add grid panel setup
 async initialize() {
     OPTIMISM.log('Initializing controller');
     this.view.showLoading();
@@ -23,6 +24,7 @@ async initialize() {
         this.view.setupStylePanel();
         this.view.setupThemeToggle();
         this.view.setupUndoRedoButtons();
+        this.view.setupGridPanel(); // Add this line
         this.view.updateTheme(this.model.isDarkTheme);
         // Initialize debug panel state
         this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
@@ -1146,6 +1148,57 @@ async addBlankCardToInbox() {
     } catch (error) {
         OPTIMISM.logError('Error adding blank card to inbox:', error);
         return null;
+    }
+}
+
+// Add to CanvasController class in controller.js
+async toggleGridVisibility() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle grid: application not initialized');
+        return this.model.isGridVisible;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling grid panel visibility');
+        this.model.isGridVisible = !this.model.isGridVisible;
+        this.view.updateGridVisibility(this.model.isGridVisible);
+        
+        // Save state
+        await this.model.saveAppState();
+        
+        OPTIMISM.log(`Grid visibility set to: ${this.model.isGridVisible}`);
+        return this.model.isGridVisible;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling grid visibility:', error);
+        return this.model.isGridVisible;
+    }
+}
+
+async setGridLayout(layout) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot set grid layout: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Setting grid layout to: ${layout}`);
+        this.model.gridLayout = layout;
+        
+        // Render grid with new layout
+        if (this.model.isGridVisible) {
+            this.view.renderGrid();
+        }
+        
+        // Save state
+        await this.model.saveAppState();
+        
+        // Update UI to show selected layout
+        this.view.updateGridLayoutSelection(layout);
+        
+        return true;
+    } catch (error) {
+        OPTIMISM.logError('Error setting grid layout:', error);
+        return false;
     }
 }
 
