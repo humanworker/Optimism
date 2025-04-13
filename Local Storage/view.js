@@ -388,30 +388,41 @@ else if (e.key === '8') {
         });
         
         // Close style panel when clicking outside
-        document.addEventListener('click', (e) => {
-            // If clicking outside of both the style panel and any element
-            if (!this.stylePanel.contains(e.target) && 
-                !e.target.closest('.element-container') && 
-                this.stylePanel.style.display === 'block') {
-                this.stylePanel.style.display = 'none';
-            }
-            
-            // Add this new section to close the settings panel
-            if (!this.settingsPanel.contains(e.target) && 
-                e.target !== this.settingsToggle && 
-                this.settingsPanel.style.display === 'block') {
-                this.settingsPanel.style.display = 'none';
-            }
-            
-            // Close inbox panel when clicking outside
-            if (!this.inboxPanel.contains(e.target) && 
-                e.target !== this.inboxToggle && 
-                this.inboxPanel.style.display === 'block') {
-                this.inboxPanel.style.display = 'none';
-                this.model.isInboxVisible = false;
-                this.model.saveAppState();
-            }
-        });
+        // In setupEventListeners method in view.js, modify the document click handler
+document.addEventListener('click', (e) => {
+    // If clicking outside of both the style panel and any element
+    if (!this.stylePanel.contains(e.target) && 
+        !e.target.closest('.element-container') && 
+        this.stylePanel.style.display === 'block') {
+        this.stylePanel.style.display = 'none';
+    }
+    
+    // Add this new section to close the settings panel
+    if (!this.settingsPanel.contains(e.target) && 
+        e.target !== this.settingsToggle && 
+        this.settingsPanel.style.display === 'block') {
+        this.settingsPanel.style.display = 'none';
+    }
+    
+    // Close grid panel when clicking outside
+    const gridPanel = document.getElementById('grid-panel');
+    const gridToggle = document.getElementById('grid-toggle');
+    if (gridPanel && 
+        !gridPanel.contains(e.target) && 
+        e.target !== gridToggle && 
+        gridPanel.style.display === 'block') {
+        gridPanel.style.display = 'none';
+    }
+    
+    // Close inbox panel when clicking outside
+    if (!this.inboxPanel.contains(e.target) && 
+        e.target !== this.inboxToggle && 
+        this.inboxPanel.style.display === 'block') {
+        this.inboxPanel.style.display = 'none';
+        this.model.isInboxVisible = false;
+        this.model.saveAppState();
+    }
+});
         
         // Setup export/import buttons
         this.setupExportImport();
@@ -1609,6 +1620,7 @@ async createImageElementDOM(elementData) {
     return container;
 }
     
+// In view.js, update the selectElement method to hide the grid panel
 selectElement(element, elementData, isDragging = false) {
     // Check if this is an image and images are locked
     if (elementData.type === 'image' && this.model.imagesLocked) {
@@ -1621,8 +1633,14 @@ selectElement(element, elementData, isDragging = false) {
     element.classList.add('selected');
     this.model.selectedElement = element.dataset.id;
     
-    // Close settings panel
+    // Close settings panel and grid panel
     this.settingsPanel.style.display = 'none';
+    
+    // Hide grid panel
+    const gridPanel = document.getElementById('grid-panel');
+    if (gridPanel) {
+        gridPanel.style.display = 'none';
+    }
     
     // Only show style panel if we're not dragging
     if (element.dataset.type === 'text' && !isDragging) {
