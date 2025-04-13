@@ -46,6 +46,8 @@ this.inboxDragTarget = null;
 
 this.rightViewport = null; // Will be created when split view is enabled
     this.rightViewportContent = null;
+
+    this.resizeDivider = null; 
         
         // Detect platform
         this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -192,6 +194,18 @@ this.rightViewport = null; // Will be created when split view is enabled
                 rightControls.appendChild(copyLinkButton);
             }
         }
+
+        // Add global style for resize operations
+    const resizeStyle = document.createElement('style');
+    resizeStyle.textContent = `
+        body.resizing-split-view {
+            cursor: col-resize !important;
+        }
+        body.resizing-split-view * {
+            cursor: col-resize !important;
+        }
+    `;
+    document.head.appendChild(resizeStyle);
         
         // Workspace double-click to create new elements
         this.workspace.addEventListener('dblclick', (e) => {
@@ -3404,9 +3418,7 @@ updateGridInputValues() {
     if (columnsValue) columnsValue.textContent = columns;
 }
 
-// Add a method to create and update the split view layout
-// In view.js - Update the updateSplitViewLayout method
-// In view.js - Update the updateSplitViewLayout method where the right viewport is created
+// In view.js - Update the updateSplitViewLayout method to add the resizable border
 updateSplitViewLayout(isEnabled) {
     OPTIMISM.log(`Updating split view layout: ${isEnabled}`);
     
@@ -3414,6 +3426,12 @@ updateSplitViewLayout(isEnabled) {
         // Remove the right viewport
         this.rightViewport.remove();
         this.rightViewport = null;
+        
+        // Remove the resize divider if it exists
+        if (this.resizeDivider) {
+            this.resizeDivider.remove();
+            this.resizeDivider = null;
+        }
         
         // Restore full width to the main workspace
         this.workspace.style.width = '100%';
@@ -3425,23 +3443,39 @@ updateSplitViewLayout(isEnabled) {
     
     // If split view was disabled but is now enabled
     if (isEnabled && !this.rightViewport) {
+        // Set initial split position (50%)
+        const splitPosition = 50;
+        
         // Adjust main workspace width and ensure it has proper bounds
-        this.workspace.style.width = '50%';
+        this.workspace.style.width = `${splitPosition}%`;
         this.workspace.style.position = 'absolute';
         this.workspace.style.left = '0';
         this.workspace.style.overflow = 'hidden';
+        
+        // Create the resizable divider
+        this.resizeDivider = document.createElement('div');
+        this.resizeDivider.id = 'resize-divider';
+        this.resizeDivider.style.position = 'fixed';
+        this.resizeDivider.style.top = '41px'; // Below title bar
+        this.resizeDivider.style.bottom = '0';
+        this.resizeDivider.style.width = '10px'; // Wider clickable area
+        this.resizeDivider.style.left = `calc(${splitPosition}% - 5px)`; // Center on the split
+        this.resizeDivider.style.cursor = 'col-resize';
+        this.resizeDivider.style.zIndex = '160'; // Above viewport content but below panels
+        
+        // Add visible line in the center of clickable area
+        this.resizeDivider.innerHTML = '<div style="position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background-color: var(--element-border-color);"></div>';
         
         // Create the right viewport container
         this.rightViewport = document.createElement('div');
         this.rightViewport.id = 'right-viewport';
         this.rightViewport.className = 'viewport';
-        this.rightViewport.style.width = '50%';
+        this.rightViewport.style.width = `${100 - splitPosition}%`;
         this.rightViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
         this.rightViewport.style.position = 'fixed'; // Use fixed positioning
         this.rightViewport.style.right = '0';
         this.rightViewport.style.top = '41px'; // Below the title bar with border
         this.rightViewport.style.boxSizing = 'border-box';
-        this.rightViewport.style.borderLeft = '1px solid var(--element-border-color)';
         this.rightViewport.style.overflow = 'hidden';
         
         // Ensure solid background that completely covers the area
@@ -3466,8 +3500,12 @@ updateSplitViewLayout(isEnabled) {
         
         this.rightViewport.appendChild(this.rightViewportContent);
         
-        // Add the right viewport to the document body to ensure it's above everything
+        // Add the divider and right viewport to the document
+        document.body.appendChild(this.resizeDivider);
         document.body.appendChild(this.rightViewport);
+        
+        // Add resize drag functionality
+        this.setupResizeDivider();
         
         // Add click event to make the right viewport the primary view when clicking on empty space
         this.rightViewport.addEventListener('click', (e) => {
@@ -3801,6 +3839,105 @@ ensurePanelZIndices() {
     if (backupReminderModal) {
         backupReminderModal.style.zIndex = panelZIndex + 100; // Even higher
     }
+}
+
+// Add a method to set up the resize functionality
+setupResizeDivider() {
+    if (!this.resizeDivider) return;
+    
+    let isDragging = false;
+    let startX = 0;
+    let startLeftWidth = 0;
+    
+    // Get window width for percentage calculations
+    const getWindowWidth = () => {
+        return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    };
+    
+    // Convert percentage to pixels
+    const percentToPixels = (percent) => {
+        return Math.round((percent / 100) * getWindowWidth());
+    };
+    
+    // Convert pixels to percentage
+    const pixelsToPercent = (pixels) => {
+        return (pixels / getWindowWidth()) * 100;
+    };
+    
+    // Mouse down event on the divider
+    this.resizeDivider.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        
+        // Get current left viewport width in pixels
+        const leftViewportPercentage = parseFloat(this.workspace.style.width);
+        startLeftWidth = percentToPixels(leftViewportPercentage);
+        
+        // Add class to body for styling during resize
+        document.body.classList.add('resizing-split-view');
+        
+        // Disable text selection during resize
+        document.body.style.userSelect = 'none';
+        
+        e.preventDefault();
+    });
+    
+    // Mouse move event (drag)
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        // Calculate new width
+        const deltaX = e.clientX - startX;
+        let newLeftWidth = startLeftWidth + deltaX;
+        
+        // Convert to percentage of window
+        let newLeftPercent = pixelsToPercent(newLeftWidth);
+        
+        // Apply constraints (minimum 25% for each side)
+        newLeftPercent = Math.max(25, Math.min(75, newLeftPercent));
+        
+        // Update viewport widths
+        this.workspace.style.width = `${newLeftPercent}%`;
+        this.rightViewport.style.width = `${100 - newLeftPercent}%`;
+        
+        // Update divider position
+        this.resizeDivider.style.left = `calc(${newLeftPercent}% - 5px)`;
+    });
+    
+    // Mouse up event (end drag)
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            
+            // Remove resizing class
+            document.body.classList.remove('resizing-split-view');
+            
+            // Re-enable text selection
+            document.body.style.userSelect = '';
+            
+            // Re-render workspace to ensure proper layout
+            this.renderWorkspace();
+        }
+    });
+    
+    // Add a hover effect to make the divider more noticeable
+    this.resizeDivider.addEventListener('mouseenter', () => {
+        const line = this.resizeDivider.querySelector('div');
+        if (line) {
+            line.style.backgroundColor = 'var(--link-color)';
+            line.style.width = '2px';
+            line.style.left = '4px';
+        }
+    });
+    
+    this.resizeDivider.addEventListener('mouseleave', () => {
+        const line = this.resizeDivider.querySelector('div');
+        if (line) {
+            line.style.backgroundColor = 'var(--element-border-color)';
+            line.style.width = '1px';
+            line.style.left = '5px';
+        }
+    });
 }
     
 }
