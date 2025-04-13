@@ -33,6 +33,8 @@ class CanvasModel {
 this.isInboxVisible = false; // Track inbox panel visibility
 this.isGridVisible = false;
 this.gridLayout = '1x2'; // Default layout
+this.isSplitViewEnabled = false; // Track split view mode
+this.previewNodeId = null; // Track the node being previewed
     }
 
     // In model.js, update the initialize method
@@ -129,6 +131,11 @@ async initialize() {
                     if (appState.quickLinks !== undefined) {
                         this.quickLinks = appState.quickLinks;
                         OPTIMISM.log(`Loaded ${this.quickLinks.length} quick links`);
+                    }
+
+                    if (appState.isSplitViewEnabled !== undefined) {
+                        this.isSplitViewEnabled = appState.isSplitViewEnabled;
+                        OPTIMISM.log(`Loaded split view state: ${this.isSplitViewEnabled}`);
                     }
 
                     // Load locked cards
@@ -858,6 +865,7 @@ resetBackupReminder() {
             inboxCards: this.inboxCards,
             isInboxVisible: this.isInboxVisible,
             isGridVisible: this.isGridVisible,
+            isSplitViewEnabled: this.isSplitViewEnabled,
             gridLayout: this.gridLayout
         };
         
@@ -1384,6 +1392,14 @@ async updateInboxCard(id, properties) {
         return card; // Return the updated card
     }
     return null; // Card not found
+}
+
+// Add a toggle method
+async toggleSplitView() {
+    this.isSplitViewEnabled = !this.isSplitViewEnabled;
+    OPTIMISM.log(`Split view set to: ${this.isSplitViewEnabled}`);
+    await this.saveAppState();
+    return this.isSplitViewEnabled;
 }
 
 }

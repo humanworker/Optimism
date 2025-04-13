@@ -1202,4 +1202,23 @@ async setGridLayout(layout) {
     }
 }
 
+// In controller.js - Add a method to toggle split view
+async toggleSplitView() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle split view: application not initialized');
+        return this.model.isSplitViewEnabled;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling split view');
+        const isEnabled = await this.model.toggleSplitView();
+        this.view.updateSplitViewLayout(isEnabled);
+        OPTIMISM.log(`Split view set to ${isEnabled}`);
+        return isEnabled;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling split view:', error);
+        return this.model.isSplitViewEnabled;
+    }
+}
+
 }

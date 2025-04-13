@@ -43,6 +43,9 @@ class CanvasView {
         this.inboxPanel = document.getElementById('inbox-panel');
 this.inboxToggle = document.getElementById('inbox-toggle');
 this.inboxDragTarget = null;
+
+this.rightViewport = null; // Will be created when split view is enabled
+    this.rightViewportContent = null;
         
         // Detect platform
         this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -142,6 +145,7 @@ this.inboxDragTarget = null;
         this.setupQuickLinks();
         this.setupQuickLinkDragEvents();
         this.setupInboxPanel(); // Set up the inbox panel
+        this.setupSplitViewToggle();
         
         // Close style panel when entering inbox link or panel during drag
         this.inboxToggle.addEventListener('mouseenter', (e) => {
@@ -1017,6 +1021,22 @@ this.model.lockedCards.forEach(cardId => {
     if (this.model.isGridVisible) {
         this.renderGrid();
     }
+
+// If split view is enabled but not set up, create it
+if (this.model.isSplitViewEnabled && !this.rightViewport) {
+    this.updateSplitViewLayout(true);
+}
+
+// If split view is disabled but exists, remove it
+if (!this.model.isSplitViewEnabled && this.rightViewport) {
+    this.updateSplitViewLayout(false);
+}
+
+// Update the right viewport based on selected element
+if (this.model.isSplitViewEnabled && this.model.selectedElement) {
+    this.updateRightViewport(this.model.selectedElement);
+}
+
 });
 
 // Update styles for locked cards
@@ -1651,6 +1671,10 @@ selectElement(element, elementData, isDragging = false) {
     } else {
         this.stylePanel.style.display = 'none';
     }
+
+    if (this.model.isSplitViewEnabled && !isDragging) {
+        this.updateRightViewport(element.dataset.id);
+    }
 }
     
     updateStylePanel(elementData) {
@@ -1720,6 +1744,11 @@ if (lockOption) {
             el.classList.remove('selected');
         });
         this.model.selectedElement = null;
+        
+        // Update the right viewport if split view is enabled
+        if (this.model.isSplitViewEnabled) {
+            this.updateRightViewport(null);
+        }
     }
     
     // In view.js - full method with changes
@@ -3378,6 +3407,322 @@ updateGridInputValues() {
     
     if (rowsValue) rowsValue.textContent = rows;
     if (columnsValue) columnsValue.textContent = columns;
+}
+
+// Add a method to create and update the split view layout
+// In view.js - Update the updateSplitViewLayout method
+// In view.js - Update the updateSplitViewLayout method where the right viewport is created
+updateSplitViewLayout(isEnabled) {
+    OPTIMISM.log(`Updating split view layout: ${isEnabled}`);
+    
+    if (!isEnabled && this.rightViewport) {
+        // Remove the right viewport
+        this.rightViewport.remove();
+        this.rightViewport = null;
+        
+        // Restore full width to the main workspace
+        this.workspace.style.width = '100%';
+        
+        // Re-render the workspace to ensure all elements are positioned correctly
+        this.renderWorkspace();
+        return;
+    }
+    
+    // If split view was disabled but is now enabled
+    if (isEnabled && !this.rightViewport) {
+        // Adjust main workspace width and ensure it has proper bounds
+        this.workspace.style.width = '50%';
+        this.workspace.style.position = 'absolute';
+        this.workspace.style.left = '0';
+        this.workspace.style.overflow = 'hidden';
+        
+        // Create the right viewport container
+        this.rightViewport = document.createElement('div');
+        this.rightViewport.id = 'right-viewport';
+        this.rightViewport.className = 'viewport';
+        this.rightViewport.style.width = '50%';
+        this.rightViewport.style.height = 'calc(100% - 40px)'; // Full height minus title bar
+        this.rightViewport.style.position = 'fixed'; // Use fixed positioning
+        this.rightViewport.style.right = '0';
+        this.rightViewport.style.top = '40px'; // Below the title bar
+        this.rightViewport.style.boxSizing = 'border-box';
+        this.rightViewport.style.borderLeft = '1px solid var(--element-border-color)';
+        this.rightViewport.style.overflow = 'hidden';
+        
+        // Ensure solid background that completely covers the area
+        this.rightViewport.style.backgroundColor = 'var(--bg-color)';
+        this.rightViewport.style.backgroundImage = 'none'; // Override any background image
+        
+        // Set a higher z-index to ensure it appears above everything
+        this.rightViewport.style.zIndex = '1000'; // Much higher than any workspace elements
+        
+        // Add placeholder content
+        this.rightViewportContent = document.createElement('div');
+        this.rightViewportContent.className = 'right-viewport-content';
+        this.rightViewportContent.style.display = 'flex';
+        this.rightViewportContent.style.justifyContent = 'center';
+        this.rightViewportContent.style.alignItems = 'center';
+        this.rightViewportContent.style.width = '100%';
+        this.rightViewportContent.style.height = '100%';
+        this.rightViewportContent.style.color = 'var(--element-text-color)';
+        this.rightViewportContent.style.opacity = '0.5';
+        this.rightViewportContent.style.position = 'relative'; // For proper positioning of elements
+        this.rightViewportContent.textContent = 'Select a card to view contents';
+        
+        this.rightViewport.appendChild(this.rightViewportContent);
+        
+        // Add the right viewport to the document body to ensure it's above everything
+        document.body.appendChild(this.rightViewport);
+        
+        // Add click event to make the right viewport the primary view
+        this.rightViewport.addEventListener('click', (e) => {
+            // Only handle clicks on the viewport itself, not its content
+            if (e.target === this.rightViewport || e.target === this.rightViewportContent) {
+                // If we have a preview node, navigate to it
+                if (this.model.previewNodeId) {
+                    this.controller.navigateToElement(this.model.previewNodeId);
+                }
+            }
+        });
+        
+        // Re-render the workspace to ensure all elements are positioned correctly
+        this.renderWorkspace();
+    }
+    
+    // Update the button text
+    const splitViewToggle = document.getElementById('split-view-toggle');
+    if (splitViewToggle) {
+        splitViewToggle.textContent = isEnabled ? 'Hide Split View' : 'Show Split View';
+    }
+}
+
+// Add a method to update the right viewport content based on selected element
+updateRightViewport(selectedElementId) {
+    if (!this.rightViewport || !this.model.isSplitViewEnabled) return;
+    
+    // Clear previous content
+    this.rightViewportContent.innerHTML = '';
+    
+    // If no element is selected, show placeholder
+    if (!selectedElementId) {
+        this.rightViewportContent.style.display = 'flex';
+        this.rightViewportContent.style.justifyContent = 'center';
+        this.rightViewportContent.style.alignItems = 'center';
+        this.rightViewportContent.style.color = 'var(--element-text-color)';
+        this.rightViewportContent.style.opacity = '0.5';
+        this.rightViewportContent.textContent = 'Select a card to view contents';
+        this.model.previewNodeId = null;
+        return;
+    }
+    
+    // Check if the element has children
+    if (!this.model.hasChildren(selectedElementId)) {
+        this.rightViewportContent.style.display = 'flex';
+        this.rightViewportContent.style.justifyContent = 'center';
+        this.rightViewportContent.style.alignItems = 'center';
+        this.rightViewportContent.style.color = 'var(--element-text-color)';
+        this.rightViewportContent.style.opacity = '0.5';
+        this.rightViewportContent.textContent = 'This card has no content';
+        this.model.previewNodeId = null;
+        return;
+    }
+    
+    // Get the child node data
+    const childNode = this.model.currentNode.children[selectedElementId];
+    if (!childNode) {
+        this.rightViewportContent.textContent = 'Could not load content';
+        this.model.previewNodeId = null;
+        return;
+    }
+    
+    // Store the preview node ID for later navigation
+    this.model.previewNodeId = selectedElementId;
+    
+    // Reset content area styling
+    this.rightViewportContent.style.display = 'block';
+    this.rightViewportContent.style.justifyContent = 'normal';
+    this.rightViewportContent.style.alignItems = 'normal';
+    this.rightViewportContent.style.color = 'var(--element-text-color)';
+    this.rightViewportContent.style.opacity = '1';
+    
+    // Render the child elements in the right viewport
+    this.renderPreviewContent(childNode);
+}
+
+// Add a method to render preview content in the right viewport
+renderPreviewContent(node) {
+    if (!node || !node.elements) {
+        this.rightViewportContent.textContent = 'No content';
+        return;
+    }
+    
+    // Clear the content area
+    this.rightViewportContent.innerHTML = '';
+    this.rightViewportContent.style.display = 'block';
+    this.rightViewportContent.style.textAlign = 'left';
+    this.rightViewportContent.style.position = 'relative';
+    this.rightViewportContent.style.overflow = 'hidden';
+    
+    // Create a solid background first
+    const background = document.createElement('div');
+    background.style.position = 'absolute';
+    background.style.top = '0';
+    background.style.left = '0';
+    background.style.right = '0';
+    background.style.bottom = '0';
+    background.style.backgroundColor = 'var(--bg-color)';
+    background.style.zIndex = '0';
+    this.rightViewportContent.appendChild(background);
+    
+    // Create a container for the elements
+    const elementsContainer = document.createElement('div');
+    elementsContainer.style.position = 'relative';
+    elementsContainer.style.width = '100%';
+    elementsContainer.style.height = '100%';
+    elementsContainer.style.zIndex = '1';
+    
+    // Sort elements: images before text
+    const sortedElements = [...node.elements].sort((a, b) => {
+        if (a.type === 'image' && b.type === 'text') return -1;
+        if (a.type === 'text' && b.type === 'image') return 1;
+        if (a.type === 'image' && b.type === 'image') {
+            return (a.zIndex || 1) - (b.zIndex || 1);
+        }
+        return 0;
+    });
+    
+    // Create a preview version of each element
+    sortedElements.forEach(element => {
+        try {
+            const container = document.createElement('div');
+            container.className = 'preview-element-container';
+            container.dataset.id = element.id;
+            container.dataset.type = element.type;
+            container.style.position = 'absolute';
+            container.style.left = `${element.x}px`;
+            container.style.top = `${element.y}px`;
+            container.style.width = `${element.width || 200}px`;
+            container.style.height = `${element.height || 100}px`;
+            container.style.pointerEvents = 'none'; // Make non-interactive
+            
+            if (element.type === 'text') {
+                // Create text content
+                const textDisplay = document.createElement('div');
+                textDisplay.className = 'preview-text-display';
+                textDisplay.style.width = '100%';
+                textDisplay.style.height = '100%';
+                textDisplay.style.overflow = 'auto';
+                textDisplay.style.padding = '8px';
+                textDisplay.style.boxSizing = 'border-box';
+                textDisplay.style.color = 'var(--element-text-color)';
+                textDisplay.style.fontSize = '14px'; // Default size
+                textDisplay.style.backgroundColor = 'transparent';
+                
+                // Apply text styling
+                if (element.style) {
+                    // Text size
+                    if (element.style.textSize === 'large') {
+                        textDisplay.style.fontSize = '24px';
+                    } else if (element.style.textSize === 'huge') {
+                        textDisplay.style.fontSize = '36px';
+                        textDisplay.style.fontWeight = 'bold';
+                    }
+                    
+                    // Text color
+                    if (element.style.textColor === 'red') {
+                        textDisplay.style.color = 'var(--red-text-color)';
+                    } else if (element.style.textColor === 'green') {
+                        textDisplay.style.color = 'var(--green-text-color)';
+                    }
+                    
+                    // Header formatting
+                    if (element.style.hasHeader) {
+                        textDisplay.innerHTML = this.formatTextWithHeader(element.text || '', true);
+                        textDisplay.classList.add('has-header');
+                    } else {
+                        textDisplay.innerHTML = this.convertUrlsToLinks(element.text || '');
+                    }
+                    
+                    // Highlight
+                    if (element.style.isHighlighted) {
+                        textDisplay.classList.add('is-highlighted');
+                    }
+                    
+                    // Border
+                    if (element.style.hasBorder) {
+                        container.style.border = '1px solid var(--element-border-color)';
+                    }
+                } else {
+                    textDisplay.innerHTML = this.convertUrlsToLinks(element.text || '');
+                }
+                
+                container.appendChild(textDisplay);
+            } else if (element.type === 'image') {
+                // Create image preview
+                const image = document.createElement('img');
+                image.className = 'preview-image';
+                image.style.width = '100%';
+                image.style.height = '100%';
+                image.style.objectFit = 'contain';
+                
+                // Load image data
+                this.model.getImageData(element.imageDataId)
+                    .then(imageData => {
+                        if (imageData) {
+                            image.src = imageData;
+                        } else {
+                            image.alt = 'Image not found';
+                        }
+                    })
+                    .catch(error => {
+                        OPTIMISM.logError(`Error loading preview image: ${error}`);
+                        image.alt = 'Error loading image';
+                    });
+                
+                container.appendChild(image);
+            }
+            
+            elementsContainer.appendChild(container);
+        } catch (error) {
+            OPTIMISM.logError(`Error rendering preview element: ${error}`);
+        }
+    });
+    
+    this.rightViewportContent.appendChild(elementsContainer);
+}
+
+// Add a new method to set up the split view toggle
+setupSplitViewToggle() {
+    OPTIMISM.log('Setting up split view toggle');
+    
+    // Create the toggle button
+    const splitViewToggle = document.createElement('button');
+    splitViewToggle.id = 'split-view-toggle';
+    splitViewToggle.className = 'nav-link';
+    splitViewToggle.textContent = this.model.isSplitViewEnabled ? 'Hide Split View' : 'Show Split View';
+    
+    // Add click event listener
+    splitViewToggle.addEventListener('click', () => {
+        this.controller.toggleSplitView();
+    });
+    
+    // Add button to the right controls section
+    const rightControls = document.getElementById('right-controls');
+    if (rightControls) {
+        // Add before the inbox toggle
+        if (this.inboxToggle) {
+            rightControls.insertBefore(splitViewToggle, this.inboxToggle);
+        } else {
+            rightControls.appendChild(splitViewToggle);
+        }
+    }
+    
+    // Create split view if it's enabled
+    if (this.model.isSplitViewEnabled) {
+        this.updateSplitViewLayout(true);
+    }
+    
+    OPTIMISM.log('Split view toggle set up successfully');
 }
     
 }
