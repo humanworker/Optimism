@@ -1192,8 +1192,8 @@ async setGridLayout(layout) {
         // Save state
         await this.model.saveAppState();
         
-        // Update UI to show selected layout
-        this.view.updateGridLayoutSelection(layout);
+        // Update UI to show current values
+        this.view.updateGridInputValues();
         
         return true;
     } catch (error) {

@@ -3145,13 +3145,13 @@ setupGridPanel() {
         rightControls.appendChild(gridToggle);
     }
     
-    // Update the click event to toggle panel visibility instead of grid state
+    // Update the click event to toggle panel visibility
     gridToggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.toggleGridPanel(); // Call a new method to toggle panel visibility
+        this.toggleGridPanel();
     });
     
-    // Set up grid panel options
+    // Set up grid on/off options
     const gridOptions = document.querySelectorAll('.option-value[data-grid]');
     gridOptions.forEach(option => {
         option.addEventListener('click', (e) => {
@@ -3169,24 +3169,16 @@ setupGridPanel() {
         });
     });
     
-    // Set up grid layout options
-    const layoutOptions = document.querySelectorAll('.option-value[data-grid-layout]');
-    layoutOptions.forEach(option => {
-        option.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const layout = option.dataset.gridLayout;
-            this.controller.setGridLayout(layout);
-        });
-    });
+    // Set up the row and column input controls
+    this.setupGridInputControls();
     
     // Set initial selection states
     this.updateGridVisibility(this.model.isGridVisible);
-    this.updateGridLayoutSelection(this.model.gridLayout);
+    this.updateGridInputValues();
     
     OPTIMISM.log('Grid panel setup complete');
 }
+
 
 updateGridVisibility(isVisible) {
     // Update the panel options to show the current grid state
@@ -3310,6 +3302,82 @@ toggleGridPanel() {
         
         OPTIMISM.log(`Grid panel visibility set to: ${!isVisible}`);
     }
+}
+
+setupGridInputControls() {
+    // Get all decrease buttons for rows and columns
+    const decreaseButtons = document.querySelectorAll('.grid-btn-decrease');
+    decreaseButtons.forEach((btn, index) => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Determine if we're changing rows or columns (index 0 = rows, index 1 = columns)
+            const isRows = index === 0;
+            
+            // Get current layout
+            const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
+            
+            // Calculate new values with minimum of 1
+            let newRows = rows;
+            let newColumns = columns;
+            
+            if (isRows) {
+                newRows = Math.max(1, rows - 1);
+            } else {
+                newColumns = Math.max(1, columns - 1);
+            }
+            
+            // Set new layout if changed
+            if (newRows !== rows || newColumns !== columns) {
+                const newLayout = `${newRows}x${newColumns}`;
+                this.controller.setGridLayout(newLayout);
+            }
+        });
+    });
+    
+    // Get all increase buttons for rows and columns
+    const increaseButtons = document.querySelectorAll('.grid-btn-increase');
+    increaseButtons.forEach((btn, index) => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Determine if we're changing rows or columns (index 0 = rows, index 1 = columns)
+            const isRows = index === 0;
+            
+            // Get current layout
+            const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
+            
+            // Calculate new values with maximums (5 for rows, 10 for columns)
+            let newRows = rows;
+            let newColumns = columns;
+            
+            if (isRows) {
+                newRows = Math.min(40, rows + 1);
+            } else {
+                newColumns = Math.min(60, columns + 1);
+            }
+            
+            // Set new layout if changed
+            if (newRows !== rows || newColumns !== columns) {
+                const newLayout = `${newRows}x${newColumns}`;
+                this.controller.setGridLayout(newLayout);
+            }
+        });
+    });
+}
+
+updateGridInputValues() {
+    // Get the current grid layout
+    const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
+    
+    // Update the display values
+    const rowsValue = document.getElementById('grid-rows-value');
+    const columnsValue = document.getElementById('grid-columns-value');
+    
+    if (rowsValue) rowsValue.textContent = rows;
+    if (columnsValue) columnsValue.textContent = columns;
 }
     
 }

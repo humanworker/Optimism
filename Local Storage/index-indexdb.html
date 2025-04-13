@@ -838,6 +838,56 @@ mark {
     margin-right: 10px;
 }
 
+/* CSS for the grid input controls */
+.grid-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.grid-input-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.grid-input-group label {
+    color: var(--element-text-color);
+    font-size: 14px;
+    margin-right: 10px;
+}
+
+.number-input-controls {
+    display: flex;
+    align-items: center;
+}
+
+.grid-btn-decrease, .grid-btn-increase {
+    background-color: transparent;
+    border: 1px solid var(--element-border-color);
+    color: var(--element-text-color);
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 3px;
+}
+
+.grid-btn-decrease:hover, .grid-btn-increase:hover {
+    background-color: rgba(128, 128, 128, 0.1);
+}
+
+.grid-input-value {
+    width: 30px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--element-text-color);
+    padding: 0 5px;
+}
+
     </style>
 </head>
 <body>
@@ -1021,7 +1071,7 @@ mark {
     <button id="theme-toggle" class="nav-link">Toggle Theme</button>
 </div>
 
-<!-- Updated Grid panel with more layout options -->
+<!-- Updated Grid panel with direct input controls -->
 <div id="grid-panel" class="side-panel">
     <div class="style-option">
         <div class="option-label">
@@ -1038,35 +1088,23 @@ mark {
     
     <div class="style-option">
         <div class="option-label">Grid Layout</div>
-        <div class="option-values">
-            <a href="#" class="option-value" data-grid-layout="1x2">1 x 2</a>
-            <a href="#" class="option-value" data-grid-layout="1x3">1 x 3</a>
-            <a href="#" class="option-value" data-grid-layout="1x4">1 x 4</a>
-        </div>
-        <div class="option-values" style="margin-top: 10px;">
-            <a href="#" class="option-value" data-grid-layout="1x5">1 x 5</a>
-            <a href="#" class="option-value" data-grid-layout="1x6">1 x 6</a>
-            <a href="#" class="option-value" data-grid-layout="1x7">1 x 7</a>
-        </div>
-        <div class="option-values" style="margin-top: 10px;">
-            <a href="#" class="option-value" data-grid-layout="2x1">2 x 1</a>
-            <a href="#" class="option-value" data-grid-layout="2x2">2 x 2</a>
-            <a href="#" class="option-value" data-grid-layout="2x3">2 x 3</a>
-        </div>
-        <div class="option-values" style="margin-top: 10px;">
-            <a href="#" class="option-value" data-grid-layout="2x4">2 x 4</a>
-            <a href="#" class="option-value" data-grid-layout="2x5">2 x 5</a>
-            <a href="#" class="option-value" data-grid-layout="2x6">2 x 6</a>
-        </div>
-        <div class="option-values" style="margin-top: 10px;">
-            <a href="#" class="option-value" data-grid-layout="3x1">3 x 1</a>
-            <a href="#" class="option-value" data-grid-layout="3x2">3 x 2</a>
-            <a href="#" class="option-value" data-grid-layout="3x3">3 x 3</a>
-        </div>
-        <div class="option-values" style="margin-top: 10px;">
-            <a href="#" class="option-value" data-grid-layout="3x4">3 x 4</a>
-            <a href="#" class="option-value" data-grid-layout="3x5">3 x 5</a>
-            <a href="#" class="option-value" data-grid-layout="3x6">3 x 6</a>
+        <div class="option-values grid-input-container">
+            <div class="grid-input-group">
+                <label for="grid-rows">Rows:</label>
+                <div class="number-input-controls">
+                    <button class="grid-btn-decrease">-</button>
+                    <span class="grid-input-value" id="grid-rows-value">1</span>
+                    <button class="grid-btn-increase">+</button>
+                </div>
+            </div>
+            <div class="grid-input-group">
+                <label for="grid-columns">Columns:</label>
+                <div class="number-input-controls">
+                    <button class="grid-btn-decrease">-</button>
+                    <span class="grid-input-value" id="grid-columns-value">2</span>
+                    <button class="grid-btn-increase">+</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
