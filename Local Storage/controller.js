@@ -1159,7 +1159,7 @@ async toggleGridVisibility() {
     }
     
     try {
-        OPTIMISM.log('Toggling grid panel visibility');
+        OPTIMISM.log('Toggling grid visibility');
         this.model.isGridVisible = !this.model.isGridVisible;
         this.view.updateGridVisibility(this.model.isGridVisible);
         

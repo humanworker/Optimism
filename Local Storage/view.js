@@ -3171,13 +3171,6 @@ setupGridPanel() {
 }
 
 updateGridVisibility(isVisible) {
-    // Update the toggle button styling (optional - keep it subtle)
-    const gridToggle = document.getElementById('grid-toggle');
-    if (gridToggle) {
-        // We're not making the nav link active since it controls panel now, not grid state
-        // Just update the panel options
-    }
-    
     // Update the panel options to show the current grid state
     const gridOptions = document.querySelectorAll('.option-value[data-grid]');
     gridOptions.forEach(option => {
@@ -3237,20 +3230,29 @@ renderGrid() {
     const workspaceWidth = this.workspace.clientWidth;
     const workspaceHeight = this.workspace.clientHeight;
     
-    // Create grid lines based on layout
-    if (this.model.gridLayout === '1x2') {
-        // One vertical line in the middle
-        const vertLine = document.createElement('div');
-        vertLine.className = 'grid-line grid-line-vertical';
-        vertLine.style.left = `${workspaceWidth / 2}px`;
-        gridContainer.appendChild(vertLine);
-    } 
-    else if (this.model.gridLayout === '2x1') {
-        // One horizontal line in the middle
-        const horzLine = document.createElement('div');
-        horzLine.className = 'grid-line grid-line-horizontal';
-        horzLine.style.top = `${workspaceHeight / 2}px`;
-        gridContainer.appendChild(horzLine);
+    // Parse layout pattern (rows x columns)
+    const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
+    
+    // Create vertical grid lines (for columns)
+    if (columns > 1) {
+        for (let i = 1; i < columns; i++) {
+            const position = (workspaceWidth / columns) * i;
+            const vertLine = document.createElement('div');
+            vertLine.className = 'grid-line grid-line-vertical';
+            vertLine.style.left = `${position}px`;
+            gridContainer.appendChild(vertLine);
+        }
+    }
+    
+    // Create horizontal grid lines (for rows)
+    if (rows > 1) {
+        for (let i = 1; i < rows; i++) {
+            const position = (workspaceHeight / rows) * i;
+            const horzLine = document.createElement('div');
+            horzLine.className = 'grid-line grid-line-horizontal';
+            horzLine.style.top = `${position}px`;
+            gridContainer.appendChild(horzLine);
+        }
     }
     
     OPTIMISM.log('Grid rendered successfully');
@@ -3274,13 +3276,18 @@ toggleGridPanel() {
         // Toggle visibility
         gridPanel.style.display = isVisible ? 'none' : 'block';
         
-        // Close other panels when opening grid panel
+        // If opening the panel, refresh selection states
         if (!isVisible) {
+            // Close other panels
             this.stylePanel.style.display = 'none';
             this.settingsPanel.style.display = 'none';
             if (this.inboxPanel) {
                 this.inboxPanel.style.display = 'none';
             }
+            
+            // Update selection states to reflect current settings
+            this.updateGridVisibility(this.model.isGridVisible);
+            this.updateGridLayoutSelection(this.model.gridLayout);
         }
         
         OPTIMISM.log(`Grid panel visibility set to: ${!isVisible}`);

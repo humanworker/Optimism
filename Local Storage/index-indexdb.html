@@ -357,10 +357,10 @@
     display: inline-block; /* Ensure the margin works properly */
 }
 
-        .option-value.selected {
-            text-decoration: underline;
-            font-weight: bold;
-        }
+.option-value.selected {
+    text-decoration: underline;
+    font-weight: bold;
+}
 
         /* Drop zone indicator for images */
         #drop-zone-indicator {
@@ -1021,10 +1021,8 @@ mark {
     <button id="theme-toggle" class="nav-link">Toggle Theme</button>
 </div>
 
-<!-- Grid panel to add to index-indexdb.html -->
+<!-- Updated Grid panel to add to index-indexdb.html (replacing the existing one) -->
 <div id="grid-panel" class="side-panel">
-    <div class="panel-heading">Grid Options</div>
-    
     <div class="style-option">
         <div class="option-label">
             Grid
@@ -1042,7 +1040,18 @@ mark {
         <div class="option-label">Grid Layout</div>
         <div class="option-values">
             <a href="#" class="option-value" data-grid-layout="1x2">1 x 2</a>
+            <a href="#" class="option-value" data-grid-layout="1x3">1 x 3</a>
+            <a href="#" class="option-value" data-grid-layout="1x4">1 x 4</a>
+        </div>
+        <div class="option-values" style="margin-top: 10px;">
             <a href="#" class="option-value" data-grid-layout="2x1">2 x 1</a>
+            <a href="#" class="option-value" data-grid-layout="2x2">2 x 2</a>
+            <a href="#" class="option-value" data-grid-layout="2x3">2 x 3</a>
+        </div>
+        <div class="option-values" style="margin-top: 10px;">
+            <a href="#" class="option-value" data-grid-layout="3x1">3 x 1</a>
+            <a href="#" class="option-value" data-grid-layout="3x2">3 x 2</a>
+            <a href="#" class="option-value" data-grid-layout="3x3">3 x 3</a>
         </div>
     </div>
 </div>
