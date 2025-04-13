@@ -966,7 +966,7 @@ if (stylePanel) {
         return this.isMac ? e.metaKey : e.ctrlKey;
     }
     
-    // Modify this method in CanvasView to use the model's imagesLocked state
+    // In view.js - Update the renderWorkspace method
 renderWorkspace() {
     OPTIMISM.log('Rendering workspace');
     // Clear workspace
@@ -975,8 +975,8 @@ renderWorkspace() {
     // Update breadcrumbs
     this.renderBreadcrumbs();
 
-     // Update quick links
-     this.renderQuickLinks();
+    // Update quick links
+    this.renderQuickLinks();
     
     // Render elements
     if (this.model.currentNode.elements) {
@@ -1013,34 +1013,15 @@ renderWorkspace() {
     }
 
     // Apply locked state to cards if needed
-this.model.lockedCards.forEach(cardId => {
-    const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
-    if (container) {
-        container.classList.add('card-locked');
-    }
-    if (this.model.isGridVisible) {
-        this.renderGrid();
-    }
+    this.model.lockedCards.forEach(cardId => {
+        const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+        if (container) {
+            container.classList.add('card-locked');
+        }
+    });
 
-// If split view is enabled but not set up, create it
-if (this.model.isSplitViewEnabled && !this.rightViewport) {
-    this.updateSplitViewLayout(true);
-}
-
-// If split view is disabled but exists, remove it
-if (!this.model.isSplitViewEnabled && this.rightViewport) {
-    this.updateSplitViewLayout(false);
-}
-
-// Update the right viewport based on selected element
-if (this.model.isSplitViewEnabled && this.model.selectedElement) {
-    this.updateRightViewport(this.model.selectedElement);
-}
-
-});
-
-// Update styles for locked cards
-this.updateLockedCardStyles();
+    // Update styles for locked cards
+    this.updateLockedCardStyles();
 
     // Apply locked state to images if needed
     if (this.model.imagesLocked) {
@@ -1057,6 +1038,19 @@ this.updateLockedCardStyles();
     
     // Update page title
     this.updatePageTitle();
+    
+    // If split view is enabled but the preview node ID is null,
+    // update the right viewport to show empty state
+    if (this.model.isSplitViewEnabled && this.rightViewport) {
+        if (!this.model.previewNodeId) {
+            this.updateRightViewport(null);
+        } else if (this.model.previewNodeId === this.model.currentNode.id) {
+            // If the preview is showing the same level as the current node,
+            // clear the preview
+            this.model.previewNodeId = null;
+            this.updateRightViewport(null);
+        }
+    }
     
     OPTIMISM.log('Workspace rendering complete');
 }
@@ -1671,7 +1665,8 @@ selectElement(element, elementData, isDragging = false) {
     } else {
         this.stylePanel.style.display = 'none';
     }
-
+    
+    // Update the right viewport if split view is enabled
     if (this.model.isSplitViewEnabled && !isDragging) {
         this.updateRightViewport(element.dataset.id);
     }
@@ -3441,10 +3436,10 @@ updateSplitViewLayout(isEnabled) {
         this.rightViewport.id = 'right-viewport';
         this.rightViewport.className = 'viewport';
         this.rightViewport.style.width = '50%';
-        this.rightViewport.style.height = 'calc(100% - 40px)'; // Full height minus title bar
+        this.rightViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
         this.rightViewport.style.position = 'fixed'; // Use fixed positioning
         this.rightViewport.style.right = '0';
-        this.rightViewport.style.top = '40px'; // Below the title bar
+        this.rightViewport.style.top = '41px'; // Below the title bar with border
         this.rightViewport.style.boxSizing = 'border-box';
         this.rightViewport.style.borderLeft = '1px solid var(--element-border-color)';
         this.rightViewport.style.overflow = 'hidden';
@@ -3453,8 +3448,8 @@ updateSplitViewLayout(isEnabled) {
         this.rightViewport.style.backgroundColor = 'var(--bg-color)';
         this.rightViewport.style.backgroundImage = 'none'; // Override any background image
         
-        // Set a higher z-index to ensure it appears above everything
-        this.rightViewport.style.zIndex = '1000'; // Much higher than any workspace elements
+        // Use a z-index that's high but lower than panels (panels are 200)
+        this.rightViewport.style.zIndex = '150'; 
         
         // Add placeholder content
         this.rightViewportContent = document.createElement('div');
@@ -3474,16 +3469,25 @@ updateSplitViewLayout(isEnabled) {
         // Add the right viewport to the document body to ensure it's above everything
         document.body.appendChild(this.rightViewport);
         
-        // Add click event to make the right viewport the primary view
+        // Add click event to make the right viewport the primary view when clicking on empty space
         this.rightViewport.addEventListener('click', (e) => {
-            // Only handle clicks on the viewport itself, not its content
-            if (e.target === this.rightViewport || e.target === this.rightViewportContent) {
+            // Only handle clicks on the viewport itself or the content container (empty space)
+            if (e.target === this.rightViewport || 
+                (e.target === this.rightViewportContent && 
+                 e.target.textContent === 'Select a card to view contents' || 
+                 e.target.textContent === 'This card has no content' || 
+                 e.target.textContent === 'No content' ||
+                 e.target.textContent === 'Could not load content')) {
+                
                 // If we have a preview node, navigate to it
                 if (this.model.previewNodeId) {
                     this.controller.navigateToElement(this.model.previewNodeId);
                 }
             }
         });
+        
+        // Ensure panels have proper z-index to appear over the right viewport
+        this.ensurePanelZIndices();
         
         // Re-render the workspace to ensure all elements are positioned correctly
         this.renderWorkspace();
@@ -3503,8 +3507,9 @@ updateRightViewport(selectedElementId) {
     // Clear previous content
     this.rightViewportContent.innerHTML = '';
     
-    // If no element is selected, show placeholder
-    if (!selectedElementId) {
+    // If no element is selected or the selected element is the same as the current node,
+    // show placeholder
+    if (!selectedElementId || selectedElementId === this.model.currentNode.parentId) {
         this.rightViewportContent.style.display = 'flex';
         this.rightViewportContent.style.justifyContent = 'center';
         this.rightViewportContent.style.alignItems = 'center';
@@ -3549,7 +3554,6 @@ updateRightViewport(selectedElementId) {
     this.renderPreviewContent(childNode);
 }
 
-// Add a method to render preview content in the right viewport
 renderPreviewContent(node) {
     if (!node || !node.elements) {
         this.rightViewportContent.textContent = 'No content';
@@ -3603,7 +3607,42 @@ renderPreviewContent(node) {
             container.style.top = `${element.y}px`;
             container.style.width = `${element.width || 200}px`;
             container.style.height = `${element.height || 100}px`;
-            container.style.pointerEvents = 'none'; // Make non-interactive
+            
+            // Make elements clickable but without drag capability
+            container.style.pointerEvents = 'auto';
+            container.style.cursor = 'pointer';
+            
+            // Add click handler for navigation
+            container.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering the viewport click
+                
+                // If we have a preview node, navigate to it (one level down)
+                if (this.model.previewNodeId) {
+                    // Navigate to the current preview node (parent of this element)
+                    this.controller.navigateToElement(this.model.previewNodeId);
+                    
+                    // After navigating, select this element to preview its contents (if it has any)
+                    if (this.model.hasChildren(element.id)) {
+                        // Find the element in the left viewport
+                        setTimeout(() => {
+                            const leftViewportElement = document.querySelector(`.element-container[data-id="${element.id}"]`);
+                            if (leftViewportElement) {
+                                // Get the element data
+                                const elemData = this.model.findElement(element.id);
+                                if (elemData) {
+                                    // Select it to trigger the preview
+                                    this.selectElement(leftViewportElement, elemData);
+                                }
+                            }
+                        }, 100);
+                    }
+                }
+            });
+            
+            // Add visual indicator for cards with children
+            if (this.model.hasChildren(element.id)) {
+                container.style.textDecoration = 'underline';
+            }
             
             if (element.type === 'text') {
                 // Create text content
@@ -3723,6 +3762,45 @@ setupSplitViewToggle() {
     }
     
     OPTIMISM.log('Split view toggle set up successfully');
+}
+
+// Add a method to ensure panels have the proper z-index
+ensurePanelZIndices() {
+    // Make sure all panels have a z-index higher than the right viewport
+    const panelZIndex = 200; // Higher than right viewport's 150
+    
+    // Style panel
+    if (this.stylePanel) {
+        this.stylePanel.style.zIndex = panelZIndex;
+    }
+    
+    // Settings panel
+    if (this.settingsPanel) {
+        this.settingsPanel.style.zIndex = panelZIndex;
+    }
+    
+    // Inbox panel
+    if (this.inboxPanel) {
+        this.inboxPanel.style.zIndex = panelZIndex;
+    }
+    
+    // Grid panel
+    const gridPanel = document.getElementById('grid-panel');
+    if (gridPanel) {
+        gridPanel.style.zIndex = panelZIndex;
+    }
+    
+    // Confirmation dialog
+    const confirmationDialog = document.getElementById('confirmation-dialog');
+    if (confirmationDialog) {
+        confirmationDialog.style.zIndex = panelZIndex + 100; // Even higher
+    }
+    
+    // Backup reminder modal
+    const backupReminderModal = document.getElementById('backup-reminder-modal');
+    if (backupReminderModal) {
+        backupReminderModal.style.zIndex = panelZIndex + 100; // Even higher
+    }
 }
     
 }

@@ -473,7 +473,13 @@ if (styleProperties.isLocked !== undefined) {
             OPTIMISM.log(`Navigating to element ${id}`);
             if (await this.model.navigateToElement(id)) {
                 OPTIMISM.log('Navigation successful');
+                
+                // Deselect any selected elements
+                this.model.selectedElement = null;
+                
+                // Render the workspace
                 this.view.renderWorkspace();
+                
                 return true;
             }
             OPTIMISM.log('Navigation failed');

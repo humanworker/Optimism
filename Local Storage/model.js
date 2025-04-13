@@ -418,13 +418,16 @@ async redo() {
     }
 
     // In model.js, update the navigateToElement method
-async navigateToElement(elementId) {
-    const element = this.findElement(elementId);
-    if (!element) return false;
-
-    if (!this.currentNode.children) {
-        this.currentNode.children = {};
-    }
+    async navigateToElement(elementId) {
+        const element = this.findElement(elementId);
+        if (!element) return false;
+    
+        // Store current preview node ID for comparison
+        const currentPreviewNodeId = this.previewNodeId;
+    
+        if (!this.currentNode.children) {
+            this.currentNode.children = {};
+        }
 
     // Create a child node if it doesn't exist
     if (!this.currentNode.children[elementId]) {
@@ -468,6 +471,11 @@ async navigateToElement(elementId) {
     // Clear selected element when navigating
     this.selectedElement = null;
     
+    // If we're navigating to the previewed node, clear the preview
+    if (elementId === currentPreviewNodeId) {
+        this.previewNodeId = null;
+    }
+    
     // Update URL hash
     this.updateUrlHash();
     
@@ -478,8 +486,6 @@ async navigateToElement(elementId) {
     return true;
 }
 
-    // Update the navigateBack method in model.js
-// Modify the navigateBack method to update URL
 async navigateBack() {
     if (this.navigationStack.length <= 1) return false;
     
@@ -498,6 +504,9 @@ async navigateBack() {
     
     // Clear selected element when navigating
     this.selectedElement = null;
+    
+    // Clear preview node ID when navigating back
+    this.previewNodeId = null;
     
     // Update URL hash
     this.updateUrlHash();
