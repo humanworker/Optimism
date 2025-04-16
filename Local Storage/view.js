@@ -4364,6 +4364,7 @@ setupArenaToggle() {
 }
 
 // Add this method to show/hide the Are.na panel
+// In view.js - Modify the updateArenaViewLayout method:
 updateArenaViewLayout(isEnabled) {
     OPTIMISM.log(`Updating Are.na view layout: ${isEnabled}`);
     
@@ -4388,34 +4389,21 @@ updateArenaViewLayout(isEnabled) {
     
     // If Are.na was disabled but is now enabled
     if (isEnabled && !this.arenaViewport) {
-        // Set initial split position (30% for Arena)
-        const splitPosition = 70; // 70% for main workspace, 30% for Arena
+        // Set fixed width for both the workspace and Arena panel
+        const workspaceWidth = 70; // 70% for main workspace
+        const arenaWidth = 30; // 30% for Arena panel
         
-        // Adjust main workspace width and ensure it has proper bounds
-        this.workspace.style.width = `${splitPosition}%`;
+        // Adjust main workspace width
+        this.workspace.style.width = `${workspaceWidth}%`;
         this.workspace.style.position = 'absolute';
         this.workspace.style.left = '0';
         this.workspace.style.overflow = 'hidden';
         
-        // Create the resizable divider
-        this.arenaResizeDivider = document.createElement('div');
-        this.arenaResizeDivider.id = 'arena-resize-divider';
-        this.arenaResizeDivider.style.position = 'fixed';
-        this.arenaResizeDivider.style.top = '41px'; // Below title bar
-        this.arenaResizeDivider.style.bottom = '0';
-        this.arenaResizeDivider.style.width = '10px'; // Wider clickable area
-        this.arenaResizeDivider.style.left = `calc(${splitPosition}% - 5px)`; // Center on the split
-        this.arenaResizeDivider.style.cursor = 'col-resize';
-        this.arenaResizeDivider.style.zIndex = '160'; // Above viewport content but below panels
-        
-        // Add visible line in the center of clickable area
-        this.arenaResizeDivider.innerHTML = '<div style="position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background-color: var(--element-border-color);"></div>';
-        
-        // Create the Are.na viewport container
+        // Create the Arena viewport container with fixed width
         this.arenaViewport = document.createElement('div');
         this.arenaViewport.id = 'arena-viewport';
         this.arenaViewport.className = 'viewport';
-        this.arenaViewport.style.width = `${100 - splitPosition}%`;
+        this.arenaViewport.style.width = `${arenaWidth}%`;
         this.arenaViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
         this.arenaViewport.style.position = 'fixed'; // Use fixed positioning
         this.arenaViewport.style.right = '0';
@@ -4423,42 +4411,35 @@ updateArenaViewLayout(isEnabled) {
         this.arenaViewport.style.boxSizing = 'border-box';
         this.arenaViewport.style.overflow = 'hidden';
         this.arenaViewport.style.backgroundColor = 'var(--bg-color)';
-        this.arenaViewport.style.zIndex = '150'; 
+        this.arenaViewport.style.zIndex = '150';
         
         // Create and add the iframe to load are.na
-const arenaIframe = document.createElement('iframe');
-arenaIframe.id = 'arena-iframe';
-arenaIframe.src = './arena/index.html';
-arenaIframe.style.width = '100%';
-arenaIframe.style.height = '100%';
-arenaIframe.style.border = 'none';
+        const arenaIframe = document.createElement('iframe');
+        arenaIframe.id = 'arena-iframe';
+        arenaIframe.src = './arena/index.html';
+        arenaIframe.style.width = '100%';
+        arenaIframe.style.height = '100%';
+        arenaIframe.style.border = 'none';
 
-// Add these attributes to help with login functionality
-arenaIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; camera; microphone; payment; geolocation');
-arenaIframe.setAttribute('allowfullscreen', 'true');
-arenaIframe.setAttribute('loading', 'eager');
-arenaIframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-popups-to-escape-sandbox');
-arenaIframe.setAttribute('referrerpolicy', 'origin');
-arenaIframe.setAttribute('importance', 'high');
-
-// Set the iframe to be the same domain as its parent if possible
-// (This won't work if are.na doesn't allow it due to CORS policies)
-arenaIframe.setAttribute('crossorigin', 'anonymous');
+        // Add these attributes to help with login functionality
+        arenaIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; camera; microphone; payment; geolocation');
+        arenaIframe.setAttribute('allowfullscreen', 'true');
+        arenaIframe.setAttribute('loading', 'eager');
+        arenaIframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-popups-to-escape-sandbox');
+        arenaIframe.setAttribute('referrerpolicy', 'origin');
+        arenaIframe.setAttribute('importance', 'high');
+        arenaIframe.setAttribute('crossorigin', 'anonymous');
         
         this.arenaViewport.appendChild(arenaIframe);
         
         // Add shadow effect on the left edge
         this.addShadowToArenaViewport();
         
-        // Add the divider and Are.na viewport to the document
-        document.body.appendChild(this.arenaResizeDivider);
+        // Add the Arena viewport to the document (no resize divider)
         document.body.appendChild(this.arenaViewport);
 
-         // Setup cookie handling
-         this.setupArenaCookieHandling();
-        
-        // Add resize drag functionality
-        this.setupArenaResizeDivider();
+        // Setup cookie handling
+        this.setupArenaCookieHandling();
         
         // Ensure panels have proper z-index to appear over the Arena viewport
         this.ensurePanelZIndices();
@@ -4506,101 +4487,11 @@ addShadowToArenaViewport() {
 
 // Add a method to set up the resize functionality for the Are.na panel
 setupArenaResizeDivider() {
-    if (!this.arenaResizeDivider) return;
+    // This method is intentionally empty - we've removed the resize functionality for the Arena iframe
+    OPTIMISM.log('Arena resize functionality disabled');
     
-    let isDragging = false;
-    let startX = 0;
-    let startLeftWidth = 0;
+  
     
-    // Get window width for percentage calculations
-    const getWindowWidth = () => {
-        return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-    };
-    
-    // Convert percentage to pixels
-    const percentToPixels = (percent) => {
-        return Math.round((percent / 100) * getWindowWidth());
-    };
-    
-    // Convert pixels to percentage
-    const pixelsToPercent = (pixels) => {
-        return (pixels / getWindowWidth()) * 100;
-    };
-    
-    // Mouse down event on the divider
-    this.arenaResizeDivider.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        startX = e.clientX;
-        
-        // Get current left viewport width in pixels
-        const leftViewportPercentage = parseFloat(this.workspace.style.width);
-        startLeftWidth = percentToPixels(leftViewportPercentage);
-        
-        // Add class to body for styling during resize
-        document.body.classList.add('resizing-arena-view');
-        
-        // Disable text selection during resize
-        document.body.style.userSelect = 'none';
-        
-        e.preventDefault();
-    });
-    
-    // Mouse move event (drag)
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        
-        // Calculate new width
-        const deltaX = e.clientX - startX;
-        let newLeftWidth = startLeftWidth + deltaX;
-        
-        // Convert to percentage of window
-        let newLeftPercent = pixelsToPercent(newLeftWidth);
-        
-        // Apply constraints (minimum 25% for main workspace, minimum 15% for Arena)
-        newLeftPercent = Math.max(25, Math.min(85, newLeftPercent));
-        
-        // Update viewport widths
-        this.workspace.style.width = `${newLeftPercent}%`;
-        this.arenaViewport.style.width = `${100 - newLeftPercent}%`;
-        
-        // Update divider position
-        this.arenaResizeDivider.style.left = `calc(${newLeftPercent}% - 5px)`;
-    });
-    
-    // Mouse up event (end drag)
-    document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            
-            // Remove resizing class
-            document.body.classList.remove('resizing-arena-view');
-            
-            // Re-enable text selection
-            document.body.style.userSelect = '';
-            
-            // Re-render workspace to ensure proper layout
-            this.renderWorkspace();
-        }
-    });
-    
-    // Add a hover effect to make the divider more noticeable
-    this.arenaResizeDivider.addEventListener('mouseenter', () => {
-        const line = this.arenaResizeDivider.querySelector('div');
-        if (line) {
-            line.style.backgroundColor = 'var(--link-color)';
-            line.style.width = '2px';
-            line.style.left = '4px';
-        }
-    });
-    
-    this.arenaResizeDivider.addEventListener('mouseleave', () => {
-        const line = this.arenaResizeDivider.querySelector('div');
-        if (line) {
-            line.style.backgroundColor = 'var(--element-border-color)';
-            line.style.width = '1px';
-            line.style.left = '5px';
-        }
-    });
 }
 
 setupArenaCookieHandling() {
