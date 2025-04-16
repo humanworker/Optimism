@@ -35,6 +35,7 @@ this.isGridVisible = false;
 this.gridLayout = '1x2'; // Default layout
 this.isSplitViewEnabled = false; // Track split view mode
 this.previewNodeId = null; // Track the node being previewed
+this.isArenaVisible = false; // Track are.na panel visibility
     }
 
     // In model.js, update the initialize method
@@ -137,6 +138,12 @@ async initialize() {
                         this.isSplitViewEnabled = appState.isSplitViewEnabled;
                         OPTIMISM.log(`Loaded split view state: ${this.isSplitViewEnabled}`);
                     }
+
+                    // Load Are.na panel state
+                if (appState.isArenaVisible !== undefined) {
+                    this.isArenaVisible = appState.isArenaVisible;
+                    OPTIMISM.log(`Loaded Are.na panel state: ${this.isArenaVisible}`);
+                }
 
                     // Load locked cards
 if (appState.lockedCards !== undefined) {
@@ -861,29 +868,31 @@ resetBackupReminder() {
     }
 
 
-   async saveAppState() {
-    try {
-        const appState = {
-            id: 'appState',
-            deletedImageQueue: this.deletedImageQueue,
-            editCounter: this.editCounter,
-            lastBackupReminder: this.lastBackupReminder,
-            imagesLocked: this.imagesLocked,
-            quickLinks: this.quickLinks,
-            lockedCards: this.lockedCards,
-            inboxCards: this.inboxCards,
-            isInboxVisible: this.isInboxVisible,
-            isGridVisible: this.isGridVisible,
-            isSplitViewEnabled: this.isSplitViewEnabled,
-            gridLayout: this.gridLayout
-        };
-        
-        OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout})`);
-        await this.db.put('canvasData', appState);
-    } catch (error) {
-        OPTIMISM.logError('Error saving app state:', error);
+    async saveAppState() {
+        try {
+            const appState = {
+                id: 'appState',
+                deletedImageQueue: this.deletedImageQueue,
+                editCounter: this.editCounter,
+                lastBackupReminder: this.lastBackupReminder,
+                imagesLocked: this.imagesLocked,
+                quickLinks: this.quickLinks,
+                lockedCards: this.lockedCards,
+                inboxCards: this.inboxCards,
+                isInboxVisible: this.isInboxVisible,
+                isGridVisible: this.isGridVisible,
+                isSplitViewEnabled: this.isSplitViewEnabled,
+                isArenaVisible: this.isArenaVisible, // Add this line
+                gridLayout: this.gridLayout
+            };
+            
+            OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout}, arena: ${this.isArenaVisible ? 'on' : 'off'})`);
+            await this.db.put('canvasData', appState);
+        } catch (error) {
+            OPTIMISM.logError('Error saving app state:', error);
+        }
     }
-}
+
 // Add this method to the CanvasModel class in model.js
 findAllImageElementsInNode(node) {
     if (!node) return [];
@@ -1403,12 +1412,28 @@ async updateInboxCard(id, properties) {
     return null; // Card not found
 }
 
-// Add a toggle method
 async toggleSplitView() {
+    // If Are.na view is enabled, disable it first
+    if (this.isArenaVisible) {
+        this.isArenaVisible = false;
+    }
+    
     this.isSplitViewEnabled = !this.isSplitViewEnabled;
     OPTIMISM.log(`Split view set to: ${this.isSplitViewEnabled}`);
     await this.saveAppState();
     return this.isSplitViewEnabled;
+}
+
+async toggleArenaView() {
+    // If split view is enabled, disable it first
+    if (this.isSplitViewEnabled) {
+        this.isSplitViewEnabled = false;
+    }
+    
+    this.isArenaVisible = !this.isArenaVisible;
+    OPTIMISM.log(`Are.na view set to: ${this.isArenaVisible}`);
+    await this.saveAppState();
+    return this.isArenaVisible;
 }
 
 }

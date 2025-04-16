@@ -26,6 +26,8 @@ class CanvasView {
         this.confirmationDialog = document.getElementById('confirmation-dialog');
         this.cancelImportButton = document.getElementById('cancel-import');
         this.confirmImportButton = document.getElementById('confirm-import');
+        this.arenaViewport = null; // Will be created when are.na view is enabled
+        this.arenaResizeDivider = null; // Will be created for resizing
         
         // Quick links container
         this.quickLinksContainer = null; // Will be created in setupQuickLinks method
@@ -198,10 +200,12 @@ this.rightViewport = null; // Will be created when split view is enabled
         // Add global style for resize operations
     const resizeStyle = document.createElement('style');
     resizeStyle.textContent = `
-        body.resizing-split-view {
+        body.resizing-split-view,
+        body.resizing-arena-view {
             cursor: col-resize !important;
         }
-        body.resizing-split-view * {
+        body.resizing-split-view *,
+        body.resizing-arena-view * {
             cursor: col-resize !important;
         }
     `;
@@ -4211,6 +4215,327 @@ addShadowToRightViewport() {
     this.rightViewport.appendChild(shadowOverlay);
     
     OPTIMISM.log('Added shadow to right viewport');
+}
+
+// Add this new method to the CanvasView class
+setupArenaToggle() {
+    OPTIMISM.log('Setting up Are.na toggle');
+    
+    // Create the toggle button
+    const arenaToggle = document.createElement('button');
+    arenaToggle.id = 'arena-toggle';
+    arenaToggle.className = 'nav-link';
+    arenaToggle.textContent = this.model.isArenaVisible ? 'Hide Are.na' : 'Show Are.na';
+    
+    // Add click event listener
+    arenaToggle.addEventListener('click', () => {
+        this.controller.toggleArenaView();
+    });
+    
+    // Add button to the right controls section
+    const rightControls = document.getElementById('right-controls');
+    if (rightControls) {
+        // Add before the split view toggle (if exists)
+        const splitViewToggle = document.getElementById('split-view-toggle');
+        if (splitViewToggle) {
+            rightControls.insertBefore(arenaToggle, splitViewToggle);
+        } else if (this.inboxToggle) {
+            rightControls.insertBefore(arenaToggle, this.inboxToggle);
+        } else {
+            rightControls.appendChild(arenaToggle);
+        }
+    }
+    
+    // Create Arena viewport if it's enabled
+    if (this.model.isArenaVisible) {
+        this.updateArenaViewLayout(true);
+    }
+    
+    OPTIMISM.log('Are.na toggle set up successfully');
+}
+
+// Add this method to show/hide the Are.na panel
+updateArenaViewLayout(isEnabled) {
+    OPTIMISM.log(`Updating Are.na view layout: ${isEnabled}`);
+    
+    if (!isEnabled && this.arenaViewport) {
+        // Remove the Arena viewport
+        this.arenaViewport.remove();
+        this.arenaViewport = null;
+        
+        // Remove the resize divider if it exists
+        if (this.arenaResizeDivider) {
+            this.arenaResizeDivider.remove();
+            this.arenaResizeDivider = null;
+        }
+        
+        // Restore full width to the main workspace
+        this.workspace.style.width = '100%';
+        
+        // Re-render the workspace to ensure all elements are positioned correctly
+        this.renderWorkspace();
+        return;
+    }
+    
+    // If Are.na was disabled but is now enabled
+    if (isEnabled && !this.arenaViewport) {
+        // Set initial split position (30% for Arena)
+        const splitPosition = 70; // 70% for main workspace, 30% for Arena
+        
+        // Adjust main workspace width and ensure it has proper bounds
+        this.workspace.style.width = `${splitPosition}%`;
+        this.workspace.style.position = 'absolute';
+        this.workspace.style.left = '0';
+        this.workspace.style.overflow = 'hidden';
+        
+        // Create the resizable divider
+        this.arenaResizeDivider = document.createElement('div');
+        this.arenaResizeDivider.id = 'arena-resize-divider';
+        this.arenaResizeDivider.style.position = 'fixed';
+        this.arenaResizeDivider.style.top = '41px'; // Below title bar
+        this.arenaResizeDivider.style.bottom = '0';
+        this.arenaResizeDivider.style.width = '10px'; // Wider clickable area
+        this.arenaResizeDivider.style.left = `calc(${splitPosition}% - 5px)`; // Center on the split
+        this.arenaResizeDivider.style.cursor = 'col-resize';
+        this.arenaResizeDivider.style.zIndex = '160'; // Above viewport content but below panels
+        
+        // Add visible line in the center of clickable area
+        this.arenaResizeDivider.innerHTML = '<div style="position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background-color: var(--element-border-color);"></div>';
+        
+        // Create the Are.na viewport container
+        this.arenaViewport = document.createElement('div');
+        this.arenaViewport.id = 'arena-viewport';
+        this.arenaViewport.className = 'viewport';
+        this.arenaViewport.style.width = `${100 - splitPosition}%`;
+        this.arenaViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
+        this.arenaViewport.style.position = 'fixed'; // Use fixed positioning
+        this.arenaViewport.style.right = '0';
+        this.arenaViewport.style.top = '41px'; // Below the title bar with border
+        this.arenaViewport.style.boxSizing = 'border-box';
+        this.arenaViewport.style.overflow = 'hidden';
+        this.arenaViewport.style.backgroundColor = 'var(--bg-color)';
+        this.arenaViewport.style.zIndex = '150'; 
+        
+        // Create and add the iframe to load are.na
+const arenaIframe = document.createElement('iframe');
+arenaIframe.id = 'arena-iframe';
+arenaIframe.src = 'https://daily-planner-c22cb.web.app';
+arenaIframe.style.width = '100%';
+arenaIframe.style.height = '100%';
+arenaIframe.style.border = 'none';
+
+// Add these attributes to help with login functionality
+arenaIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; camera; microphone; payment; geolocation');
+arenaIframe.setAttribute('allowfullscreen', 'true');
+arenaIframe.setAttribute('loading', 'eager');
+arenaIframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-popups-to-escape-sandbox');
+arenaIframe.setAttribute('referrerpolicy', 'origin');
+arenaIframe.setAttribute('importance', 'high');
+
+// Set the iframe to be the same domain as its parent if possible
+// (This won't work if are.na doesn't allow it due to CORS policies)
+arenaIframe.setAttribute('crossorigin', 'anonymous');
+        
+        this.arenaViewport.appendChild(arenaIframe);
+        
+        // Add shadow effect on the left edge
+        this.addShadowToArenaViewport();
+        
+        // Add the divider and Are.na viewport to the document
+        document.body.appendChild(this.arenaResizeDivider);
+        document.body.appendChild(this.arenaViewport);
+
+         // Setup cookie handling
+         this.setupArenaCookieHandling();
+        
+        // Add resize drag functionality
+        this.setupArenaResizeDivider();
+        
+        // Ensure panels have proper z-index to appear over the Arena viewport
+        this.ensurePanelZIndices();
+        
+        // Re-render the workspace to ensure all elements are positioned correctly
+        this.renderWorkspace();
+    }
+    
+    // Make sure to update the button text
+    const arenaToggle = document.getElementById('arena-toggle');
+    if (arenaToggle) {
+        OPTIMISM.log(`Updating Are.na toggle text to: ${isEnabled ? 'Hide Are.na' : 'Show Are.na'}`);
+        arenaToggle.textContent = isEnabled ? 'Hide Are.na' : 'Show Are.na';
+    }
+}
+
+// Add a helper method to add shadow to the Arena viewport
+addShadowToArenaViewport() {
+    if (!this.arenaViewport) return;
+    
+    // Remove any existing shadow
+    const existingShadow = document.getElementById('arena-viewport-shadow');
+    if (existingShadow) {
+        existingShadow.remove();
+    }
+    
+    // Create a new shadow overlay
+    const shadowOverlay = document.createElement('div');
+    shadowOverlay.id = 'arena-viewport-shadow';
+    shadowOverlay.style.position = 'absolute';
+    shadowOverlay.style.top = '0';
+    shadowOverlay.style.left = '0';
+    shadowOverlay.style.bottom = '0';
+    shadowOverlay.style.width = '15px';
+    shadowOverlay.style.pointerEvents = 'none';
+    shadowOverlay.style.zIndex = '5';
+    shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
+    shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
+    
+    // Add the shadow overlay directly to the Arena viewport
+    this.arenaViewport.appendChild(shadowOverlay);
+    
+    OPTIMISM.log('Added shadow to Are.na viewport');
+}
+
+// Add a method to set up the resize functionality for the Are.na panel
+setupArenaResizeDivider() {
+    if (!this.arenaResizeDivider) return;
+    
+    let isDragging = false;
+    let startX = 0;
+    let startLeftWidth = 0;
+    
+    // Get window width for percentage calculations
+    const getWindowWidth = () => {
+        return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    };
+    
+    // Convert percentage to pixels
+    const percentToPixels = (percent) => {
+        return Math.round((percent / 100) * getWindowWidth());
+    };
+    
+    // Convert pixels to percentage
+    const pixelsToPercent = (pixels) => {
+        return (pixels / getWindowWidth()) * 100;
+    };
+    
+    // Mouse down event on the divider
+    this.arenaResizeDivider.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        
+        // Get current left viewport width in pixels
+        const leftViewportPercentage = parseFloat(this.workspace.style.width);
+        startLeftWidth = percentToPixels(leftViewportPercentage);
+        
+        // Add class to body for styling during resize
+        document.body.classList.add('resizing-arena-view');
+        
+        // Disable text selection during resize
+        document.body.style.userSelect = 'none';
+        
+        e.preventDefault();
+    });
+    
+    // Mouse move event (drag)
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        // Calculate new width
+        const deltaX = e.clientX - startX;
+        let newLeftWidth = startLeftWidth + deltaX;
+        
+        // Convert to percentage of window
+        let newLeftPercent = pixelsToPercent(newLeftWidth);
+        
+        // Apply constraints (minimum 25% for main workspace, minimum 15% for Arena)
+        newLeftPercent = Math.max(25, Math.min(85, newLeftPercent));
+        
+        // Update viewport widths
+        this.workspace.style.width = `${newLeftPercent}%`;
+        this.arenaViewport.style.width = `${100 - newLeftPercent}%`;
+        
+        // Update divider position
+        this.arenaResizeDivider.style.left = `calc(${newLeftPercent}% - 5px)`;
+    });
+    
+    // Mouse up event (end drag)
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            
+            // Remove resizing class
+            document.body.classList.remove('resizing-arena-view');
+            
+            // Re-enable text selection
+            document.body.style.userSelect = '';
+            
+            // Re-render workspace to ensure proper layout
+            this.renderWorkspace();
+        }
+    });
+    
+    // Add a hover effect to make the divider more noticeable
+    this.arenaResizeDivider.addEventListener('mouseenter', () => {
+        const line = this.arenaResizeDivider.querySelector('div');
+        if (line) {
+            line.style.backgroundColor = 'var(--link-color)';
+            line.style.width = '2px';
+            line.style.left = '4px';
+        }
+    });
+    
+    this.arenaResizeDivider.addEventListener('mouseleave', () => {
+        const line = this.arenaResizeDivider.querySelector('div');
+        if (line) {
+            line.style.backgroundColor = 'var(--element-border-color)';
+            line.style.width = '1px';
+            line.style.left = '5px';
+        }
+    });
+}
+
+setupArenaCookieHandling() {
+    // Create a storage listener for checking third-party cookies
+    window.addEventListener('message', (event) => {
+        // Only process messages from are.na domain
+        if (event.origin.includes('are.na')) {
+            try {
+                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                
+                // Check if it's a cookie-related message
+                if (data && data.type === 'cookie-check') {
+                    OPTIMISM.log('Received cookie message from Are.na iframe');
+                    
+                    // You could implement custom handling here if needed
+                }
+            } catch (error) {
+                // Ignore parsing errors for non-JSON messages
+            }
+        }
+    });
+    
+    // Check if third-party cookies are enabled
+    this.checkThirdPartyCookies();
+}
+
+// Add a method to check if third-party cookies are enabled
+checkThirdPartyCookies() {
+    if (!this.arenaViewport) return;
+    
+    try {
+        const iframe = document.getElementById('arena-iframe');
+        if (iframe) {
+            // Try setting a test cookie
+            iframe.contentWindow.postMessage({
+                type: 'cookie-test',
+                value: 'optimism-cookie-test'
+            }, '*');
+            
+            OPTIMISM.log('Sent cookie test message to Are.na iframe');
+        }
+    } catch (error) {
+        OPTIMISM.logError('Error checking third-party cookies:', error);
+    }
 }
     
 }

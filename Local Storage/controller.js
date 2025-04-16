@@ -7,8 +7,7 @@ class CanvasController {
         this.exportImportManager = null;
     }
     
-// In controller.js, remove the updateUrlHash from initialize
-// Update initialize method in controller.js to add grid panel setup
+// Update the initialize method in controller.js to call our new setup method
 async initialize() {
     OPTIMISM.log('Initializing controller');
     this.view.showLoading();
@@ -24,14 +23,14 @@ async initialize() {
         this.view.setupStylePanel();
         this.view.setupThemeToggle();
         this.view.setupUndoRedoButtons();
-        this.view.setupGridPanel(); // Add this line
+        this.view.setupGridPanel();
+        this.view.setupArenaToggle(); // Add this line
+        this.view.setupSplitViewToggle();
         this.view.updateTheme(this.model.isDarkTheme);
+        
         // Initialize debug panel state
         this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
         this.isInitialized = true;
-        
-        // Don't update URL hash on initialization
-        // Let the core init function handle it
         
         OPTIMISM.log('Controller initialized successfully');
     } catch (error) {
@@ -1236,6 +1235,34 @@ async toggleSplitView() {
     } catch (error) {
         OPTIMISM.logError('Error toggling split view:', error);
         return this.model.isSplitViewEnabled;
+    }
+}
+
+// Add to CanvasController class in controller.js
+async toggleArenaView() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle Are.na view: application not initialized');
+        return this.model.isArenaVisible;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling Are.na view');
+        const isVisible = await this.model.toggleArenaView();
+        
+        // Update UI with new state
+        this.view.updateArenaViewLayout(isVisible);
+        
+        // Get direct reference to the toggle button and update its text
+        const arenaToggle = document.getElementById('arena-toggle');
+        if (arenaToggle) {
+            arenaToggle.textContent = isVisible ? 'Hide Are.na' : 'Show Are.na';
+        }
+        
+        OPTIMISM.log(`Are.na view set to ${isVisible}`);
+        return isVisible;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling Are.na view:', error);
+        return this.model.isArenaVisible;
     }
 }
 
