@@ -981,6 +981,7 @@ if (stylePanel) {
     }
     
     // In view.js - Update the renderWorkspace method
+// In view.js - Update the renderWorkspace method
 renderWorkspace() {
     OPTIMISM.log('Rendering workspace');
     // Clear workspace
@@ -3505,6 +3506,7 @@ updateGridInputValues() {
 }
 
 // In view.js - Update the updateSplitViewLayout method to add the resizable border
+// In view.js - Update the updateSplitViewLayout method to add the resizable border
 updateSplitViewLayout(isEnabled) {
     OPTIMISM.log(`Updating split view layout: ${isEnabled}`);
     
@@ -3586,21 +3588,7 @@ updateSplitViewLayout(isEnabled) {
         
         this.rightViewport.appendChild(this.rightViewportContent);
         
-        // Create a shadow overlay for the left edge of the right viewport
-        const shadowOverlay = document.createElement('div');
-        shadowOverlay.id = 'right-viewport-shadow';
-        shadowOverlay.style.position = 'absolute';
-        shadowOverlay.style.top = '0';
-        shadowOverlay.style.left = '0';
-        shadowOverlay.style.bottom = '0';
-        shadowOverlay.style.width = '15px'; // Width of the shadow effect
-        shadowOverlay.style.pointerEvents = 'none'; // Allow click-through
-        shadowOverlay.style.zIndex = '5'; // Above content but below UI elements
-        shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
-        shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
-        
-        // Add the shadow overlay to the right viewport
-        this.rightViewport.appendChild(shadowOverlay);
+        this.addShadowToRightViewport();
         
         // Add the divider and right viewport to the document
         document.body.appendChild(this.resizeDivider);
@@ -3642,6 +3630,8 @@ updateSplitViewLayout(isEnabled) {
 }
 
 // Add a method to update the right viewport content based on selected element
+// Modify this method to ensure style updates are applied consistently
+// Update this method to ensure the shadow is always present
 updateRightViewport(selectedElementId) {
     if (!this.rightViewport || !this.model.isSplitViewEnabled) return;
     
@@ -3658,6 +3648,9 @@ updateRightViewport(selectedElementId) {
         this.rightViewportContent.style.opacity = '0.5';
         this.rightViewportContent.textContent = 'Select a card to view contents';
         this.model.previewNodeId = null;
+        
+        // Ensure shadow is visible even with placeholder content
+        this.addShadowToRightViewport();
         return;
     }
     
@@ -3670,6 +3663,9 @@ updateRightViewport(selectedElementId) {
         this.rightViewportContent.style.opacity = '0.5';
         this.rightViewportContent.textContent = 'This card has no content';
         this.model.previewNodeId = null;
+        
+        // Ensure shadow is visible even with placeholder content
+        this.addShadowToRightViewport();
         return;
     }
     
@@ -3678,6 +3674,9 @@ updateRightViewport(selectedElementId) {
     if (!childNode) {
         this.rightViewportContent.textContent = 'Could not load content';
         this.model.previewNodeId = null;
+        
+        // Ensure shadow is visible even with error message
+        this.addShadowToRightViewport();
         return;
     }
     
@@ -3698,6 +3697,7 @@ updateRightViewport(selectedElementId) {
 renderPreviewContent(node) {
     if (!node || !node.elements) {
         this.rightViewportContent.textContent = 'No content';
+        this.addShadowToRightViewport(); // Ensure shadow is visible
         return;
     }
     
@@ -3879,30 +3879,11 @@ renderPreviewContent(node) {
     
     this.rightViewportContent.appendChild(elementsContainer);
     
-    // Make sure to always re-add the shadow overlay after content is loaded
-    // This ensures it stays on top of the content
-    const existingShadow = document.getElementById('right-viewport-shadow');
-    if (existingShadow) {
-        existingShadow.remove();
-    }
-    
-    const shadowOverlay = document.createElement('div');
-    shadowOverlay.id = 'right-viewport-shadow';
-    shadowOverlay.style.position = 'absolute';
-    shadowOverlay.style.top = '0';
-    shadowOverlay.style.left = '0';
-    shadowOverlay.style.bottom = '0';
-    shadowOverlay.style.width = '15px';
-    shadowOverlay.style.pointerEvents = 'none';
-    shadowOverlay.style.zIndex = '5';
-    shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
-    shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
-    
-    // Add the shadow overlay to the right viewport content
-    this.rightViewportContent.appendChild(shadowOverlay);
-    
     // Apply global styles to ensure consistent styling for nested content
     this.updateRightPaneNestedItemStyles();
+    
+    // Use our helper method to ensure the shadow is always present
+    this.addShadowToRightViewport();
 }
 
 // Add a new method to set up the split view toggle
@@ -4167,6 +4148,69 @@ autoSizeElement(container, textarea) {
     measurer.innerHTML = '';
     
     OPTIMISM.log(`Auto-sized element to: ${naturalWidth}x${contentHeight}`);
+}
+
+// Add this new method to the CanvasView class
+updateRightPaneNestedItemStyles() {
+    // Remove any existing style
+    const existingStyle = document.getElementById('right-pane-nested-styles');
+    if (existingStyle) {
+        existingStyle.remove();
+    }
+    
+    // Create new style element
+    const styleElement = document.createElement('style');
+    styleElement.id = 'right-pane-nested-styles';
+    styleElement.textContent = `
+        /* Ensure all elements with nested content have underline */
+        .preview-element-container.has-children {
+            text-decoration: underline !important;
+        }
+        
+        /* Ensure text displays with nested content have underline */
+        .preview-text-display.has-children {
+            text-decoration: underline !important;
+        }
+        
+        /* Ensure links in text with nested content maintain underline */
+        .preview-text-display.has-children a {
+            text-decoration: underline !important;
+        }
+    `;
+    
+    // Add to document head
+    document.head.appendChild(styleElement);
+    
+    OPTIMISM.log('Updated right pane nested item styles');
+}
+
+// Add this new helper method to the CanvasView class
+addShadowToRightViewport() {
+    if (!this.rightViewport) return;
+    
+    // Remove any existing shadow
+    const existingShadow = document.getElementById('right-viewport-shadow');
+    if (existingShadow) {
+        existingShadow.remove();
+    }
+    
+    // Create a new shadow overlay
+    const shadowOverlay = document.createElement('div');
+    shadowOverlay.id = 'right-viewport-shadow';
+    shadowOverlay.style.position = 'absolute';
+    shadowOverlay.style.top = '0';
+    shadowOverlay.style.left = '0';
+    shadowOverlay.style.bottom = '0';
+    shadowOverlay.style.width = '15px';
+    shadowOverlay.style.pointerEvents = 'none';
+    shadowOverlay.style.zIndex = '5';
+    shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
+    shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
+    
+    // Add the shadow overlay directly to the right viewport
+    this.rightViewport.appendChild(shadowOverlay);
+    
+    OPTIMISM.log('Added shadow to right viewport');
 }
     
 }
