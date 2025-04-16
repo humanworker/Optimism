@@ -1,78 +1,79 @@
 // View to handle UI interactions
 class CanvasView {
     // Modify the constructor in CanvasView to remove the imagesLocked property initialization:
-    constructor(model, controller) {
-        this.model = model;
-        this.controller = controller;
-        this.workspace = document.getElementById('workspace');
-        this.titleBar = document.getElementById('title-bar');
-        this.breadcrumbContainer = document.getElementById('breadcrumb-container');
-        this.stylePanel = document.getElementById('style-panel');
-        this.settingsPanel = document.getElementById('settings-panel');
-        this.themeToggle = document.getElementById('theme-toggle');
-        this.settingsToggle = document.getElementById('settings-toggle');
-        this.lockImagesButton = document.getElementById('lock-images-button');
-        this.undoButton = document.getElementById('undo-button');
-        this.redoButton = document.getElementById('redo-button');
-        this.loadingOverlay = document.getElementById('loading-overlay');
-        this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
-        this.debugPanel = document.getElementById('debug-panel');
-        this.debugToggle = document.getElementById('debug-toggle');
-        this.progressContainer = document.getElementById('progress-container');
-        this.progressBar = document.getElementById('progress-bar');
-        this.progressText = document.getElementById('progress-text');
-        this.exportButton = document.getElementById('export-button');
-        this.importButton = document.getElementById('import-button');
-        this.confirmationDialog = document.getElementById('confirmation-dialog');
-        this.cancelImportButton = document.getElementById('cancel-import');
-        this.confirmImportButton = document.getElementById('confirm-import');
-        this.arenaViewport = null; // Will be created when are.na view is enabled
-        this.arenaResizeDivider = null; // Will be created for resizing
-        
-        // Quick links container
-        this.quickLinksContainer = null; // Will be created in setupQuickLinks method
-        
-        this.draggedElement = null;
-        this.resizingElement = null;
-        this.dragStartX = 0;
-        this.dragStartY = 0;
-        this.elemOffsetX = 0;
-        this.elemOffsetY = 0;
-        
-        this.initialWidth = 0;
-        this.initialHeight = 0;
+    // In view.js, modify the constructor to add a new CSS style element
+constructor(model, controller) {
+    this.model = model;
+    this.controller = controller;
+    this.workspace = document.getElementById('workspace');
+    this.titleBar = document.getElementById('title-bar');
+    this.breadcrumbContainer = document.getElementById('breadcrumb-container');
+    this.stylePanel = document.getElementById('style-panel');
+    this.settingsPanel = document.getElementById('settings-panel');
+    this.themeToggle = document.getElementById('theme-toggle');
+    this.settingsToggle = document.getElementById('settings-toggle');
+    this.lockImagesButton = document.getElementById('lock-images-button');
+    this.undoButton = document.getElementById('undo-button');
+    this.redoButton = document.getElementById('redo-button');
+    this.loadingOverlay = document.getElementById('loading-overlay');
+    this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
+    this.debugPanel = document.getElementById('debug-panel');
+    this.debugToggle = document.getElementById('debug-toggle');
+    this.progressContainer = document.getElementById('progress-container');
+    this.progressBar = document.getElementById('progress-bar');
+    this.progressText = document.getElementById('progress-text');
+    this.exportButton = document.getElementById('export-button');
+    this.importButton = document.getElementById('import-button');
+    this.confirmationDialog = document.getElementById('confirmation-dialog');
+    this.cancelImportButton = document.getElementById('cancel-import');
+    this.confirmImportButton = document.getElementById('confirm-import');
+    this.arenaViewport = null; // Will be created when are.na view is enabled
+    this.arenaResizeDivider = null; // Will be created for resizing
+    
+    // Quick links container
+    this.quickLinksContainer = null; // Will be created in setupQuickLinks method
+    
+    this.draggedElement = null;
+    this.resizingElement = null;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
+    this.elemOffsetX = 0;
+    this.elemOffsetY = 0;
+    
+    this.initialWidth = 0;
+    this.initialHeight = 0;
 
-        this.inboxPanel = document.getElementById('inbox-panel');
-this.inboxToggle = document.getElementById('inbox-toggle');
-this.inboxDragTarget = null;
+    this.inboxPanel = document.getElementById('inbox-panel');
+    this.inboxToggle = document.getElementById('inbox-toggle');
+    this.inboxDragTarget = null;
 
-this.rightViewport = null; // Will be created when split view is enabled
+    this.rightViewport = null; // Will be created when split view is enabled
     this.rightViewportContent = null;
 
     this.resizeDivider = null; 
         
-        // Detect platform
-        this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    // Detect platform
+    this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
-        const styleElement = document.createElement('style');
-        styleElement.textContent = `
-            #style-panel, #settings-panel {
-                z-index: 200; /* Higher than any content z-index */
-               
-            }
-            
-            /* Make sure text elements don't appear on top of panels */
-            .text-element-container {
-                z-index: 100 !important; /* Text elements have z-index 100 */
-            }
-            
-            .image-element-container {
-                z-index: 1; /* Base z-index for images - individual images can have 1-99 */
-            }
-        `;
-        document.head.appendChild(styleElement);
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        #style-panel, #settings-panel {
+            z-index: 200; /* Higher than any content z-index */
+           
+        }
+        
+        /* Make sure text elements don't appear on top of panels */
+        .text-element-container {
+            z-index: 100 !important; /* Text elements have z-index 100 */
+        }
+        
+        .image-element-container {
+            z-index: 1; /* Base z-index for images - individual images can have 1-99 */
+        }
+    `;
+    document.head.appendChild(styleElement);
 
-         const cmdCursorStyle = document.createElement('style');
+    const cmdCursorStyle = document.createElement('style');
     cmdCursorStyle.textContent = `
         body.cmd-pressed .element-container:not(.card-locked) {
             cursor: pointer !important;
@@ -86,7 +87,26 @@ this.rightViewport = null; // Will be created when split view is enabled
     `;
     document.head.appendChild(cmdCursorStyle);
 
-    }
+    // Add custom panel background styles
+    const panelStyles = document.createElement('style');
+    panelStyles.id = 'panel-background-styles';
+    panelStyles.textContent = `
+        /* Yellow background for all panels */
+        #style-panel, 
+        #settings-panel, 
+        #inbox-panel, 
+        #grid-panel {
+            background-color: #FFFFCC !important; /* Light yellow background */
+        }
+        
+        /* Also style the modal and confirmation dialogs to match */
+        #confirmation-dialog,
+        .modal-content {
+            background-color: #FFFFCC !important;
+        }
+    `;
+    document.head.appendChild(panelStyles);
+}
 
     
     
