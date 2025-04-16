@@ -747,113 +747,80 @@ async updateElementWithUndo(id, newProperties, oldProperties) {
 }
 
     // For controller.js - Updated addImageFromUrl method
-async addImageFromUrl(url, x, y) {
-    if (!this.isInitialized) {
-        OPTIMISM.logError('Cannot add image: application not initialized');
-        return;
-    }
-    
-    try {
-        OPTIMISM.log(`Adding image from URL: ${url} at position (${x}, ${y})`);
-        
-        // Handle relative URLs by converting to absolute
-        if (url.startsWith('/')) {
-            // This assumes the URL is relative to the current domain
-            const base = window.location.origin;
-            url = base + url;
-            OPTIMISM.log(`Converted to absolute URL: ${url}`);
-        } else if (!url.match(/^https?:\/\//i) && !url.startsWith('data:')) {
-            // If not absolute and not a data URL, assume it's relative to the current page
-            const base = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-            url = base + url;
-            OPTIMISM.log(`Converted to absolute URL: ${url}`);
+    async addImageFromUrl(url, x, y) {
+        if (!this.isInitialized) {
+            OPTIMISM.logError('Cannot add image: application not initialized');
+            return;
         }
         
-        // For data URLs, convert directly to a blob
-        if (url.startsWith('data:image/')) {
-            OPTIMISM.log('Processing data URL');
-            const parts = url.split(',');
-            const mimeMatch = parts[0].match(/data:(image\/[^;]+)/);
+        try {
+            OPTIMISM.log(`Adding image from URL: ${url} at position (${x}, ${y})`);
             
-            if (!mimeMatch) {
-                throw new Error('Invalid data URL format');
+            // Clean up Are.na URLs (remove query parameters)
+            if (url.includes('d2w9rnfcy7mm78.cloudfront.net')) {
+                const cleanUrl = url.split('?')[0];
+                OPTIMISM.log(`Cleaned up Are.na URL: ${cleanUrl}`);
+                url = cleanUrl;
             }
             
-            const mimetype = mimeMatch[1];
-            const imageData = parts[1];
-            let binary;
+            // Use a reliable imgproxy service
+            const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=default`;
+            OPTIMISM.log(`Using image proxy: ${proxyUrl}`);
             
-            // Check if it's base64 encoded
-            if (parts[0].includes('base64')) {
-                binary = atob(imageData);
-            } else {
-                // Decode the URL-encoded data
-                binary = decodeURIComponent(imageData);
+            // Create a new Image element to load the image through the proxy
+            const img = new Image();
+            
+            // Create a promise that resolves when the image loads
+            const imageLoaded = new Promise((resolve, reject) => {
+                img.onload = () => {
+                    OPTIMISM.log(`Image loaded successfully via proxy: ${img.width}x${img.height}`);
+                    resolve(img);
+                };
+                
+                img.onerror = (err) => {
+                    OPTIMISM.logError('Error loading image via proxy:', err);
+                    reject(new Error('Failed to load image via proxy'));
+                };
+            });
+            
+            // Set the source to start loading
+            img.crossOrigin = 'anonymous';
+            img.src = proxyUrl;
+            
+            // Wait for the image to load
+            const loadedImg = await imageLoaded;
+            
+            // Create a canvas to convert the image to a blob
+            const canvas = document.createElement('canvas');
+            canvas.width = loadedImg.width;
+            canvas.height = loadedImg.height;
+            
+            // Draw the image on the canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(loadedImg, 0, 0);
+            
+            // Convert canvas to blob
+            const blob = await new Promise((resolve) => {
+                canvas.toBlob(resolve, 'image/png');
+            });
+            
+            if (!blob) {
+                throw new Error('Failed to convert image to blob');
             }
             
-            // Create array buffer
-            const buffer = new ArrayBuffer(binary.length);
-            const view = new Uint8Array(buffer);
+            // Create a File object from the blob
+            const filename = 'arena-image.png';
+            const file = new File([blob], filename, { type: 'image/png' });
             
-            for (let i = 0; i < binary.length; i++) {
-                view[i] = binary.charCodeAt(i);
-            }
+            OPTIMISM.log(`Successfully created file from image: ${filename}, size: ${file.size} bytes`);
             
-            const blob = new Blob([buffer], { type: mimetype });
-            const filename = 'image.' + mimetype.split('/')[1];
-            const file = new File([blob], filename, { type: mimetype });
-            
-            // Use the existing method to process the file
+            // Now use the existing method to add the image
             return await this.addImage(file, x, y);
+        } catch (error) {
+            OPTIMISM.logError('Error adding image from URL:', error);
+            throw error;
         }
-        
-        // For regular URLs, fetch the image
-        OPTIMISM.log(`Fetching image from URL: ${url}`);
-        const response = await fetch(url, {
-            // Add these options to handle CORS issues when possible
-            mode: 'cors',
-            credentials: 'same-origin'
-        }).catch(error => {
-            // If CORS error, try without CORS (might work for some images)
-            OPTIMISM.logError('CORS fetch failed, trying without CORS:', error);
-            return fetch(url, { mode: 'no-cors' });
-        });
-        
-        // If we couldn't fetch the URL, throw an error
-        if (!response || !response.ok) {
-            throw new Error(`Failed to fetch image: ${response?.statusText || 'Network error'}`);
-        }
-        
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.startsWith('image/')) {
-            OPTIMISM.log(`Content-Type is not an image: ${contentType}`);
-            
-            // If the response doesn't explicitly say it's an image,
-            // we'll still try to process it as one
-            OPTIMISM.log('Attempting to process as image anyway');
-        }
-        
-        const blob = await response.blob();
-        
-        // Determine file extension from content type or URL
-        const extension = contentType ? 
-            contentType.split('/')[1].split(';')[0] : 
-            url.split('.').pop().split('?')[0];
-        
-        const filename = `web-image.${extension || 'jpg'}`;
-        
-        // Create a File object from the blob
-        const file = new File([blob], filename, { 
-            type: contentType || 'image/jpeg' 
-        });
-        
-        // Now use the existing method to add the image
-        return await this.addImage(file, x, y);
-    } catch (error) {
-        OPTIMISM.logError('Error adding image from URL:', error);
-        throw error;
     }
-}
 
 // Add this method to the CanvasController class in controller.js
 async toggleImagesLocked() {

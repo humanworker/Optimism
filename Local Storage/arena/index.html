@@ -218,6 +218,37 @@
             background: #e0e0e0;
         }
         
+        /* Draggable elements styles */
+        .draggable-image {
+            cursor: grab;
+        }
+        
+        .draggable-image:active {
+            cursor: grabbing;
+        }
+        
+        .drag-feedback {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(74, 144, 226, 0.1);
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .drag-feedback-text {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
         /* Responsive adjustments */
         @media (max-width: 600px) {
             .container {
@@ -257,6 +288,11 @@
         
         <button id="load-more" class="load-more" style="display: none;">Load More</button>
     </div>
+    
+    <!-- Add this element for drag feedback -->
+    <div class="drag-feedback" id="drag-feedback">
+        <div class="drag-feedback-text">Release to add to canvas</div>
+    </div>
 
     <script>
         // State
@@ -276,6 +312,7 @@
         const blocksContainer = document.getElementById('blocks-container');
         const viewControls = document.getElementById('view-controls');
         const backButton = document.getElementById('back-button');
+        const dragFeedback = document.getElementById('drag-feedback');
         
         // Event Listeners
         searchButton.addEventListener('click', () => {
@@ -308,6 +345,16 @@
         
         backButton.addEventListener('click', () => {
             showSearchView();
+        });
+        
+        // Global drag events
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Necessary to allow dropping
+        });
+        
+        document.addEventListener('drop', (e) => {
+            e.preventDefault(); // Prevent browser default behavior
+            dragFeedback.style.display = 'none';
         });
         
         // Functions
@@ -466,10 +513,16 @@
                 switch(block.class) {
                     case 'Image':
                         if (block.image && block.image.display) {
+                            // Make image draggable
                             content = `
-                                <a href="${block.image.original.url}" target="_blank" class="block-link">
-                                    <img src="${block.image.display.url}" alt="${block.title || 'Image'}" class="block-image">
-                                </a>
+                                <img src="${block.image.display.url}" 
+                                     alt="${block.title || 'Image'}" 
+                                     class="block-image draggable-image" 
+                                     draggable="true"
+                                     data-original-url="${block.image.original.url}"
+                                     data-title="${block.title || ''}"
+                                     data-description="${block.description || ''}"
+                                >
                                 ${block.title ? `<div class="block-content block-title">${block.title}</div>` : ''}
                                 ${block.description ? `<div class="block-content block-text">${block.description}</div>` : ''}
                             `;
@@ -502,11 +555,18 @@
                                 </a>
                             </div>
                         `;
+                        // Also make link images draggable
                         if (block.image && block.image.display) {
                             content = `
-                                <a href="${block.source ? block.source.url : '#'}" target="_blank" class="block-link">
-                                    <img src="${block.image.display.url}" alt="${block.title || 'Link'}" class="block-image">
-                                </a>
+                                <img src="${block.image.display.url}" 
+                                     alt="${block.title || 'Link'}" 
+                                     class="block-image draggable-image" 
+                                     draggable="true"
+                                     data-original-url="${block.image.original.url}"
+                                     data-title="${block.title || ''}"
+                                     data-description="${block.description || ''}"
+                                     data-source-url="${block.source ? block.source.url : '#'}"
+                                >
                             ` + content;
                         }
                         break;
@@ -544,7 +604,101 @@
                 blockElement.innerHTML = content;
                 blocksContainer.appendChild(blockElement);
             });
+            
+            // Add drag event listeners after rendering blocks
+            setupDragEvents();
         }
+        
+        // Update this function in your index.html file's <script> section
+            function setupDragEvents() {
+    const draggableImages = document.querySelectorAll('.draggable-image');
+    
+    draggableImages.forEach(img => {
+        // Add a click handler as an alternative to drag-and-drop
+        img.addEventListener('click', async (e) => {
+            // Prevent navigation if the image is inside a link
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const imageUrl = img.dataset.originalUrl || img.src;
+            console.log('Image clicked:', imageUrl);
+            
+            // Show loading indicator
+            const feedback = document.createElement('div');
+            feedback.style.position = 'fixed';
+            feedback.style.top = '0';
+            feedback.style.left = '0';
+            feedback.style.width = '100%';
+            feedback.style.padding = '10px';
+            feedback.style.backgroundColor = 'rgba(0,0,0,0.7)';
+            feedback.style.color = 'white';
+            feedback.style.textAlign = 'center';
+            feedback.style.zIndex = '1000';
+            feedback.textContent = 'Sending image to canvas...';
+            document.body.appendChild(feedback);
+            
+            try {
+                // Create an Image object to load the image
+                const tempImg = new Image();
+                tempImg.crossOrigin = 'anonymous';
+                
+                // Set up a promise to wait for the image to load
+                await new Promise((resolve, reject) => {
+                    tempImg.onload = resolve;
+                    tempImg.onerror = reject;
+                    
+                    // First try to load the image directly
+                    tempImg.src = imageUrl;
+                    
+                    // If the image doesn't load within 2 seconds, try with a proxy
+                    setTimeout(() => {
+                        if (!tempImg.complete) {
+                            console.log('Trying with proxy...');
+                            tempImg.src = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}`;
+                        }
+                    }, 2000);
+                });
+                
+                // Create a canvas to convert the image to a data URL
+                const canvas = document.createElement('canvas');
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(tempImg, 0, 0);
+                
+                // Get the image as a data URL
+                const dataUrl = canvas.toDataURL('image/png');
+                
+                // Send the data URL to the parent window
+                window.parent.postMessage({
+                    type: 'arenaImageTransfer',
+                    imageData: dataUrl,
+                    width: tempImg.width,
+                    height: tempImg.height
+                }, '*');
+                
+                feedback.textContent = 'Image sent to canvas!';
+                setTimeout(() => {
+                    feedback.style.opacity = '0';
+                    feedback.style.transition = 'opacity 0.5s';
+                    setTimeout(() => document.body.removeChild(feedback), 500);
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error sending image:', error);
+                feedback.textContent = 'Error sending image';
+                feedback.style.backgroundColor = 'rgba(255,0,0,0.7)';
+                setTimeout(() => document.body.removeChild(feedback), 2000);
+            }
+        });
+        
+        // Keep the dragstart event for visual feedback
+        img.addEventListener('dragstart', (e) => {
+            e.preventDefault(); // Prevent the drag - we'll use click instead
+            return false;
+        });
+    });
+}
         
         // Initialize with a sample search
         searchChannels('art');

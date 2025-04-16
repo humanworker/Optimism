@@ -539,39 +539,61 @@ document.addEventListener('click', (e) => {
         document.addEventListener('dragover', (e) => {
             e.preventDefault();
             
-            // Check if we are dragging from the inbox
-            if (this.inboxDragTarget) {
-                dropZoneIndicator.style.display = 'none';
+            // If we have an Arena image being dragged, show the drop zone
+            if (this.arenaImageBeingDragged) {
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'block';
+                }
                 return;
             }
             
             // Don't show drop zone for internal drags
             if (this.draggedElement) {
-                dropZoneIndicator.style.display = 'none';
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'none';
+                }
+                return;
+            }
+            
+            // Don't show for inbox drags
+            if (this.inboxDragTarget) {
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'none';
+                }
                 return;
             }
             
             // Don't show for quick links
             if (e.dataTransfer.types.includes('application/quicklink')) {
-                dropZoneIndicator.style.display = 'none';
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'none';
+                }
                 return;
             }
             
             // Show for external files (like images)
-            dropZoneIndicator.style.display = 'block';
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'block';
+            }
         });
         
         // Hide drop zone when leaving the document
         document.addEventListener('dragleave', (e) => {
             if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
-                dropZoneIndicator.style.display = 'none';
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'none';
+                }
             }
         });
         
         // Handle drop events
         document.addEventListener('drop', async (e) => {
             e.preventDefault();
-            dropZoneIndicator.style.display = 'none';
+            
+            // Hide the drop zone indicator
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
+            }
             
             // Skip if it's an internal drag operation
             if (this.draggedElement || this.inboxDragTarget) return;
@@ -582,6 +604,28 @@ document.addEventListener('click', (e) => {
             const y = e.clientY - rect.top;
             
             let handled = false;
+            
+            // Check if we have an arena image being dragged
+            if (this.arenaImageBeingDragged) {
+                OPTIMISM.log(`Arena image dropped, attempting to add: ${this.arenaImageBeingDragged}`);
+                this.showLoading('Adding image from Are.na...');
+                
+                try {
+                    // Process and add the image from URL
+                    await this.controller.addImageFromUrl(this.arenaImageBeingDragged, x, y);
+                    OPTIMISM.log('Successfully added Arena image to canvas');
+                    handled = true;
+                } catch (error) {
+                    OPTIMISM.logError('Error adding Arena image:', error);
+                    alert('Failed to add image from Are.na. Please try again.');
+                } finally {
+                    this.hideLoading();
+                    this.arenaImageBeingDragged = null;
+                }
+                
+                // If we've handled the Arena image, don't continue
+                if (handled) return;
+            }
             
             // First check if we have files (local files)
             if (e.dataTransfer.files.length > 0) {
@@ -4246,6 +4290,71 @@ setupArenaToggle() {
         }
     }
     
+    // Add message event listener to handle image transfers from the iframe
+    window.addEventListener('message', async (event) => {
+        // Only process messages with our specific type
+        if (event.data && event.data.type === 'arenaImageTransfer') {
+            OPTIMISM.log('Received image data from Arena iframe');
+            
+            // Get image data
+            const imageData = event.data.imageData;
+            
+            if (!imageData) {
+                OPTIMISM.logError('No image data received from Arena iframe');
+                return;
+            }
+            
+            try {
+                // Convert data URL to file
+                const res = await fetch(imageData);
+                const blob = await res.blob();
+                const file = new File([blob], 'arena-image.png', { type: 'image/png' });
+                
+                // Calculate position in the center of the viewport
+                const rect = this.workspace.getBoundingClientRect();
+                const x = rect.width / 2;
+                const y = rect.height / 2;
+                
+                OPTIMISM.log(`Adding Arena image at position (${x}, ${y})`);
+                this.showLoading('Adding image from Are.na...');
+                
+                // Add the image to the canvas
+                await this.controller.addImage(file, x, y);
+                OPTIMISM.log('Successfully added Arena image to canvas');
+            } catch (error) {
+                OPTIMISM.logError('Error processing Arena image data:', error);
+                alert('Failed to add image from Are.na. Please try again.');
+            } finally {
+                this.hideLoading();
+            }
+        }
+        
+        // Keep the existing message handling for drag events
+        else if (event.data && event.data.type === 'arenaImageDragStart') {
+            // Store the image URL for later use when dropped
+            this.arenaImageBeingDragged = event.data.imageUrl;
+            
+            // Show the drop zone indicator
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'block';
+            }
+            
+            OPTIMISM.log(`Arena image drag started: ${this.arenaImageBeingDragged}`);
+        } else if (event.data && event.data.type === 'arenaImageDragEnd') {
+            OPTIMISM.log('Arena image drag ended');
+            
+            // Don't clear the image URL immediately - wait a moment to allow for the drop
+            setTimeout(() => {
+                this.arenaImageBeingDragged = null;
+                
+                // Hide the drop zone indicator
+                if (this.dropZoneIndicator) {
+                    this.dropZoneIndicator.style.display = 'none';
+                }
+            }, 100);
+        }
+    });
+    
     // Create Arena viewport if it's enabled
     if (this.model.isArenaVisible) {
         this.updateArenaViewLayout(true);
@@ -4495,21 +4604,23 @@ setupArenaResizeDivider() {
 }
 
 setupArenaCookieHandling() {
-    // Create a storage listener for checking third-party cookies
+    // Add message event listener to handle drag events from the iframe
     window.addEventListener('message', (event) => {
-        // Only process messages from are.na domain
-        if (event.origin.includes('are.na')) {
-            try {
-                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-                
-                // Check if it's a cookie-related message
-                if (data && data.type === 'cookie-check') {
-                    OPTIMISM.log('Received cookie message from Are.na iframe');
-                    
-                    // You could implement custom handling here if needed
-                }
-            } catch (error) {
-                // Ignore parsing errors for non-JSON messages
+        if (event.data && event.data.type === 'arenaImageDragStart') {
+            // Store the image URL for later use when dropped
+            this.arenaImageBeingDragged = event.data.imageUrl;
+            
+            // Show the drop zone indicator
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'block';
+            }
+        } else if (event.data && event.data.type === 'arenaImageDragEnd') {
+            // Clear the stored image URL
+            this.arenaImageBeingDragged = null;
+            
+            // Hide the drop zone indicator
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
             }
         }
     });
