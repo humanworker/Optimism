@@ -3500,6 +3500,22 @@ updateSplitViewLayout(isEnabled) {
         
         this.rightViewport.appendChild(this.rightViewportContent);
         
+        // Create a shadow overlay for the left edge of the right viewport
+        const shadowOverlay = document.createElement('div');
+        shadowOverlay.id = 'right-viewport-shadow';
+        shadowOverlay.style.position = 'absolute';
+        shadowOverlay.style.top = '0';
+        shadowOverlay.style.left = '0';
+        shadowOverlay.style.bottom = '0';
+        shadowOverlay.style.width = '15px'; // Width of the shadow effect
+        shadowOverlay.style.pointerEvents = 'none'; // Allow click-through
+        shadowOverlay.style.zIndex = '5'; // Above content but below UI elements
+        shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
+        shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
+        
+        // Add the shadow overlay to the right viewport
+        this.rightViewport.appendChild(shadowOverlay);
+        
         // Add the divider and right viewport to the document
         document.body.appendChild(this.resizeDivider);
         document.body.appendChild(this.rightViewport);
@@ -3512,10 +3528,10 @@ updateSplitViewLayout(isEnabled) {
             // Only handle clicks on the viewport itself or the content container (empty space)
             if (e.target === this.rightViewport || 
                 (e.target === this.rightViewportContent && 
-                 e.target.textContent === 'Select a card to view contents' || 
-                 e.target.textContent === 'This card has no content' || 
-                 e.target.textContent === 'No content' ||
-                 e.target.textContent === 'Could not load content')) {
+                (e.target.textContent === 'Select a card to view contents' || 
+                e.target.textContent === 'This card has no content' || 
+                e.target.textContent === 'No content' ||
+                e.target.textContent === 'Could not load content'))) {
                 
                 // If we have a preview node, navigate to it
                 if (this.model.previewNodeId) {
@@ -3531,9 +3547,10 @@ updateSplitViewLayout(isEnabled) {
         this.renderWorkspace();
     }
     
-    // Update the button text
+    // Make sure to update the button text
     const splitViewToggle = document.getElementById('split-view-toggle');
     if (splitViewToggle) {
+        OPTIMISM.log(`Updating split view toggle text to: ${isEnabled ? 'Hide Split View' : 'Show Split View'}`);
         splitViewToggle.textContent = isEnabled ? 'Hide Split View' : 'Show Split View';
     }
 }
@@ -3679,6 +3696,9 @@ renderPreviewContent(node) {
             
             // Add visual indicator for cards with children
             if (this.model.hasChildren(element.id)) {
+                container.classList.add('has-children');
+                
+                // For all elements with children, apply the underline style directly
                 container.style.textDecoration = 'underline';
             }
             
@@ -3733,6 +3753,12 @@ renderPreviewContent(node) {
                     textDisplay.innerHTML = this.convertUrlsToLinks(element.text || '');
                 }
                 
+                // If this element has children, also apply underline to the text display
+                if (this.model.hasChildren(element.id)) {
+                    textDisplay.classList.add('has-children');
+                    textDisplay.style.textDecoration = 'underline';
+                }
+                
                 container.appendChild(textDisplay);
             } else if (element.type === 'image') {
                 // Create image preview
@@ -3766,6 +3792,31 @@ renderPreviewContent(node) {
     });
     
     this.rightViewportContent.appendChild(elementsContainer);
+    
+    // Make sure to always re-add the shadow overlay after content is loaded
+    // This ensures it stays on top of the content
+    const existingShadow = document.getElementById('right-viewport-shadow');
+    if (existingShadow) {
+        existingShadow.remove();
+    }
+    
+    const shadowOverlay = document.createElement('div');
+    shadowOverlay.id = 'right-viewport-shadow';
+    shadowOverlay.style.position = 'absolute';
+    shadowOverlay.style.top = '0';
+    shadowOverlay.style.left = '0';
+    shadowOverlay.style.bottom = '0';
+    shadowOverlay.style.width = '15px';
+    shadowOverlay.style.pointerEvents = 'none';
+    shadowOverlay.style.zIndex = '5';
+    shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
+    shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
+    
+    // Add the shadow overlay to the right viewport content
+    this.rightViewportContent.appendChild(shadowOverlay);
+    
+    // Apply global styles to ensure consistent styling for nested content
+    this.updateRightPaneNestedItemStyles();
 }
 
 // Add a new method to set up the split view toggle
@@ -3938,6 +3989,40 @@ setupResizeDivider() {
             line.style.left = '5px';
         }
     });
+}
+
+// Add this new method to the CanvasView class
+updateRightPaneNestedItemStyles() {
+    // Remove any existing style
+    const existingStyle = document.getElementById('right-pane-nested-styles');
+    if (existingStyle) {
+        existingStyle.remove();
+    }
+    
+    // Create new style element
+    const styleElement = document.createElement('style');
+    styleElement.id = 'right-pane-nested-styles';
+    styleElement.textContent = `
+        /* Ensure all elements with nested content have underline */
+        .preview-element-container.has-children {
+            text-decoration: underline !important;
+        }
+        
+        /* Ensure text displays with nested content have underline */
+        .preview-text-display.has-children {
+            text-decoration: underline !important;
+        }
+        
+        /* Ensure links in text with nested content maintain underline */
+        .preview-text-display.has-children a {
+            text-decoration: underline !important;
+        }
+    `;
+    
+    // Add to document head
+    document.head.appendChild(styleElement);
+    
+    OPTIMISM.log('Updated right pane nested item styles');
 }
     
 }

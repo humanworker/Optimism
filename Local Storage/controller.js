@@ -1218,6 +1218,13 @@ async toggleSplitView() {
     try {
         OPTIMISM.log('Toggling split view');
         const isEnabled = await this.model.toggleSplitView();
+        
+        // Get direct reference to the toggle button and update its text
+        const splitViewToggle = document.getElementById('split-view-toggle');
+        if (splitViewToggle) {
+            splitViewToggle.textContent = isEnabled ? 'Hide Split View' : 'Show Split View';
+        }
+        
         this.view.updateSplitViewLayout(isEnabled);
         OPTIMISM.log(`Split view set to ${isEnabled}`);
         return isEnabled;
