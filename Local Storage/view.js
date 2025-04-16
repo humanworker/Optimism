@@ -156,13 +156,16 @@ constructor(model, controller) {
         window.addEventListener('blur', () => {
             document.body.classList.remove('cmd-pressed');
         });
-
+    
         window.addEventListener('resize', () => {
             if (this.model.isGridVisible) {
                 this.renderGrid();
             }
         });
-    
+        
+        // Set up paste handler
+        this.setupPasteHandler();
+        
         this.setupBackupReminderModal();
         this.setupSettingsPanel();
         this.setupLockImagesToggle();
@@ -4558,6 +4561,128 @@ checkThirdPartyCookies() {
     } catch (error) {
         OPTIMISM.logError('Error checking third-party cookies:', error);
     }
+}
+
+setupPasteHandler() {
+    OPTIMISM.log('Setting up paste handler');
+    
+    document.addEventListener('paste', async (e) => {
+        // Don't handle paste when focus is in a text field
+        if (document.activeElement.tagName === 'TEXTAREA' || 
+            document.activeElement.tagName === 'INPUT') {
+            return;
+        }
+        
+        e.preventDefault();
+        
+        // Get clipboard data
+        const clipboardData = e.clipboardData || window.clipboardData;
+        
+        if (!clipboardData) {
+            OPTIMISM.logError('Clipboard data not available');
+            return;
+        }
+        
+        // Calculate position at the center of the viewport
+        const rect = this.workspace.getBoundingClientRect();
+        const x = rect.width / 2;
+        const y = rect.height / 2;
+        
+        OPTIMISM.log(`Processing paste at center position (${x}, ${y})`);
+        
+        // Check for images in the clipboard
+        const items = clipboardData.items;
+        let imageHandled = false;
+        
+        if (items) {
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    // It's an image - get as a file
+                    const file = items[i].getAsFile();
+                    if (file) {
+                        OPTIMISM.log(`Found image in clipboard: ${file.name || 'unnamed'} (${file.type})`);
+                        this.showLoading('Adding pasted image...');
+                        
+                        try {
+                            // Add the image using the existing method
+                            await this.controller.addImage(file, x, y);
+                            OPTIMISM.log('Successfully added pasted image to canvas');
+                            imageHandled = true;
+                            break; // Only handle one image
+                        } catch (error) {
+                            OPTIMISM.logError('Error adding pasted image:', error);
+                            alert('Failed to add pasted image. Please try again.');
+                        } finally {
+                            this.hideLoading();
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If no image was found, try getting text
+        if (!imageHandled) {
+            let text = clipboardData.getData('text/plain');
+            if (text && text.trim() !== '') {
+                OPTIMISM.log(`Found text in clipboard (${text.length} characters)`);
+                
+                try {
+                    // Create a new text element
+                    const element = {
+                        id: crypto.randomUUID(),
+                        type: 'text',
+                        x: x,
+                        y: y,
+                        text: text,
+                        width: 200, // Initial width will be adjusted
+                        height: 100, // Initial height will be adjusted
+                        style: {
+                            textSize: 'small',
+                            textColor: 'default',
+                            hasHeader: false
+                        },
+                        autoSize: true // Flag to indicate this element should auto-size
+                    };
+                    
+                    // Create an add element command
+                    const command = new AddElementCommand(this.model, element);
+                    
+                    // Execute the command
+                    const { result, showBackupReminder } = await this.model.execute(command);
+                    
+                    // Create and render the element
+                    const elemDOM = this.createTextElementDOM(element);
+                    
+                    // Auto-size to fit content
+                    const textarea = elemDOM.querySelector('.text-element');
+                    if (textarea && elemDOM.dataset.autoSize === 'true') {
+                        this.autoSizeElement(elemDOM, textarea);
+                        
+                        // Update the element dimensions in the model
+                        this.controller.updateElement(element.id, {
+                            width: parseInt(elemDOM.style.width),
+                            height: parseInt(elemDOM.style.height),
+                            autoSize: false // Turn off auto-size after initial sizing
+                        });
+                    }
+                    
+                    // Show backup reminder if needed
+                    if (showBackupReminder) {
+                        this.view.showBackupReminderModal();
+                    }
+                    
+                    OPTIMISM.log('Successfully added pasted text to canvas');
+                } catch (error) {
+                    OPTIMISM.logError('Error adding pasted text:', error);
+                    alert('Failed to add pasted text. Please try again.');
+                }
+            } else {
+                OPTIMISM.log('No valid content found in clipboard');
+            }
+        }
+    });
+    
+    OPTIMISM.log('Paste handler set up successfully');
 }
     
 }
