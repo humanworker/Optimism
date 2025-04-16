@@ -1260,13 +1260,23 @@ createTextElementDOM(elementData) {
     } else {
         container.style.height = `100px`; // Default height
     }
+
+    // Store autoSize flag if it exists
+if (elementData.autoSize !== undefined) {
+    container.dataset.autoSize = elementData.autoSize;
+}
+    
+    // Store autoSize flag if it exists
+    if (elementData.autoSize !== undefined) {
+        container.dataset.autoSize = elementData.autoSize;
+    }
     
     // Apply border if defined
     if (elementData.style && elementData.style.hasBorder) {
         container.classList.add('has-permanent-border');
     }
     
-    // Check if this card is locked - ADD THIS HERE
+    // Check if this card is locked
     if (this.model.isCardLocked(elementData.id)) {
         container.classList.add('card-locked');
     }
@@ -1274,7 +1284,6 @@ createTextElementDOM(elementData) {
     // Create the text editor (hidden by default)
     const textEditor = document.createElement('textarea');
     textEditor.className = 'text-element';
-    // ... rest of the method continues
     if (hasChildren) {
         textEditor.classList.add('has-children');
     }
@@ -1331,10 +1340,11 @@ createTextElementDOM(elementData) {
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
     
-    // Setup content listeners
+    // Add auto-resizing capability to the text editor
     textEditor.addEventListener('input', () => {
-        // We don't immediately update the model on every keystroke anymore
-        // Just update display for immediate feedback if needed
+        if (container.dataset.autoSize === 'true') {
+            this.autoSizeElement(container, textEditor);
+        }
     });
 
     textEditor.addEventListener('mousedown', (e) => {
@@ -1347,55 +1357,67 @@ createTextElementDOM(elementData) {
         e.stopPropagation();
     });
     
-    textEditor.addEventListener('input', () => {
-        // We don't immediately update the model on every keystroke anymore
-        // Just update display for immediate feedback if needed
+    textEditor.addEventListener('blur', () => {
+        // Get the original element's text before any changes
+        const element = this.model.findElement(elementData.id);
+        const originalText = element ? element.text : '';
+        const newText = textEditor.value;
+        
+        // Check if text is now empty (including whitespace-only)
+        if (newText.trim() === '') {
+            // The text is empty, delete the element
+            this.controller.deleteElement(elementData.id);
+            return; // Don't continue since the element is deleted
+        }
+        
+        // Only create an undo command if the text actually changed
+        if (originalText !== newText) {
+            // Get current dimensions for potential size update
+            const currentWidth = parseInt(container.style.width);
+            const currentHeight = parseInt(container.style.height);
+            
+            // If auto-sizing was enabled, include dimensions in the update
+            if (container.dataset.autoSize === 'true') {
+                this.controller.updateElementWithUndo(elementData.id, {
+                    text: newText,
+                    width: currentWidth,
+                    height: currentHeight,
+                    autoSize: false // Turn off auto-sizing after first edit
+                }, {
+                    text: originalText,
+                    width: elementData.width,
+                    height: elementData.height,
+                    autoSize: true
+                });
+            } else {
+                this.controller.updateElementWithUndo(elementData.id, {
+                    text: newText
+                }, {
+                    text: originalText
+                });
+            }
+        }
+        
+        // Don't process if element was deleted due to empty text
+        if (!this.model.findElement(elementData.id)) {
+            return;
+        }
+        
+        // Update display content with converted links and header format if needed
+        const updatedElement = this.model.findElement(elementData.id);
+        const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
+        const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
+        
+        if (hasHeader) {
+            textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
+        } else {
+            textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
+        }
+        
+        // Toggle visibility
+        textEditor.style.display = 'none';
+        textDisplay.style.display = 'block';
     });
-    
-    // In view.js, modify the blur event handler in the createTextElementDOM method
-// In view.js, modify the blur event handler in the createTextElementDOM method
-textEditor.addEventListener('blur', () => {
-    // Get the original element's text before any changes
-    const element = this.model.findElement(elementData.id);
-    const originalText = element ? element.text : '';
-    const newText = textEditor.value;
-    
-    // Check if text is now empty (including whitespace-only)
-    if (newText.trim() === '') {
-        // The text is empty, delete the element
-        this.controller.deleteElement(elementData.id);
-        return; // Don't continue since the element is deleted
-    }
-    
-    // Only create an undo command if the text actually changed
-    if (originalText !== newText) {
-        this.controller.updateElementWithUndo(elementData.id, {
-            text: newText
-        }, {
-            text: originalText
-        });
-    }
-    
-    // Don't process if element was deleted due to empty text
-    if (!this.model.findElement(elementData.id)) {
-        return;
-    }
-    
-    // Update display content with converted links and header format if needed
-    const updatedElement = this.model.findElement(elementData.id);
-    const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
-    const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
-    
-    if (hasHeader) {
-        textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
-    } else {
-        textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
-    }
-    
-    // Toggle visibility
-    textEditor.style.display = 'none';
-    textDisplay.style.display = 'block';
-});
 
     // Handle link clicks within the display div
     textDisplay.addEventListener('click', (e) => {
@@ -1495,6 +1517,10 @@ textEditor.addEventListener('blur', () => {
     
     // Add to workspace
     this.workspace.appendChild(container);
+    
+    // If this is a new element with auto-size enabled and text is blank,
+    // we'll let the input handler take care of sizing it
+    
     return container;
 }
     
@@ -1949,10 +1975,75 @@ document.addEventListener('drop', (e) => {
                 }
             } else {
                 // For text elements, use original constraints
-                newWidth = Math.max(100, this.initialWidth + deltaWidth);
+                newWidth = Math.max(30, this.initialWidth + deltaWidth);
                 newHeight = Math.max(30, this.initialHeight + deltaHeight);
             }
             
+            // Check for grid snapping if grid is visible
+            if (this.model.isGridVisible) {
+                // Get the position of the element
+                const elementRect = this.resizingElement.getBoundingClientRect();
+                const workspaceRect = this.workspace.getBoundingClientRect();
+                
+                // Calculate current right and bottom edges relative to workspace
+                const elementLeft = elementRect.left - workspaceRect.left;
+                const elementTop = elementRect.top - workspaceRect.top;
+                const rightEdge = elementLeft + newWidth;
+                const bottomEdge = elementTop + newHeight;
+                
+                // Debug info
+                OPTIMISM.log(`Resizing: Right edge at ${rightEdge}, Bottom edge at ${bottomEdge}`);
+                
+                // Get all vertical grid lines for right edge snapping
+                const vertLines = Array.from(document.querySelectorAll('.grid-line-vertical'));
+                if (vertLines.length > 0) {
+                    OPTIMISM.log(`Found ${vertLines.length} vertical grid lines`);
+                    
+                    // Sort by distance to right edge
+                    vertLines.sort((a, b) => {
+                        const aPos = parseInt(a.style.left);
+                        const bPos = parseInt(b.style.left);
+                        return Math.abs(rightEdge - aPos) - Math.abs(rightEdge - bPos);
+                    });
+                    
+                    // Get the closest line
+                    const closestLine = vertLines[0];
+                    const lineX = parseInt(closestLine.style.left);
+                    
+                    // If the right edge is within 10px of a grid line, snap to it
+                    if (Math.abs(rightEdge - lineX) < 10) {
+                        OPTIMISM.log(`Snapping right edge to grid line at ${lineX}`);
+                        // Adjust width to snap the right edge to the grid line
+                        newWidth = lineX - elementLeft;
+                    }
+                }
+                
+                // Get all horizontal grid lines for bottom edge snapping
+                const horzLines = Array.from(document.querySelectorAll('.grid-line-horizontal'));
+                if (horzLines.length > 0) {
+                    OPTIMISM.log(`Found ${horzLines.length} horizontal grid lines`);
+                    
+                    // Sort by distance to bottom edge
+                    horzLines.sort((a, b) => {
+                        const aPos = parseInt(a.style.top);
+                        const bPos = parseInt(b.style.top);
+                        return Math.abs(bottomEdge - aPos) - Math.abs(bottomEdge - bPos);
+                    });
+                    
+                    // Get the closest line
+                    const closestLine = horzLines[0];
+                    const lineY = parseInt(closestLine.style.top);
+                    
+                    // If the bottom edge is within 10px of a grid line, snap to it
+                    if (Math.abs(bottomEdge - lineY) < 10) {
+                        OPTIMISM.log(`Snapping bottom edge to grid line at ${lineY}`);
+                        // Adjust height to snap the bottom edge to the grid line
+                        newHeight = lineY - elementTop;
+                    }
+                }
+            }
+            
+            // Apply the final dimensions
             this.resizingElement.style.width = `${newWidth}px`;
             this.resizingElement.style.height = `${newHeight}px`;
             
@@ -1960,60 +2051,55 @@ document.addEventListener('drop', (e) => {
         }
         
         // Handle dragging
-// Modify the mousemove event handler in setupDragListeners method in view.js
-// Find the section handling dragging in document.addEventListener('mousemove', (e) => {...})
-
-// Replace or modify the dragging section to add snapping:
-// Handle dragging
-if (!this.draggedElement) return;
-
-// Don't drag images if they're locked
-if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
-    return;
-}
-
-// Calculate new position
-let newX = e.clientX - this.elemOffsetX;
-let newY = e.clientY - this.elemOffsetY;
-
-// Check for grid snapping if grid is visible
-if (this.model.isGridVisible) {
-    // Get grid lines
-    const gridContainer = document.getElementById('grid-container');
-    if (gridContainer) {
-        const vertLines = gridContainer.querySelectorAll('.grid-line-vertical');
-        const horzLines = gridContainer.querySelectorAll('.grid-line-horizontal');
-        
-        // Check for vertical line snapping
-        vertLines.forEach(line => {
-            const lineX = parseInt(line.style.left);
-            // If within 10px of the line, snap to it
-            if (Math.abs(newX - lineX) < 10) {
-                newX = lineX;
-            }
-        });
-        
-        // Check for horizontal line snapping
-        horzLines.forEach(line => {
-            const lineY = parseInt(line.style.top);
-            // If within 10px of the line, snap to it
-            if (Math.abs(newY - lineY) < 10) {
-                newY = lineY;
-            }
-        });
-    }
-}
-
-// Update both style and dataset for consistency
-this.draggedElement.style.left = `${newX}px`;
-this.draggedElement.style.top = `${newY}px`;
-this.draggedElement.dataset.numX = newX;
-this.draggedElement.dataset.numY = newY;
-
-// Highlight potential drop targets
-this.handleDragOver(e);
-    });
+        if (!this.draggedElement) return;
     
+        // Don't drag images if they're locked
+        if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
+            return;
+        }
+    
+        // Calculate new position
+        let newX = e.clientX - this.elemOffsetX;
+        let newY = e.clientY - this.elemOffsetY;
+    
+        // Check for grid snapping if grid is visible
+        if (this.model.isGridVisible) {
+            // Get grid lines
+            const gridContainer = document.getElementById('grid-container');
+            if (gridContainer) {
+                const vertLines = gridContainer.querySelectorAll('.grid-line-vertical');
+                const horzLines = gridContainer.querySelectorAll('.grid-line-horizontal');
+                
+                // Check for vertical line snapping
+                vertLines.forEach(line => {
+                    const lineX = parseInt(line.style.left);
+                    // If within 10px of the line, snap to it
+                    if (Math.abs(newX - lineX) < 10) {
+                        newX = lineX;
+                    }
+                });
+                
+                // Check for horizontal line snapping
+                horzLines.forEach(line => {
+                    const lineY = parseInt(line.style.top);
+                    // If within 10px of the line, snap to it
+                    if (Math.abs(newY - lineY) < 10) {
+                        newY = lineY;
+                    }
+                });
+            }
+        }
+    
+        // Update both style and dataset for consistency
+        this.draggedElement.style.left = `${newX}px`;
+        this.draggedElement.style.top = `${newY}px`;
+        this.draggedElement.dataset.numX = newX;
+        this.draggedElement.dataset.numY = newY;
+    
+        // Highlight potential drop targets
+        this.handleDragOver(e);
+    });
+
     // In view.js - partial update to the mouseup event handler in setupDragListeners
 document.addEventListener('mouseup', (e) => {
     // Handle end of resizing
@@ -4023,6 +4109,64 @@ updateRightPaneNestedItemStyles() {
     document.head.appendChild(styleElement);
     
     OPTIMISM.log('Updated right pane nested item styles');
+}
+
+autoSizeElement(container, textarea) {
+    // First, create a hidden div to measure text dimensions
+    let measurer = document.getElementById('text-size-measurer');
+    if (!measurer) {
+        measurer = document.createElement('div');
+        measurer.id = 'text-size-measurer';
+        measurer.style.position = 'absolute';
+        measurer.style.visibility = 'hidden';
+        measurer.style.height = 'auto';
+        measurer.style.width = 'auto';
+        measurer.style.whiteSpace = 'pre-wrap';
+        measurer.style.padding = '8px'; // Match textarea padding
+        measurer.style.boxSizing = 'border-box';
+        measurer.style.overflow = 'hidden';
+        document.body.appendChild(measurer);
+    }
+    
+    // Copy styling from the textarea to the measurer
+    const computedStyle = window.getComputedStyle(textarea);
+    
+    measurer.style.fontFamily = computedStyle.fontFamily;
+    measurer.style.fontSize = computedStyle.fontSize;
+    measurer.style.fontWeight = computedStyle.fontWeight;
+    measurer.style.lineHeight = computedStyle.lineHeight;
+    measurer.style.letterSpacing = computedStyle.letterSpacing;
+    
+    // Calculate maximum width (30% of window width)
+    const maxWidth = Math.floor(window.innerWidth * 0.3);
+    
+    // First calculate width with no constraints to see minimum needed width
+    measurer.style.maxWidth = 'none';
+    measurer.style.width = 'auto';
+    
+    // Set the measurer's content to the textarea's content, replacing line breaks with <br>
+    // We need to use innerHTML to properly handle line breaks
+    measurer.innerHTML = textarea.value.replace(/\n/g, '<br>');
+    
+    // Get the width the text would naturally take (up to max width)
+    let naturalWidth = Math.min(measurer.scrollWidth + 20, maxWidth); // Add 20px padding
+    
+    // Also calculate height when constrained to this width
+    measurer.style.width = `${naturalWidth}px`;
+    let contentHeight = measurer.scrollHeight + 20; // Add 20px padding
+    
+    // Ensure minimum sizes
+    naturalWidth = Math.max(naturalWidth, 30);
+    contentHeight = Math.max(contentHeight, 30);
+    
+    // Set the container dimensions
+    container.style.width = `${naturalWidth}px`;
+    container.style.height = `${contentHeight}px`;
+    
+    // Clear the measurer for next use
+    measurer.innerHTML = '';
+    
+    OPTIMISM.log(`Auto-sized element to: ${naturalWidth}x${contentHeight}`);
 }
     
 }

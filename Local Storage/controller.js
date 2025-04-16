@@ -42,59 +42,64 @@ async initialize() {
     }
 }
 
-    async createElement(x, y) {
-        if (!this.isInitialized) {
-            OPTIMISM.logError('Cannot create element: application not initialized');
-            return;
+async createElement(x, y) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot create element: application not initialized');
+        return;
+    }
+    
+    try {
+        OPTIMISM.log(`Creating text element at position (${x}, ${y})`);
+        
+        // Calculate default width as 30% of the window width
+        const maxWidth = Math.floor(window.innerWidth * 0.3);
+        
+        const element = {
+            id: crypto.randomUUID(),
+            type: 'text',
+            x: x,
+            y: y,
+            text: '',
+            width: 200, // Initial width will be adjusted when text is added
+            height: 100, // Initial height will be adjusted when text is added
+            style: {
+                textSize: 'small', // Default text size
+                textColor: 'default', // Default text color
+                hasHeader: false // Default header setting
+            },
+            autoSize: true // Flag to indicate this element should auto-size
+        };
+        
+        // Create an add element command
+        const command = new AddElementCommand(this.model, element);
+        
+        // Execute the command
+        const { result, showBackupReminder } = await this.model.execute(command);
+        
+        const elemDOM = this.view.createTextElementDOM(element);
+        
+        // Find and focus the textarea inside the container
+        const textarea = elemDOM.querySelector('.text-element');
+        if (textarea) {
+            textarea.style.display = 'block';
+            const display = elemDOM.querySelector('.text-display');
+            if (display) display.style.display = 'none';
+            textarea.focus();
         }
         
-        try {
-            OPTIMISM.log(`Creating text element at position (${x}, ${y})`);
-            const element = {
-                id: crypto.randomUUID(),
-                type: 'text',
-                x: x,
-                y: y,
-                text: '',
-                width: 200,
-                height: 100,
-                style: {
-                    textSize: 'small', // Default text size
-                    textColor: 'default', // Default text color
-                    hasHeader: false // Default header setting
-                }
-            };
-            
-            // Create an add element command
-            const command = new AddElementCommand(this.model, element);
-            
-            // Execute the command
-            const { result, showBackupReminder } = await this.model.execute(command);
-            
-            const elemDOM = this.view.createTextElementDOM(element);
-            
-            // Find and focus the textarea inside the container
-            const textarea = elemDOM.querySelector('.text-element');
-            if (textarea) {
-                textarea.style.display = 'block';
-                const display = elemDOM.querySelector('.text-display');
-                if (display) display.style.display = 'none';
-                textarea.focus();
-            }
-            
-            // Update undo/redo buttons
-            this.view.updateUndoRedoButtons();
-            
-            // Show backup reminder if needed
-            if (showBackupReminder) {
-                this.view.showBackupReminderModal();
-            }
-            
-            OPTIMISM.log('Text element created successfully');
-        } catch (error) {
-            OPTIMISM.logError('Error creating element:', error);
+        // Update undo/redo buttons
+        this.view.updateUndoRedoButtons();
+        
+        // Show backup reminder if needed
+        if (showBackupReminder) {
+            this.view.showBackupReminderModal();
         }
+        
+        OPTIMISM.log('Text element created successfully');
+    } catch (error) {
+        OPTIMISM.logError('Error creating element:', error);
     }
+}
     
     async addImage(file, x, y) {
         if (!this.isInitialized) {
