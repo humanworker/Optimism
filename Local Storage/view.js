@@ -4319,7 +4319,7 @@ updateArenaViewLayout(isEnabled) {
         // Create and add the iframe to load are.na
 const arenaIframe = document.createElement('iframe');
 arenaIframe.id = 'arena-iframe';
-arenaIframe.src = 'https://www.are.na';
+arenaIframe.src = './arena/index.html';
 arenaIframe.style.width = '100%';
 arenaIframe.style.height = '100%';
 arenaIframe.style.border = 'none';

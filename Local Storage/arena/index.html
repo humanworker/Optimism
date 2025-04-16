@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Are.na Viewer</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 100%;
+            padding: 0;
+            margin: 0;
+            background-color: #f9f9f9;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        
+        header {
+            padding: 15px 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        h1 {
+            font-size: 1.3rem;
+            font-weight: 500;
+        }
+        
+        .blocks-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .block {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            overflow: hidden;
+            transition: transform 0.2s ease;
+            position: relative;
+        }
+        
+        .block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .block-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .block-content {
+            padding: 12px;
+        }
+        
+        .block-text {
+            margin-bottom: 8px;
+            white-space: pre-wrap;
+        }
+        
+        .block-title {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .block-link {
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .block-meta {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 8px;
+        }
+        
+        .load-more {
+            background: white;
+            border: 1px solid #eee;
+            color: #333;
+            padding: 10px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 20px auto;
+            display: block;
+            text-align: center;
+        }
+        
+        .load-more:hover {
+            background: #f5f5f5;
+        }
+        
+        .loader {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+        
+        .error {
+            background: #fff0f0;
+            color: #d85050;
+            padding: 15px;
+            border-radius: 3px;
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .config-form {
+            background: white;
+            border: 1px solid #eee;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 3px;
+        }
+
+        .config-form label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .config-form input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
+        .config-form button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        #search-form {
+            display: flex;
+            gap: 5px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #search-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
+        #search-button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .channel-card {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .channel-card:hover {
+            border-color: #4a90e2;
+        }
+
+        .channel-title {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .channel-meta {
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .back-button {
+            background: #f0f0f0;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .back-button:hover {
+            background: #e0e0e0;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            header {
+                padding: 10px 0;
+            }
+            
+            h1 {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Are.na Viewer</h1>
+            
+            <div id="search-form">
+                <input type="text" id="search-input" placeholder="Search for channels...">
+                <button id="search-button">Search</button>
+            </div>
+        </header>
+        
+        <div id="loading" class="loader">Loading...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="view-controls" style="display: none;">
+            <button id="back-button" class="back-button">« Back to Search</button>
+        </div>
+        
+        <div id="channels-container" class="blocks-container"></div>
+        <div id="blocks-container" class="blocks-container" style="display: none;"></div>
+        
+        <button id="load-more" class="load-more" style="display: none;">Load More</button>
+    </div>
+
+    <script>
+        // State
+        let currentPage = 1;
+        let hasMoreItems = true;
+        let currentView = 'search'; // 'search' or 'channel'
+        let currentChannelSlug = null;
+        const PER_PAGE = 20;
+        
+        // DOM Elements
+        const loadingElement = document.getElementById('loading');
+        const errorElement = document.getElementById('error');
+        const loadMoreButton = document.getElementById('load-more');
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const channelsContainer = document.getElementById('channels-container');
+        const blocksContainer = document.getElementById('blocks-container');
+        const viewControls = document.getElementById('view-controls');
+        const backButton = document.getElementById('back-button');
+        
+        // Event Listeners
+        searchButton.addEventListener('click', () => {
+            const query = searchInput.value.trim();
+            if (query) {
+                searchChannels(query);
+            }
+        });
+        
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim();
+                if (query) {
+                    searchChannels(query);
+                }
+            }
+        });
+        
+        loadMoreButton.addEventListener('click', () => {
+            currentPage++;
+            if (currentView === 'search') {
+                const query = searchInput.value.trim();
+                if (query) {
+                    searchChannels(query, true);
+                }
+            } else if (currentView === 'channel') {
+                loadChannelBlocks(currentChannelSlug, true);
+            }
+        });
+        
+        backButton.addEventListener('click', () => {
+            showSearchView();
+        });
+        
+        // Functions
+        function showError(message) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            loadingElement.style.display = 'none';
+        }
+        
+        function hideError() {
+            errorElement.style.display = 'none';
+        }
+        
+        function showLoading() {
+            loadingElement.style.display = 'block';
+            loadMoreButton.style.display = 'none';
+        }
+        
+        function hideLoading() {
+            loadingElement.style.display = 'none';
+        }
+        
+        function showSearchView() {
+            currentView = 'search';
+            blocksContainer.style.display = 'none';
+            channelsContainer.style.display = 'block';
+            viewControls.style.display = 'none';
+        }
+        
+        function showChannelView() {
+            currentView = 'channel';
+            blocksContainer.style.display = 'block';
+            channelsContainer.style.display = 'none';
+            viewControls.style.display = 'block';
+        }
+        
+        async function searchChannels(query, appendResults = false) {
+            if (!query) return;
+            
+            if (!appendResults) {
+                channelsContainer.innerHTML = '';
+                currentPage = 1;
+                hasMoreItems = true;
+            }
+            
+            hideError();
+            showLoading();
+            
+            try {
+                const url = `https://api.are.na/v2/search/channels?q=${encodeURIComponent(query)}&per=${PER_PAGE}&page=${currentPage}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API Error:', response.status, response.statusText, errorText);
+                    throw new Error(`Failed to search: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.channels && data.channels.length > 0) {
+                    renderChannels(data.channels);
+                    hasMoreItems = data.channels.length === PER_PAGE;
+                } else {
+                    if (currentPage === 1) {
+                        channelsContainer.innerHTML = '<div class="block-content">No channels found.</div>';
+                    }
+                    hasMoreItems = false;
+                }
+                
+                loadMoreButton.style.display = hasMoreItems ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error searching channels:', error);
+                showError(`Search error: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function renderChannels(channels) {
+            channels.forEach(channel => {
+                const channelElement = document.createElement('div');
+                channelElement.className = 'channel-card';
+                channelElement.innerHTML = `
+                    <div class="channel-title">${channel.title}</div>
+                    <div class="channel-meta">
+                        ${channel.user ? `By ${channel.user.full_name || channel.user.username}` : ''}
+                        • ${channel.length} blocks
+                    </div>
+                `;
+                
+                channelElement.addEventListener('click', () => {
+                    loadChannelBlocks(channel.slug);
+                });
+                
+                channelsContainer.appendChild(channelElement);
+            });
+        }
+        
+        async function loadChannelBlocks(channelSlug, appendResults = false) {
+            if (!channelSlug) return;
+            
+            currentChannelSlug = channelSlug;
+            
+            if (!appendResults) {
+                blocksContainer.innerHTML = '';
+                currentPage = 1;
+                hasMoreItems = true;
+                showChannelView();
+            }
+            
+            hideError();
+            showLoading();
+            
+            try {
+                const url = `https://api.are.na/v2/channels/${encodeURIComponent(channelSlug)}?per=${PER_PAGE}&page=${currentPage}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API Error:', response.status, response.statusText, errorText);
+                    throw new Error(`Failed to load channel: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Update title with channel name
+                document.querySelector('h1').textContent = data.title || 'Are.na Viewer';
+                
+                if (data.contents && data.contents.length > 0) {
+                    renderBlocks(data.contents);
+                    hasMoreItems = currentPage * PER_PAGE < data.length; // Check if there are more items based on total channel length
+                } else {
+                    if (currentPage === 1) {
+                        blocksContainer.innerHTML = '<div class="block-content">No blocks found in this channel.</div>';
+                    }
+                    hasMoreItems = false;
+                }
+                
+                loadMoreButton.style.display = hasMoreItems ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error loading channel:', error);
+                showError(`Channel error: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function renderBlocks(blocks) {
+            blocks.forEach(block => {
+                const blockElement = document.createElement('div');
+                blockElement.className = 'block';
+                
+                let content = '';
+                
+                switch(block.class) {
+                    case 'Image':
+                        if (block.image && block.image.display) {
+                            content = `
+                                <a href="${block.image.original.url}" target="_blank" class="block-link">
+                                    <img src="${block.image.display.url}" alt="${block.title || 'Image'}" class="block-image">
+                                </a>
+                                ${block.title ? `<div class="block-content block-title">${block.title}</div>` : ''}
+                                ${block.description ? `<div class="block-content block-text">${block.description}</div>` : ''}
+                            `;
+                        } else {
+                            content = `
+                                <div class="block-content">
+                                    ${block.title ? `<div class="block-title">${block.title}</div>` : ''}
+                                    <div class="block-text">Image unavailable</div>
+                                </div>
+                            `;
+                        }
+                        break;
+                        
+                    case 'Text':
+                        content = `
+                            <div class="block-content">
+                                ${block.title ? `<div class="block-title">${block.title}</div>` : ''}
+                                <div class="block-text">${block.content_html || block.content}</div>
+                            </div>
+                        `;
+                        break;
+                        
+                    case 'Link':
+                        content = `
+                            <div class="block-content">
+                                <a href="${block.source ? block.source.url : '#'}" target="_blank" class="block-link">
+                                    ${block.title ? `<div class="block-title">${block.title}</div>` : ''}
+                                    <div class="block-text">${block.description || ''}</div>
+                                    ${block.source ? `<div class="block-meta">${block.source.url}</div>` : ''}
+                                </a>
+                            </div>
+                        `;
+                        if (block.image && block.image.display) {
+                            content = `
+                                <a href="${block.source ? block.source.url : '#'}" target="_blank" class="block-link">
+                                    <img src="${block.image.display.url}" alt="${block.title || 'Link'}" class="block-image">
+                                </a>
+                            ` + content;
+                        }
+                        break;
+                        
+                    case 'Attachment':
+                    case 'Media':
+                        if (block.attachment && block.attachment.url) {
+                            content = `
+                                <div class="block-content">
+                                    <a href="${block.attachment.url}" target="_blank" class="block-link">
+                                        ${block.title ? `<div class="block-title">${block.title}</div>` : ''}
+                                        <div class="block-meta">Download attachment</div>
+                                    </a>
+                                </div>
+                            `;
+                        } else {
+                            content = `
+                                <div class="block-content">
+                                    ${block.title ? `<div class="block-title">${block.title}</div>` : ''}
+                                    <div class="block-text">Attachment unavailable</div>
+                                </div>
+                            `;
+                        }
+                        break;
+                        
+                    default:
+                        content = `
+                            <div class="block-content">
+                                ${block.title ? `<div class="block-title">${block.title}</div>` : ''}
+                                <div class="block-text">${block.content_html || block.content || 'No content'}</div>
+                            </div>
+                        `;
+                }
+                
+                blockElement.innerHTML = content;
+                blocksContainer.appendChild(blockElement);
+            });
+        }
+        
+        // Initialize with a sample search
+        searchChannels('art');
+    </script>
+</body>
+</html>
