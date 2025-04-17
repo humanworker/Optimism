@@ -168,7 +168,7 @@ constructor(model, controller) {
         
         this.setupBackupReminderModal();
         this.setupSettingsPanel();
-        this.setupLockImagesToggle();
+        this.setupLockImagesToggle(); // Still call this but it won't create the button
         this.setupQuickLinks();
         this.setupQuickLinkDragEvents();
         this.setupInboxPanel(); // Set up the inbox panel
@@ -194,46 +194,20 @@ constructor(model, controller) {
             }
         });
         
-        // Add Copy Link button
-        const copyLinkButton = document.createElement('button');
-        copyLinkButton.id = 'copy-link-button';
-        copyLinkButton.className = 'nav-link';
-        copyLinkButton.textContent = 'Copy Link';
-        copyLinkButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(window.location.href)
-                .then(() => {
-                    OPTIMISM.log('URL copied to clipboard');
-                })
-                .catch(err => {
-                    OPTIMISM.logError('Could not copy URL:', err);
-                });
-        });
-        
-        // Add the copy link button to the right controls section
-        const rightControls = document.getElementById('right-controls');
-        if (rightControls) {
-            // Add before the first button (or at the start if no buttons)
-            if (rightControls.firstChild) {
-                rightControls.insertBefore(copyLinkButton, rightControls.firstChild);
-            } else {
-                rightControls.appendChild(copyLinkButton);
-            }
-        }
-
         // Add global style for resize operations
-    const resizeStyle = document.createElement('style');
-    resizeStyle.textContent = `
-        body.resizing-split-view,
-        body.resizing-arena-view {
-            cursor: col-resize !important;
-        }
-        body.resizing-split-view *,
-        body.resizing-arena-view * {
-            cursor: col-resize !important;
-        }
-    `;
-    document.head.appendChild(resizeStyle);
-        
+        const resizeStyle = document.createElement('style');
+        resizeStyle.textContent = `
+            body.resizing-split-view,
+            body.resizing-arena-view {
+                cursor: col-resize !important;
+            }
+            body.resizing-split-view *,
+            body.resizing-arena-view * {
+                cursor: col-resize !important;
+            }
+        `;
+        document.head.appendChild(resizeStyle);
+            
         // Workspace double-click to create new elements
         this.workspace.addEventListener('dblclick', (e) => {
             // Ignore if click was on an element or if modifier key is pressed
@@ -291,15 +265,15 @@ constructor(model, controller) {
                 this.controller.redo();
                 e.preventDefault();
             }
-
+    
             // Toggle inbox panel with 'I' key
-    if (e.key.toLowerCase() === 'i' && 
-    document.activeElement.tagName !== 'TEXTAREA' && 
-    document.activeElement.tagName !== 'INPUT') {
-    e.preventDefault();
-    this.controller.toggleInboxVisibility();
-}
-            
+            if (e.key.toLowerCase() === 'i' && 
+               document.activeElement.tagName !== 'TEXTAREA' && 
+               document.activeElement.tagName !== 'INPUT') {
+               e.preventDefault();
+               this.controller.toggleInboxVisibility();
+            }
+                
             // Style shortcuts (only when an element is selected and not in edit mode)
             if (this.model.selectedElement && 
                 document.activeElement.tagName !== 'TEXTAREA') {
@@ -395,16 +369,16 @@ constructor(model, controller) {
                         styleUpdated = true;
                         e.preventDefault();
                     }
-
+    
                     // 8 = move to inbox
-else if (e.key === '8') {
-    // Only if an element is selected
-    if (this.model.selectedElement) {
-        this.controller.moveToInbox(this.model.selectedElement);
-        this.stylePanel.style.display = 'none'; // Hide style panel after moving
-        e.preventDefault();
-    }
-}
+                    else if (e.key === '8') {
+                        // Only if an element is selected
+                        if (this.model.selectedElement) {
+                            this.controller.moveToInbox(this.model.selectedElement);
+                            this.stylePanel.style.display = 'none'; // Hide style panel after moving
+                            e.preventDefault();
+                        }
+                    }
                     
                     // 9 = toggle card lock
                     else if (e.key === '9') {
@@ -433,41 +407,40 @@ else if (e.key === '8') {
         });
         
         // Close style panel when clicking outside
-        // In setupEventListeners method in view.js, modify the document click handler
-document.addEventListener('click', (e) => {
-    // If clicking outside of both the style panel and any element
-    if (!this.stylePanel.contains(e.target) && 
-        !e.target.closest('.element-container') && 
-        this.stylePanel.style.display === 'block') {
-        this.stylePanel.style.display = 'none';
-    }
-    
-    // Add this new section to close the settings panel
-    if (!this.settingsPanel.contains(e.target) && 
-        e.target !== this.settingsToggle && 
-        this.settingsPanel.style.display === 'block') {
-        this.settingsPanel.style.display = 'none';
-    }
-    
-    // Close grid panel when clicking outside
-    const gridPanel = document.getElementById('grid-panel');
-    const gridToggle = document.getElementById('grid-toggle');
-    if (gridPanel && 
-        !gridPanel.contains(e.target) && 
-        e.target !== gridToggle && 
-        gridPanel.style.display === 'block') {
-        gridPanel.style.display = 'none';
-    }
-    
-    // Close inbox panel when clicking outside
-    if (!this.inboxPanel.contains(e.target) && 
-        e.target !== this.inboxToggle && 
-        this.inboxPanel.style.display === 'block') {
-        this.inboxPanel.style.display = 'none';
-        this.model.isInboxVisible = false;
-        this.model.saveAppState();
-    }
-});
+        document.addEventListener('click', (e) => {
+            // If clicking outside of both the style panel and any element
+            if (!this.stylePanel.contains(e.target) && 
+                !e.target.closest('.element-container') && 
+                this.stylePanel.style.display === 'block') {
+                this.stylePanel.style.display = 'none';
+            }
+            
+            // Add this new section to close the settings panel
+            if (!this.settingsPanel.contains(e.target) && 
+                e.target !== this.settingsToggle && 
+                this.settingsPanel.style.display === 'block') {
+                this.settingsPanel.style.display = 'none';
+            }
+            
+            // Close grid panel when clicking outside
+            const gridPanel = document.getElementById('grid-panel');
+            const gridToggle = document.getElementById('grid-toggle');
+            if (gridPanel && 
+                !gridPanel.contains(e.target) && 
+                e.target !== gridToggle && 
+                gridPanel.style.display === 'block') {
+                gridPanel.style.display = 'none';
+            }
+            
+            // Close inbox panel when clicking outside
+            if (!this.inboxPanel.contains(e.target) && 
+                e.target !== this.inboxToggle && 
+                this.inboxPanel.style.display === 'block') {
+                this.inboxPanel.style.display = 'none';
+                this.model.isInboxVisible = false;
+                this.model.saveAppState();
+            }
+        });
         
         // Setup export/import buttons
         this.setupExportImport();
@@ -2433,7 +2406,6 @@ findBreadcrumbDropTarget(e) {
     return null;
 }
 
-// In view.js - Modify setupSettingsPanel
 setupSettingsPanel() {
     OPTIMISM.log('Setting up settings panel');
     
@@ -2461,11 +2433,47 @@ setupSettingsPanel() {
     if (redoButton && redoButton.parentElement) {
         // Insert after redo button
         const nextElement = redoButton.parentElement.nextElementSibling;
+        
+        // Create "Copy Link" option
+        const copyLinkOption = document.createElement('div');
+        copyLinkOption.className = 'settings-option';
+        copyLinkOption.innerHTML = '<a href="#" class="option-value" id="settings-copy-link-button">Copy Link</a>';
+        
+        // Create "Lock Images" option
+        const lockImagesOption = document.createElement('div');
+        lockImagesOption.className = 'settings-option';
+        lockImagesOption.innerHTML = '<a href="#" class="option-value" id="settings-lock-images-button">' + 
+            (this.model.imagesLocked ? 'Unlock Images' : 'Lock Images') + '</a>';
+        
+        // Add the new options after redo button
         if (nextElement) {
-            this.settingsPanel.insertBefore(gridSettingsOption, nextElement);
+            this.settingsPanel.insertBefore(lockImagesOption, nextElement);
+            this.settingsPanel.insertBefore(copyLinkOption, lockImagesOption);
+            this.settingsPanel.insertBefore(gridSettingsOption, copyLinkOption);
         } else {
+            this.settingsPanel.appendChild(copyLinkOption);
+            this.settingsPanel.appendChild(lockImagesOption);
             this.settingsPanel.appendChild(gridSettingsOption);
         }
+        
+        // Set up event handlers for the new options
+        document.getElementById('settings-copy-link-button')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            navigator.clipboard.writeText(window.location.href)
+                .then(() => {
+                    OPTIMISM.log('URL copied to clipboard');
+                })
+                .catch(err => {
+                    OPTIMISM.logError('Could not copy URL:', err);
+                });
+        });
+        
+        document.getElementById('settings-lock-images-button')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleImagesLocked();
+        });
     } else {
         // If we can't find the redo button, just add it to the settings panel
         this.settingsPanel.appendChild(gridSettingsOption);
@@ -2557,50 +2565,28 @@ findHighestImageZIndex() {
     return Math.min(maxZIndex, 99);
 }
 
-// Update the setupLockImagesToggle method in CanvasView
 setupLockImagesToggle() {
     OPTIMISM.log('Setting up lock images toggle');
     
-    // Create the lock images button
-    const lockImagesButton = document.createElement('button');
-    lockImagesButton.id = 'lock-images-button';
-    lockImagesButton.className = 'nav-link';
-    lockImagesButton.textContent = this.model.imagesLocked ? 'Unlock Images' : 'Lock Images';
-    
-    // Add click event listener
-    lockImagesButton.addEventListener('click', () => {
-        this.toggleImagesLocked();
-    });
-    
-    // Add button to the right controls section
-    const rightControls = document.getElementById('right-controls');
-    if (rightControls) {
-        // Add after the Copy Link button
-        const copyLinkButton = document.getElementById('copy-link-button');
-        if (copyLinkButton && copyLinkButton.nextSibling) {
-            rightControls.insertBefore(lockImagesButton, copyLinkButton.nextSibling);
-        } else if (copyLinkButton) {
-            rightControls.insertBefore(lockImagesButton, rightControls.firstChild.nextSibling);
-        } else {
-            rightControls.insertBefore(lockImagesButton, rightControls.firstChild);
-        }
-    }
-    
-    // Store reference to the button
-    this.lockImagesButton = lockImagesButton;
+    // Note: We're not creating the button here anymore since it's in the settings panel
+    // But we still need to store a reference to the button for updating later
+    this.lockImagesButton = document.getElementById('settings-lock-images-button');
     
     OPTIMISM.log('Lock images toggle set up successfully');
 }
 
-// Modify the toggleImagesLocked method in CanvasView to use the controller
 toggleImagesLocked() {
     this.controller.toggleImagesLocked().then(isLocked => {
-        this.lockImagesButton.textContent = isLocked ? "Unlock Images" : "Lock Images";
+        // Update the button text in the settings panel
+        const settingsButton = document.getElementById('settings-lock-images-button');
+        if (settingsButton) {
+            settingsButton.textContent = isLocked ? "Unlock Images" : "Lock Images";
+        }
+        
         this.updateImagesLockState();
     });
 }
 
-// Modify the updateImagesLockState method in CanvasView to accept an optional parameter
 updateImagesLockState(isLocked) {
     // Use the provided isLocked value if passed, otherwise use the model's value
     const imagesLocked = isLocked !== undefined ? isLocked : this.model.imagesLocked;
@@ -2646,6 +2632,12 @@ updateImagesLockState(isLocked) {
         `;
     } else {
         styleElem.textContent = '';
+    }
+    
+    // Update the button text in settings panel
+    const settingsButton = document.getElementById('settings-lock-images-button');
+    if (settingsButton) {
+        settingsButton.textContent = imagesLocked ? "Unlock Images" : "Lock Images";
     }
 }
 
