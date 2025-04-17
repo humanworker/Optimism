@@ -372,6 +372,8 @@ if (styleProperties.isLocked !== undefined) {
         
         try {
             OPTIMISM.log(`Deleting element ${id}`);
+            const gridWasVisible = this.model.isGridVisible; // Store grid state
+            
             // Create a delete element command
             const command = new DeleteElementCommand(this.model, id);
             
@@ -381,6 +383,14 @@ if (styleProperties.isLocked !== undefined) {
             if (result) {
                 OPTIMISM.log('Element deleted successfully');
                 this.view.renderWorkspace();
+                
+                // Restore grid if it was visible
+                if (gridWasVisible && !this.model.isGridVisible) {
+                    this.model.isGridVisible = true;
+                    this.view.updateGridVisibility(true);
+                    await this.model.saveAppState();
+                }
+                
                 this.view.updateUndoRedoButtons();
                 
                 // Show backup reminder if needed
@@ -475,6 +485,8 @@ if (styleProperties.isLocked !== undefined) {
         
         try {
             OPTIMISM.log(`Navigating to element ${id}`);
+            const gridWasVisible = this.model.isGridVisible; // Store grid state
+            
             if (await this.model.navigateToElement(id)) {
                 OPTIMISM.log('Navigation successful');
                 
@@ -483,6 +495,13 @@ if (styleProperties.isLocked !== undefined) {
                 
                 // Render the workspace
                 this.view.renderWorkspace();
+                
+                // Restore grid if it was visible
+                if (gridWasVisible && !this.model.isGridVisible) {
+                    this.model.isGridVisible = true;
+                    this.view.updateGridVisibility(true);
+                    await this.model.saveAppState();
+                }
                 
                 return true;
             }
@@ -502,9 +521,19 @@ if (styleProperties.isLocked !== undefined) {
         
         try {
             OPTIMISM.log('Navigating back');
+            const gridWasVisible = this.model.isGridVisible; // Store grid state
+            
             if (await this.model.navigateBack()) {
                 OPTIMISM.log('Navigation back successful');
                 this.view.renderWorkspace();
+                
+                // Restore grid if it was visible
+                if (gridWasVisible && !this.model.isGridVisible) {
+                    this.model.isGridVisible = true;
+                    this.view.updateGridVisibility(true);
+                    await this.model.saveAppState();
+                }
+                
                 return true;
             }
             OPTIMISM.log('Navigation back failed');
@@ -523,9 +552,19 @@ if (styleProperties.isLocked !== undefined) {
         
         try {
             OPTIMISM.log(`Navigating to index ${index}`);
+            const gridWasVisible = this.model.isGridVisible; // Store grid state
+            
             if (await this.model.navigateToIndex(index)) {
                 OPTIMISM.log('Navigation to index successful');
                 this.view.renderWorkspace();
+                
+                // Restore grid if it was visible
+                if (gridWasVisible && !this.model.isGridVisible) {
+                    this.model.isGridVisible = true;
+                    this.view.updateGridVisibility(true);
+                    await this.model.saveAppState();
+                }
+                
                 return true;
             }
             OPTIMISM.log('Navigation to index failed');

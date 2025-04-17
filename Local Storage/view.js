@@ -1053,6 +1053,7 @@ if (stylePanel) {
     
     // In view.js - Update the renderWorkspace method
 // In view.js - Update the renderWorkspace method
+// In view.js - Modify the renderWorkspace method
 renderWorkspace() {
     OPTIMISM.log('Rendering workspace');
     // Clear workspace
@@ -1112,6 +1113,11 @@ renderWorkspace() {
     // Apply locked state to images if needed
     if (this.model.imagesLocked) {
         this.updateImagesLockState();
+    }
+    
+    // Re-render the grid if it was visible
+    if (this.model.isGridVisible) {
+        this.renderGrid();
     }
     
     // Hide style panel when no element is selected
@@ -2427,6 +2433,7 @@ findBreadcrumbDropTarget(e) {
     return null;
 }
 
+// In view.js - Modify setupSettingsPanel
 setupSettingsPanel() {
     OPTIMISM.log('Setting up settings panel');
     
@@ -2444,54 +2451,90 @@ setupSettingsPanel() {
         }
     });
     
-    // Set up settings panel options - remove all instances of hiding the panel
-    document.getElementById('settings-undo-button').addEventListener('click', (e) => {
+    // Create Grid Settings option
+    const gridSettingsOption = document.createElement('div');
+    gridSettingsOption.className = 'settings-option';
+    gridSettingsOption.innerHTML = '<a href="#" class="option-value" id="settings-grid-button">Grid Settings</a>';
+    
+    // Find the redo button
+    const redoButton = document.getElementById('settings-redo-button');
+    if (redoButton && redoButton.parentElement) {
+        // Insert after redo button
+        const nextElement = redoButton.parentElement.nextElementSibling;
+        if (nextElement) {
+            this.settingsPanel.insertBefore(gridSettingsOption, nextElement);
+        } else {
+            this.settingsPanel.appendChild(gridSettingsOption);
+        }
+    } else {
+        // If we can't find the redo button, just add it to the settings panel
+        this.settingsPanel.appendChild(gridSettingsOption);
+    }
+    
+    // Set up event handlers for all settings options
+    document.getElementById('settings-undo-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.undo();
-        // Remove: this.settingsPanel.style.display = 'none';
     });
     
-    document.getElementById('settings-redo-button').addEventListener('click', (e) => {
+    document.getElementById('settings-redo-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.redo();
-        // Remove: this.settingsPanel.style.display = 'none';
     });
     
-    document.getElementById('settings-export-button').addEventListener('click', (e) => {
+    // Add click event for grid settings button
+    document.getElementById('settings-grid-button')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Show the grid panel
+        const gridPanel = document.getElementById('grid-panel');
+        if (gridPanel) {
+            // Close other panels
+            this.stylePanel.style.display = 'none';
+            
+            // Toggle grid panel visibility
+            const isVisible = gridPanel.style.display === 'block';
+            gridPanel.style.display = isVisible ? 'none' : 'block';
+            
+            // Update selection states if showing
+            if (!isVisible) {
+                this.updateGridVisibility(this.model.isGridVisible);
+                this.updateGridLayoutSelection(this.model.gridLayout);
+            }
+        }
+    });
+    
+    document.getElementById('settings-export-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.exportData();
-        // Remove: this.settingsPanel.style.display = 'none';
     });
     
-    document.getElementById('settings-export-no-images-button').addEventListener('click', (e) => {
+    document.getElementById('settings-export-no-images-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.exportDataWithoutImages();
-        // Remove: this.settingsPanel.style.display = 'none';
     });
     
-    document.getElementById('settings-import-button').addEventListener('click', (e) => {
+    document.getElementById('settings-import-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.confirmationDialog.style.display = 'block';
-        // Remove: this.settingsPanel.style.display = 'none';
     });
     
-    document.getElementById('settings-debug-toggle').addEventListener('click', (e) => {
+    document.getElementById('settings-debug-toggle')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.toggleDebugPanel();
-        // Remove: this.settingsPanel.style.display = 'none';
     });
     
-    document.getElementById('settings-theme-toggle').addEventListener('click', (e) => {
+    document.getElementById('settings-theme-toggle')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.toggleTheme();
-        // Remove: this.settingsPanel.style.display = 'none';
     });
     
     OPTIMISM.log('Settings panel set up successfully');
@@ -3327,25 +3370,8 @@ setupInboxDragEvents() {
 setupGridPanel() {
     OPTIMISM.log('Setting up grid panel');
     
-    // Create the grid toggle button
-    const gridToggle = document.createElement('button');
-    gridToggle.id = 'grid-toggle';
-    gridToggle.className = 'nav-link';
-    gridToggle.textContent = 'Grid';
-    
-    // Add to the right controls before the inbox toggle
-    const rightControls = document.getElementById('right-controls');
-    if (rightControls && this.inboxToggle) {
-        rightControls.insertBefore(gridToggle, this.inboxToggle);
-    } else if (rightControls) {
-        rightControls.appendChild(gridToggle);
-    }
-    
-    // Update the click event to toggle panel visibility
-    gridToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.toggleGridPanel();
-    });
+    // We'll remove the grid toggle button from the nav bar
+    // and add it to settings panel instead
     
     // Set up grid on/off options
     const gridOptions = document.querySelectorAll('.option-value[data-grid]');
