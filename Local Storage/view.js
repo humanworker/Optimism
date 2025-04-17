@@ -3579,9 +3579,17 @@ updateGridInputValues() {
 // In view.js - Update the updateSplitViewLayout method to add the resizable border
 // In view.js - Update the updateSplitViewLayout method to add the resizable border
 updateSplitViewLayout(isEnabled) {
-    OPTIMISM.log(`Updating split view layout: ${isEnabled}`);
+    OPTIMISM.log(`VIEW: updateSplitViewLayout called with isEnabled = ${isEnabled}`);
+    
+    // Force boolean type to ensure correct comparison
+    isEnabled = Boolean(isEnabled);
+    
+    OPTIMISM.log(`VIEW: Converted isEnabled to ${isEnabled}`);
+    OPTIMISM.log(`VIEW: Current rightViewport exists: ${Boolean(this.rightViewport)}`);
     
     if (!isEnabled && this.rightViewport) {
+        OPTIMISM.log('VIEW: Removing split view...');
+        
         // Remove the right viewport
         this.rightViewport.remove();
         this.rightViewport = null;
@@ -3597,11 +3605,15 @@ updateSplitViewLayout(isEnabled) {
         
         // Re-render the workspace to ensure all elements are positioned correctly
         this.renderWorkspace();
+        
+        OPTIMISM.log('VIEW: Split view removed successfully');
         return;
     }
     
     // If split view was disabled but is now enabled
     if (isEnabled && !this.rightViewport) {
+        OPTIMISM.log('VIEW: Creating split view...');
+        
         // Set initial split position (50%)
         const splitPosition = 50;
         
@@ -3611,92 +3623,103 @@ updateSplitViewLayout(isEnabled) {
         this.workspace.style.left = '0';
         this.workspace.style.overflow = 'hidden';
         
-        // Create the resizable divider
-        this.resizeDivider = document.createElement('div');
-        this.resizeDivider.id = 'resize-divider';
-        this.resizeDivider.style.position = 'fixed';
-        this.resizeDivider.style.top = '41px'; // Below title bar
-        this.resizeDivider.style.bottom = '0';
-        this.resizeDivider.style.width = '10px'; // Wider clickable area
-        this.resizeDivider.style.left = `calc(${splitPosition}% - 5px)`; // Center on the split
-        this.resizeDivider.style.cursor = 'col-resize';
-        this.resizeDivider.style.zIndex = '160'; // Above viewport content but below panels
-        
-        // Add visible line in the center of clickable area
-        this.resizeDivider.innerHTML = '<div style="position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background-color: var(--element-border-color);"></div>';
-        
-        // Create the right viewport container
-        this.rightViewport = document.createElement('div');
-        this.rightViewport.id = 'right-viewport';
-        this.rightViewport.className = 'viewport';
-        this.rightViewport.style.width = `${100 - splitPosition}%`;
-        this.rightViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
-        this.rightViewport.style.position = 'fixed'; // Use fixed positioning
-        this.rightViewport.style.right = '0';
-        this.rightViewport.style.top = '41px'; // Below the title bar with border
-        this.rightViewport.style.boxSizing = 'border-box';
-        this.rightViewport.style.overflow = 'hidden';
-        
-        // Ensure solid background that completely covers the area
-        this.rightViewport.style.backgroundColor = 'var(--bg-color)';
-        this.rightViewport.style.backgroundImage = 'none'; // Override any background image
-        
-        // Use a z-index that's high but lower than panels (panels are 200)
-        this.rightViewport.style.zIndex = '150'; 
-        
-        // Add placeholder content
-        this.rightViewportContent = document.createElement('div');
-        this.rightViewportContent.className = 'right-viewport-content';
-        this.rightViewportContent.style.display = 'flex';
-        this.rightViewportContent.style.justifyContent = 'center';
-        this.rightViewportContent.style.alignItems = 'center';
-        this.rightViewportContent.style.width = '100%';
-        this.rightViewportContent.style.height = '100%';
-        this.rightViewportContent.style.color = 'var(--element-text-color)';
-        this.rightViewportContent.style.opacity = '0.5';
-        this.rightViewportContent.style.position = 'relative'; // For proper positioning of elements
-        this.rightViewportContent.textContent = 'Select a card to view contents';
-        
-        this.rightViewport.appendChild(this.rightViewportContent);
-        
-        this.addShadowToRightViewport();
-        
-        // Add the divider and right viewport to the document
-        document.body.appendChild(this.resizeDivider);
-        document.body.appendChild(this.rightViewport);
-        
-        // Add resize drag functionality
-        this.setupResizeDivider();
-        
-        // Add click event to make the right viewport the primary view when clicking on empty space
-        this.rightViewport.addEventListener('click', (e) => {
-            // Only handle clicks on the viewport itself or the content container (empty space)
-            if (e.target === this.rightViewport || 
-                (e.target === this.rightViewportContent && 
-                (e.target.textContent === 'Select a card to view contents' || 
-                e.target.textContent === 'This card has no content' || 
-                e.target.textContent === 'No content' ||
-                e.target.textContent === 'Could not load content'))) {
-                
-                // If we have a preview node, navigate to it
-                if (this.model.previewNodeId) {
-                    this.controller.navigateToElement(this.model.previewNodeId);
+        try {
+            // Create the resizable divider
+            this.resizeDivider = document.createElement('div');
+            this.resizeDivider.id = 'resize-divider';
+            this.resizeDivider.style.position = 'fixed';
+            this.resizeDivider.style.top = '41px'; // Below title bar
+            this.resizeDivider.style.bottom = '0';
+            this.resizeDivider.style.width = '10px'; // Wider clickable area
+            this.resizeDivider.style.left = `calc(${splitPosition}% - 5px)`; // Center on the split
+            this.resizeDivider.style.cursor = 'col-resize';
+            this.resizeDivider.style.zIndex = '160'; // Above viewport content but below panels
+            
+            // Add visible line in the center of clickable area
+            this.resizeDivider.innerHTML = '<div style="position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background-color: var(--element-border-color);"></div>';
+            
+            // Create the right viewport container
+            this.rightViewport = document.createElement('div');
+            this.rightViewport.id = 'right-viewport';
+            this.rightViewport.className = 'viewport';
+            this.rightViewport.style.width = `${100 - splitPosition}%`;
+            this.rightViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
+            this.rightViewport.style.position = 'fixed'; // Use fixed positioning
+            this.rightViewport.style.right = '0';
+            this.rightViewport.style.top = '41px'; // Below the title bar with border
+            this.rightViewport.style.boxSizing = 'border-box';
+            this.rightViewport.style.overflow = 'hidden';
+            
+            // Ensure solid background that completely covers the area
+            this.rightViewport.style.backgroundColor = 'var(--bg-color)';
+            this.rightViewport.style.backgroundImage = 'none'; // Override any background image
+            
+            // Use a z-index that's high but lower than panels (panels are 200)
+            this.rightViewport.style.zIndex = '150'; 
+            
+            // Add placeholder content
+            this.rightViewportContent = document.createElement('div');
+            this.rightViewportContent.className = 'right-viewport-content';
+            this.rightViewportContent.style.display = 'flex';
+            this.rightViewportContent.style.justifyContent = 'center';
+            this.rightViewportContent.style.alignItems = 'center';
+            this.rightViewportContent.style.width = '100%';
+            this.rightViewportContent.style.height = '100%';
+            this.rightViewportContent.style.color = 'var(--element-text-color)';
+            this.rightViewportContent.style.opacity = '0.5';
+            this.rightViewportContent.style.position = 'relative'; // For proper positioning of elements
+            this.rightViewportContent.textContent = 'Select a card to view contents';
+            
+            this.rightViewport.appendChild(this.rightViewportContent);
+            
+            this.addShadowToRightViewport();
+            
+            // Add the divider and right viewport to the document
+            document.body.appendChild(this.resizeDivider);
+            document.body.appendChild(this.rightViewport);
+            
+            // Add resize drag functionality
+            this.setupResizeDivider();
+            
+            // Add click event to make the right viewport the primary view when clicking on empty space
+            this.rightViewport.addEventListener('click', (e) => {
+                // Only handle clicks on the viewport itself or the content container (empty space)
+                if (e.target === this.rightViewport || 
+                    (e.target === this.rightViewportContent && 
+                    (e.target.textContent === 'Select a card to view contents' || 
+                    e.target.textContent === 'This card has no content' || 
+                    e.target.textContent === 'No content' ||
+                    e.target.textContent === 'Could not load content'))) {
+                    
+                    // If we have a preview node, navigate to it
+                    if (this.model.previewNodeId) {
+                        this.controller.navigateToElement(this.model.previewNodeId);
+                    }
                 }
-            }
-        });
-        
-        // Ensure panels have proper z-index to appear over the right viewport
-        this.ensurePanelZIndices();
-        
-        // Re-render the workspace to ensure all elements are positioned correctly
-        this.renderWorkspace();
+            });
+            
+            // Ensure panels have proper z-index to appear over the right viewport
+            this.ensurePanelZIndices();
+            
+            // Re-render the workspace to ensure all elements are positioned correctly
+            this.renderWorkspace();
+            
+            OPTIMISM.log('VIEW: Split view created successfully');
+        } catch (error) {
+            OPTIMISM.logError('VIEW: Error creating split view:', error);
+        }
+    } else {
+        OPTIMISM.log(`VIEW: No action needed. isEnabled=${isEnabled}, rightViewport exists=${Boolean(this.rightViewport)}`);
     }
     
     // Make sure to update the button text
     const splitViewToggle = document.getElementById('split-view-toggle');
     if (splitViewToggle) {
-        OPTIMISM.log(`Updating split view toggle text to: ${isEnabled ? 'Hide Split View' : 'Show Split View'}`);
-        splitViewToggle.textContent = isEnabled ? 'Hide Split View' : 'Show Split View';
+        const buttonText = isEnabled ? 'Hide Split View' : 'Show Split View';
+        OPTIMISM.log(`VIEW: Updating button text to "${buttonText}"`);
+        splitViewToggle.textContent = buttonText;
+    } else {
+        OPTIMISM.log('VIEW: Split view toggle button not found');
     }
 }
 
@@ -3961,18 +3984,36 @@ renderPreviewContent(node) {
 setupSplitViewToggle() {
     OPTIMISM.log('Setting up split view toggle');
     
-    // Create the toggle button
+    // First, remove any existing split view toggle buttons to avoid duplicates
+    const existingButton = document.getElementById('split-view-toggle');
+    if (existingButton) {
+        existingButton.remove();
+    }
+    
+    // Create a new toggle button
     const splitViewToggle = document.createElement('button');
     splitViewToggle.id = 'split-view-toggle';
     splitViewToggle.className = 'nav-link';
     splitViewToggle.textContent = this.model.isSplitViewEnabled ? 'Hide Split View' : 'Show Split View';
     
-    // Add click event listener
+    // Add click event handler
     splitViewToggle.addEventListener('click', () => {
+        OPTIMISM.log('Split view toggle button clicked');
+        
+        // Toggle the state directly for immediate visual feedback
+        const newState = !this.model.isSplitViewEnabled;
+        
+        // Update button text immediately
+        splitViewToggle.textContent = newState ? 'Hide Split View' : 'Show Split View';
+        
+        // Update the view
+        this.updateSplitViewLayout(newState);
+        
+        // Update the model via the controller
         this.controller.toggleSplitView();
     });
     
-    // Add button to the right controls section
+    // Add the button to the right controls section
     const rightControls = document.getElementById('right-controls');
     if (rightControls) {
         // Add before the inbox toggle

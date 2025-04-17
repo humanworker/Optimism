@@ -1187,18 +1187,20 @@ async toggleSplitView() {
     }
     
     try {
-        OPTIMISM.log('Toggling split view');
-        const isEnabled = await this.model.toggleSplitView();
+        OPTIMISM.log('CONTROLLER: toggleSplitView called');
+        OPTIMISM.log(`CONTROLLER: Current state before toggle: ${this.model.isSplitViewEnabled}`);
         
-        // Get direct reference to the toggle button and update its text
-        const splitViewToggle = document.getElementById('split-view-toggle');
-        if (splitViewToggle) {
-            splitViewToggle.textContent = isEnabled ? 'Hide Split View' : 'Show Split View';
-        }
+        // Explicitly toggle the state
+        const newState = !this.model.isSplitViewEnabled;
+        this.model.isSplitViewEnabled = newState;
         
-        this.view.updateSplitViewLayout(isEnabled);
-        OPTIMISM.log(`Split view set to ${isEnabled}`);
-        return isEnabled;
+        // Save the state
+        await this.model.saveAppState();
+        
+        OPTIMISM.log(`CONTROLLER: State after toggle: ${this.model.isSplitViewEnabled}`);
+        
+        // No need to update the view here as we're doing it directly from the click handler
+        return this.model.isSplitViewEnabled;
     } catch (error) {
         OPTIMISM.logError('Error toggling split view:', error);
         return this.model.isSplitViewEnabled;

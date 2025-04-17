@@ -1413,14 +1413,21 @@ async updateInboxCard(id, properties) {
 }
 
 async toggleSplitView() {
+    OPTIMISM.log('MODEL: toggleSplitView called');
+    OPTIMISM.log(`MODEL: Current state before toggle: ${this.isSplitViewEnabled}`);
+    
     // If Are.na view is enabled, disable it first
     if (this.isArenaVisible) {
+        OPTIMISM.log('MODEL: Disabling Are.na view first');
         this.isArenaVisible = false;
     }
     
+    // Explicitly toggle the state
     this.isSplitViewEnabled = !this.isSplitViewEnabled;
-    OPTIMISM.log(`Split view set to: ${this.isSplitViewEnabled}`);
+    
+    OPTIMISM.log(`MODEL: State after toggle: ${this.isSplitViewEnabled}`);
     await this.saveAppState();
+    
     return this.isSplitViewEnabled;
 }
 
