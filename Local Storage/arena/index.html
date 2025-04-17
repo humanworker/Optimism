@@ -50,7 +50,7 @@
             width: 100%;
         }
         
-        h1 {
+        .header-title {
             font-size: 1.3rem;
             font-weight: 500;
         }
@@ -313,9 +313,34 @@
             max-width: 500px;
             width: 100%;
         }
+
+        /* Search suggestions section */
+        .suggestions-section {
+            margin-top: 30px;
+            width: 100%;
+            max-width: 500px;
+        }
         
-        .initial-state h1 {
+        .suggestions-heading {
+            font-size: 1.1rem;
+            font-weight: 500;
             margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .suggestions-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .suggestion-tag {
+            background: #f5f5f5;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
         }
 
         /* Responsive adjustments */
@@ -328,20 +353,23 @@
             header {
                 padding: 15px;
             }
-            
-            h1 {
-                font-size: 1.1rem;
-            }
         }
     </style>
 </head>
 <body>
     <div id="initial-search-container" class="initial-state">
-        <h1>Are.na Viewer</h1>
         <div id="initial-search-form">
             <div id="search-form">
                 <input type="text" id="search-input" placeholder="Search for channels...">
                 <button id="search-button">Search</button>
+            </div>
+        </div>
+        
+        <!-- Search Suggestions Section -->
+        <div class="suggestions-section">
+            <div class="suggestions-heading">Try these searches</div>
+            <div class="suggestions-list" id="suggestions-list">
+                <!-- Search suggestions will be loaded here -->
             </div>
         </div>
     </div>
@@ -349,17 +377,18 @@
     <div id="main-container" style="display: none;">
         <header>
             <div class="header-top">
-                <h1>Are.na Viewer</h1>
-                
                 <div id="search-form">
                     <input type="text" id="search-input" placeholder="Search for channels...">
                     <button id="search-button">Search</button>
                 </div>
             </div>
             
-            <!-- Back button is now inside the header for fixed positioning -->
+            <!-- Back buttons are now inside the header for fixed positioning -->
             <div id="view-controls" style="display: none;">
                 <button id="back-button" class="back-button">« Back to Search</button>
+            </div>
+            <div id="search-view-controls">
+                <button id="search-back-button" class="back-button">« Back to Start</button>
             </div>
         </header>
         
@@ -386,6 +415,55 @@
         let currentView = 'initial'; // 'initial', 'search' or 'channel'
         let currentChannelSlug = null;
         const PER_PAGE = 20;
+        const MIN_BLOCKS = 30; // Minimum number of blocks required for a channel
+        
+        // Search suggestions data - 200 words
+        const searchSuggestions = [
+            // Original 100 words
+            "architecture", "art", "astronomy", "books", "botany", 
+            "ceramics", "collage", "colors", "comics", "cooking", 
+            "design", "drawing", "fashion", "film", "flowers", 
+            "furniture", "gardens", "geometry", "graphic", "history", 
+            "illustration", "interface", "landscape", "letterforms", "logos", 
+            "maps", "materials", "mathematics", "minimalism", "modernism", 
+            "motion", "music", "nature", "objects", "packaging", 
+            "painting", "patterns", "photography", "plants", "posters", 
+            "printmaking", "process", "product", "psychology", "publishing", 
+            "research", "science", "sculpture", "space", "storytelling", 
+            "technology", "textile", "typography", "urbanism", "ux", 
+            "video", "vintage", "visual", "watercolor", "web", 
+            "writing", "zines", "3d", "abstract", "analog", 
+            "animation", "archive", "bauhaus", "brand", "branding", 
+            "collection", "composition", "concept", "creative", "culture", 
+            "data", "digital", "documentation", "editorial", "education", 
+            "environment", "experimental", "exhibition", "experience", "food", 
+            "form", "gallery", "gaming", "glitch", "grid", 
+            "handmade", "identity", "information", "installation", "japanese", 
+            "library", "light", "manual", "memory", "museum", 
+            "notes", "paper", "portfolio", "print", "sketch",
+            
+            // Additional 100 words
+            "advertising", "aesthetic", "algorithm", "ambient", "anthropology",
+            "architecture", "archival", "artificial", "audio", "augmented",
+            "avant-garde", "awareness", "biophilia", "brutalism", "calligraphy",
+            "cartography", "cityscape", "classics", "climate", "cognitive",
+            "collaboration", "computational", "conceptual", "concrete", "constructivism",
+            "contemporary", "craft", "critical", "cybernetics", "dada",
+            "deconstruction", "diagrams", "diy", "eco", "electronic",
+            "ephemera", "ethics", "ethnography", "everyday", "fabrication",
+            "feminist", "field-notes", "folklore", "futurism", "generative",
+            "gestalt", "gothic", "graffiti", "haptic", "heritage",
+            "human-centered", "hybrid", "iconic", "immersive", "indigenous",
+            "industrial", "informal", "interaction", "interdisciplinary", "kinetic",
+            "language", "literary", "living", "machine", "making",
+            "mapping", "media", "meditation", "metaphor", "methodologies",
+            "micro", "minimal", "mobile", "modular", "narrative",
+            "neuroscience", "object-oriented", "organic", "outsider", "participatory",
+            "performance", "phenomenology", "physical", "poetics", "political",
+            "post-digital", "practices", "preservation", "prototype", "radical",
+            "reading", "recycled", "relational", "resilience", "sensory",
+            "social", "sound", "speculative", "street", "sustainability"
+        ];
         
         // DOM Elements
         const initialContainer = document.getElementById('initial-search-container');
@@ -399,7 +477,42 @@
         const blocksContainer = document.getElementById('blocks-container');
         const viewControls = document.getElementById('view-controls');
         const backButton = document.getElementById('back-button');
+        const searchViewControls = document.getElementById('search-view-controls');
+        const searchBackButton = document.getElementById('search-back-button');
         const dragFeedback = document.getElementById('drag-feedback');
+        const suggestionsList = document.getElementById('suggestions-list');
+        
+        // Load random search suggestions
+        function loadSearchSuggestions() {
+            suggestionsList.innerHTML = '';
+            
+            // Shuffle array and pick first 10
+            const shuffled = [...searchSuggestions].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, 10);
+            
+            selected.forEach(suggestion => {
+                const suggestionElement = document.createElement('div');
+                suggestionElement.className = 'suggestion-tag';
+                suggestionElement.textContent = suggestion;
+                
+                suggestionElement.addEventListener('click', () => {
+                    // Fill the search box with this suggestion
+                    searchInputs.forEach(input => {
+                        input.value = suggestion;
+                    });
+                    
+                    // Switch to main view
+                    initialContainer.style.display = 'none';
+                    mainContainer.style.display = 'block';
+                    currentView = 'search';
+                    
+                    // Execute the search
+                    searchChannels(suggestion);
+                });
+                
+                suggestionsList.appendChild(suggestionElement);
+            });
+        }
         
         // Event Listeners for all search buttons
         searchButtons.forEach(button => {
@@ -459,6 +572,21 @@
             showSearchView();
         });
         
+        searchBackButton.addEventListener('click', () => {
+            // Go back to initial view
+            initialContainer.style.display = 'flex';
+            mainContainer.style.display = 'none';
+            currentView = 'initial';
+            
+            // Reset search inputs
+            searchInputs.forEach(input => {
+                input.value = '';
+            });
+            
+            // Refresh suggestions
+            loadSearchSuggestions();
+        });
+        
         // Global drag events
         document.addEventListener('dragover', (e) => {
             e.preventDefault(); // Necessary to allow dropping
@@ -494,7 +622,7 @@
             blocksContainer.style.display = 'none';
             channelsContainer.style.display = 'block';
             viewControls.style.display = 'none';
-            document.querySelector('h1').textContent = 'Are.na Viewer';
+            searchViewControls.style.display = 'block';
         }
         
         function showChannelView() {
@@ -502,6 +630,7 @@
             blocksContainer.style.display = 'block';
             channelsContainer.style.display = 'none';
             viewControls.style.display = 'block';
+            searchViewControls.style.display = 'none';
         }
         
         async function searchChannels(query, appendResults = false) {
@@ -529,8 +658,21 @@
                 const data = await response.json();
                 
                 if (data.channels && data.channels.length > 0) {
-                    renderChannels(data.channels);
-                    hasMoreItems = data.channels.length === PER_PAGE;
+                    // Filter channels with at least MIN_BLOCKS blocks
+                    const filteredChannels = data.channels.filter(channel => channel.length >= MIN_BLOCKS);
+                    
+                    if (filteredChannels.length > 0) {
+                        // Randomly sort the filtered channels
+                        const randomizedChannels = [...filteredChannels].sort(() => 0.5 - Math.random());
+                        
+                        renderChannels(randomizedChannels);
+                        hasMoreItems = data.channels.length === PER_PAGE; // Keep pagination based on original results
+                    } else {
+                        if (currentPage === 1) {
+                            channelsContainer.innerHTML = '<div class="block-content">No channels found with 30+ blocks.</div>';
+                        }
+                        hasMoreItems = false;
+                    }
                 } else {
                     if (currentPage === 1) {
                         channelsContainer.innerHTML = '<div class="block-content">No channels found.</div>';
@@ -539,6 +681,9 @@
                 }
                 
                 loadMoreButton.style.display = hasMoreItems ? 'block' : 'none';
+                
+                // Show the search view and its back button
+                showSearchView();
             } catch (error) {
                 console.error('Error searching channels:', error);
                 showError(`Search error: ${error.message}`);
@@ -593,9 +738,6 @@
                 }
                 
                 const data = await response.json();
-                
-                // Update title with channel name
-                document.querySelector('h1').textContent = data.title || 'Are.na Viewer';
                 
                 if (data.contents && data.contents.length > 0) {
                     renderBlocks(data.contents);
@@ -742,8 +884,8 @@
             const draggableImages = document.querySelectorAll('.draggable-image');
             
             draggableImages.forEach(img => {
-                // Get the confirmation overlay for this image
-                const confirmationOverlay = img.parentElement.querySelector('.image-confirmation');
+               // Get the confirmation overlay for this image
+               const confirmationOverlay = img.parentElement.querySelector('.image-confirmation');
                 if (!confirmationOverlay) return;
                 
                 // Get yes and no buttons
@@ -855,8 +997,8 @@
             });
         }
         
-        // Keep the page in initial state with centered search on load
-        // No initial search is performed
+        // Initialize search suggestions on page load
+        loadSearchSuggestions();
     </script>
 </body>
 </html>
