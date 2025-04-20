@@ -31,11 +31,21 @@ class CanvasModel {
         this.isDebugVisible = false;
         this.inboxCards = []; // Array to store inbox cards
 this.isInboxVisible = false; // Track inbox panel visibility
+this.isSettingsVisible = false; // Add this line
 this.isGridVisible = false;
 this.gridLayout = '1x2'; // Default layout
 this.isSplitViewEnabled = false; // Track split view mode
 this.previewNodeId = null; // Track the node being previewed
 this.isArenaVisible = false; // Track are.na panel visibility
+
+// Panel management
+this.panels = {
+    settings: false,
+    inbox: false,
+    grid: false,
+    arena: false
+    // Add future panels here
+};
     }
 
     // In model.js, update the initialize method
@@ -132,6 +142,11 @@ async initialize() {
                     if (appState.quickLinks !== undefined) {
                         this.quickLinks = appState.quickLinks;
                         OPTIMISM.log(`Loaded ${this.quickLinks.length} quick links`);
+                    }
+
+                    if (appState.isSettingsVisible !== undefined) {
+                        this.isSettingsVisible = appState.isSettingsVisible;
+                        OPTIMISM.log(`Loaded settings visibility state: ${this.isSettingsVisible}`);
                     }
 
                     if (appState.isSplitViewEnabled !== undefined) {
@@ -886,14 +901,15 @@ resetBackupReminder() {
                 lockedCards: this.lockedCards,
                 inboxCards: this.inboxCards,
                 isInboxVisible: this.isInboxVisible,
+                isSettingsVisible: this.isSettingsVisible, // Add this line
                 isGridVisible: this.isGridVisible,
-                isNestingDisabled: this.isNestingDisabled, // Add this line
+                isNestingDisabled: this.isNestingDisabled,
                 isSplitViewEnabled: this.isSplitViewEnabled,
                 isArenaVisible: this.isArenaVisible,
                 gridLayout: this.gridLayout
             };
             
-            OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout}, arena: ${this.isArenaVisible ? 'on' : 'off'}, nesting disabled: ${this.isNestingDisabled ? 'yes' : 'no'})`);
+            OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout}, arena: ${this.isArenaVisible ? 'on' : 'off'}, nesting disabled: ${this.isNestingDisabled ? 'yes' : 'no'}, settings: ${this.isSettingsVisible ? 'visible' : 'hidden'}, inbox: ${this.isInboxVisible ? 'visible' : 'hidden'})`);
             await this.db.put('canvasData', appState);
         } catch (error) {
             OPTIMISM.logError('Error saving app state:', error);
@@ -1340,6 +1356,14 @@ async updateNavigationTitles(elementId, newText) {
 
 // Add methods to manage inbox cards
 async toggleInboxVisibility() {
+    // Close other panels but NOT split view or Arena
+    if (this.isSettingsVisible) {
+        this.isSettingsVisible = false;
+    }
+    if (this.isGridVisible) {
+        this.isGridVisible = false;
+    }
+    
     this.isInboxVisible = !this.isInboxVisible;
     OPTIMISM.log(`Inbox visibility set to: ${this.isInboxVisible}`);
     await this.saveAppState();
@@ -1429,6 +1453,8 @@ async toggleSplitView() {
         this.isArenaVisible = false;
     }
     
+    // No longer disable other panels
+    
     // Explicitly toggle the state
     this.isSplitViewEnabled = !this.isSplitViewEnabled;
     
@@ -1438,11 +1464,14 @@ async toggleSplitView() {
     return this.isSplitViewEnabled;
 }
 
+// In model.js, modify toggleArenaView() method
 async toggleArenaView() {
     // If split view is enabled, disable it first
     if (this.isSplitViewEnabled) {
         this.isSplitViewEnabled = false;
     }
+    
+    // No longer disable other panels
     
     this.isArenaVisible = !this.isArenaVisible;
     OPTIMISM.log(`Are.na view set to: ${this.isArenaVisible}`);
@@ -1455,6 +1484,44 @@ async toggleNestingDisabled() {
     OPTIMISM.log(`Nesting disabled state set to: ${this.isNestingDisabled}`);
     await this.saveAppState();
     return this.isNestingDisabled;
+}
+
+async toggleSettingsVisibility() {
+    // Close other panels but NOT split view or Arena
+    if (this.isInboxVisible) {
+        this.isInboxVisible = false;
+    }
+    if (this.isGridVisible) {
+        this.isGridVisible = false;
+    }
+    
+    // Toggle settings panel
+    this.isSettingsVisible = !this.isSettingsVisible;
+    OPTIMISM.log(`Settings visibility set to: ${this.isSettingsVisible}`);
+    await this.saveAppState();
+    return this.isSettingsVisible;
+}
+
+// Then add a generic panel toggle method:
+async togglePanel(panelName) {
+    // Close all other panels first
+    for (const panel in this.panels) {
+        if (panel !== panelName) {
+            this.panels[panel] = false;
+        }
+    }
+    
+    // Toggle the requested panel
+    this.panels[panelName] = !this.panels[panelName];
+    OPTIMISM.log(`Panel '${panelName}' visibility set to: ${this.panels[panelName]}`);
+    
+    // Update legacy properties for backward compatibility
+    this.isSettingsVisible = this.panels.settings;
+    this.isInboxVisible = this.panels.inbox;
+    this.isGridVisible = this.panels.grid;
+    
+    await this.saveAppState();
+    return this.panels[panelName];
 }
 
 }

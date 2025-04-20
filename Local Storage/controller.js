@@ -1292,4 +1292,41 @@ async toggleNestingDisabled() {
     }
 }
 
+// In controller.js, add this method
+async toggleSettingsVisibility() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle settings: application not initialized');
+        return this.model.isSettingsVisible;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling settings panel visibility');
+        const isVisible = await this.model.toggleSettingsVisibility();
+        this.view.updateSettingsVisibility(isVisible);
+        OPTIMISM.log(`Settings panel visibility set to ${isVisible}`);
+        return isVisible;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling settings visibility:', error);
+        return this.model.isSettingsVisible;
+    }
+}
+
+// In controller.js:
+async togglePanel(panelName) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError(`Cannot toggle panel '${panelName}': application not initialized`);
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Toggling panel '${panelName}'`);
+        const isVisible = await this.model.togglePanel(panelName);
+        this.view.updatePanelVisibility(panelName, isVisible);
+        return isVisible;
+    } catch (error) {
+        OPTIMISM.logError(`Error toggling panel '${panelName}':`, error);
+        return false;
+    }
+}
+
 }

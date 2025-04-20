@@ -2,111 +2,152 @@
 class CanvasView {
     // Modify the constructor in CanvasView to remove the imagesLocked property initialization:
     // In view.js, modify the constructor to add a new CSS style element
-constructor(model, controller) {
-    this.model = model;
-    this.controller = controller;
-    this.workspace = document.getElementById('workspace');
-    this.titleBar = document.getElementById('title-bar');
-    this.breadcrumbContainer = document.getElementById('breadcrumb-container');
-    this.stylePanel = document.getElementById('style-panel');
-    this.settingsPanel = document.getElementById('settings-panel');
-    this.themeToggle = document.getElementById('theme-toggle');
-    this.settingsToggle = document.getElementById('settings-toggle');
-    this.lockImagesButton = document.getElementById('lock-images-button');
-    this.undoButton = document.getElementById('undo-button');
-    this.redoButton = document.getElementById('redo-button');
-    this.loadingOverlay = document.getElementById('loading-overlay');
-    this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
-    this.debugPanel = document.getElementById('debug-panel');
-    this.debugToggle = document.getElementById('debug-toggle');
-    this.progressContainer = document.getElementById('progress-container');
-    this.progressBar = document.getElementById('progress-bar');
-    this.progressText = document.getElementById('progress-text');
-    this.exportButton = document.getElementById('export-button');
-    this.importButton = document.getElementById('import-button');
-    this.confirmationDialog = document.getElementById('confirmation-dialog');
-    this.cancelImportButton = document.getElementById('cancel-import');
-    this.confirmImportButton = document.getElementById('confirm-import');
-    this.arenaViewport = null; // Will be created when are.na view is enabled
-    this.arenaResizeDivider = null; // Will be created for resizing
+    constructor(model, controller) {
+        this.model = model;
+        this.controller = controller;
+        this.workspace = document.getElementById('workspace');
+        this.titleBar = document.getElementById('title-bar');
+        this.breadcrumbContainer = document.getElementById('breadcrumb-container');
+        this.stylePanel = document.getElementById('style-panel');
+        this.settingsPanel = document.getElementById('settings-panel');
+        this.themeToggle = document.getElementById('theme-toggle');
+        this.settingsToggle = document.getElementById('settings-toggle');
+        this.lockImagesButton = document.getElementById('lock-images-button');
+        this.undoButton = document.getElementById('undo-button');
+        this.redoButton = document.getElementById('redo-button');
+        this.loadingOverlay = document.getElementById('loading-overlay');
+        this.dropZoneIndicator = document.getElementById('drop-zone-indicator');
+        this.debugPanel = document.getElementById('debug-panel');
+        this.debugToggle = document.getElementById('debug-toggle');
+        this.progressContainer = document.getElementById('progress-container');
+        this.progressBar = document.getElementById('progress-bar');
+        this.progressText = document.getElementById('progress-text');
+        this.exportButton = document.getElementById('export-button');
+        this.importButton = document.getElementById('import-button');
+        this.confirmationDialog = document.getElementById('confirmation-dialog');
+        this.cancelImportButton = document.getElementById('cancel-import');
+        this.confirmImportButton = document.getElementById('confirm-import');
+        this.arenaViewport = null; // Will be created when are.na view is enabled
+        this.arenaResizeDivider = null; // Will be created for resizing
+        
+        // Quick links container
+        this.quickLinksContainer = null; // Will be created in setupQuickLinks method
+        
+        this.draggedElement = null;
+        this.resizingElement = null;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.elemOffsetX = 0;
+        this.elemOffsetY = 0;
+        
+        this.initialWidth = 0;
+        this.initialHeight = 0;
     
-    // Quick links container
-    this.quickLinksContainer = null; // Will be created in setupQuickLinks method
+        this.inboxPanel = document.getElementById('inbox-panel');
+        this.inboxToggle = document.getElementById('inbox-toggle');
+        this.inboxDragTarget = null;
     
-    this.draggedElement = null;
-    this.resizingElement = null;
-    this.dragStartX = 0;
-    this.dragStartY = 0;
-    this.elemOffsetX = 0;
-    this.elemOffsetY = 0;
+        this.rightViewport = null; // Will be created when split view is enabled
+        this.rightViewportContent = null;
     
-    this.initialWidth = 0;
-    this.initialHeight = 0;
-
-    this.inboxPanel = document.getElementById('inbox-panel');
-    this.inboxToggle = document.getElementById('inbox-toggle');
-    this.inboxDragTarget = null;
-
-    this.rightViewport = null; // Will be created when split view is enabled
-    this.rightViewportContent = null;
-
-    this.resizeDivider = null; 
+        this.resizeDivider = null; 
+            
+        // Detect platform
+        this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+            #style-panel, #settings-panel {
+                z-index: 200; /* Higher than any content z-index */
+               
+            }
+            
+            /* Make sure text elements don't appear on top of panels */
+            .text-element-container {
+                z-index: 100 !important; /* Text elements have z-index 100 */
+            }
+            
+            .image-element-container {
+                z-index: 1; /* Base z-index for images - individual images can have 1-99 */
+            }
+        `;
+        document.head.appendChild(styleElement);
+    
+        const cmdCursorStyle = document.createElement('style');
+        cmdCursorStyle.textContent = `
+            body.cmd-pressed .element-container:not(.card-locked) {
+                cursor: pointer !important;
+            }
+            body.cmd-pressed .text-element {
+                cursor: text !important;
+            }
+            body.cmd-pressed .text-display {
+                cursor: pointer !important;
+            }
+        `;
+        document.head.appendChild(cmdCursorStyle);
+    
+        // Add custom panel background styles
+        const panelStyles = document.createElement('style');
+        panelStyles.id = 'panel-background-styles';
+        panelStyles.textContent = `
+            /* Yellow background for all panels */
+            #style-panel, 
+            #settings-panel, 
+            #inbox-panel, 
+            #grid-panel {
+                background-color: #FFFFCC !important; /* Light yellow background */
+            }
+            
+            /* Also style the modal and confirmation dialogs to match */
+            #confirmation-dialog,
+            .modal-content {
+                background-color: #FFFFCC !important;
+            }
+        `;
+        document.head.appendChild(panelStyles);
         
-    // Detect platform
-    this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        #style-panel, #settings-panel {
-            z-index: 200; /* Higher than any content z-index */
-           
-        }
-        
-        /* Make sure text elements don't appear on top of panels */
-        .text-element-container {
-            z-index: 100 !important; /* Text elements have z-index 100 */
-        }
-        
-        .image-element-container {
-            z-index: 1; /* Base z-index for images - individual images can have 1-99 */
-        }
-    `;
-    document.head.appendChild(styleElement);
-
-    const cmdCursorStyle = document.createElement('style');
-    cmdCursorStyle.textContent = `
-        body.cmd-pressed .element-container:not(.card-locked) {
-            cursor: pointer !important;
-        }
-        body.cmd-pressed .text-element {
-            cursor: text !important;
-        }
-        body.cmd-pressed .text-display {
-            cursor: pointer !important;
-        }
-    `;
-    document.head.appendChild(cmdCursorStyle);
-
-    // Add custom panel background styles
-    const panelStyles = document.createElement('style');
-    panelStyles.id = 'panel-background-styles';
-    panelStyles.textContent = `
-        /* Yellow background for all panels */
-        #style-panel, 
-        #settings-panel, 
-        #inbox-panel, 
-        #grid-panel {
-            background-color: #FFFFCC !important; /* Light yellow background */
-        }
-        
-        /* Also style the modal and confirmation dialogs to match */
-        #confirmation-dialog,
-        .modal-content {
-            background-color: #FFFFCC !important;
-        }
-    `;
-    document.head.appendChild(panelStyles);
-}
+        // NEW: Add panel stacking context styles to ensure proper z-index
+        const stackingStyle = document.createElement('style');
+        stackingStyle.id = 'panel-stacking-style';
+        stackingStyle.textContent = `
+            /* Force panels to use highest stacking context */
+            #inbox-panel {
+                z-index: 1000 !important;
+                position: fixed !important;
+                top: 41px !important;
+                right: 0 !important;
+            }
+            
+            #settings-panel {
+                z-index: 1000 !important;
+            }
+            
+            #style-panel {
+                z-index: 1000 !important;
+            }
+            
+            #grid-panel {
+                z-index: 1000 !important;
+            }
+            
+            /* Make sure viewport elements never cover panels */
+            #right-viewport, 
+            #arena-viewport,
+            #resize-divider,
+            #arena-resize-divider {
+                z-index: 150 !important;
+            }
+            
+            /* Ensure dialogs appear above everything */
+            #confirmation-dialog,
+            #backup-reminder-modal,
+            .modal-overlay {
+                z-index: 2000 !important;
+            }
+        `;
+        document.head.appendChild(stackingStyle);
+    }
 
     
     
@@ -173,6 +214,12 @@ constructor(model, controller) {
         this.setupQuickLinkDragEvents();
         this.setupInboxPanel(); // Set up the inbox panel
         this.setupSplitViewToggle();
+         // Ensure consistent panel styling
+    this.setupConsistentPanelStyling();
+    this.setupPanelStackingContext();
+    
+    // Ensure panels have proper z-indices
+    this.ensurePanelZIndices();
         
         // Close style panel when entering inbox link or panel during drag
         this.inboxToggle.addEventListener('mouseenter', (e) => {
@@ -415,12 +462,12 @@ constructor(model, controller) {
                 this.stylePanel.style.display = 'none';
             }
             
-            // Add this new section to close the settings panel
             if (!this.settingsPanel.contains(e.target) && 
-                e.target !== this.settingsToggle && 
-                this.settingsPanel.style.display === 'block') {
-                this.settingsPanel.style.display = 'none';
-            }
+    e.target !== this.settingsToggle && 
+    this.settingsPanel.style.display === 'block') {
+    // Use the controller to update both the visual state and model state
+    this.controller.toggleSettingsVisibility();
+}
             
             // Close grid panel when clicking outside
             const gridPanel = document.getElementById('grid-panel');
@@ -432,14 +479,12 @@ constructor(model, controller) {
                 gridPanel.style.display = 'none';
             }
             
-            // Close inbox panel when clicking outside
             if (!this.inboxPanel.contains(e.target) && 
-                e.target !== this.inboxToggle && 
-                this.inboxPanel.style.display === 'block') {
-                this.inboxPanel.style.display = 'none';
-                this.model.isInboxVisible = false;
-                this.model.saveAppState();
-            }
+    e.target !== this.inboxToggle && 
+    this.inboxPanel.style.display === 'block') {
+    // Use the controller to update both the visual state and model state
+    this.controller.toggleInboxVisibility();
+}
         });
         
         // Setup export/import buttons
@@ -1097,6 +1142,12 @@ renderWorkspace() {
     if (!this.model.selectedElement) {
         this.stylePanel.style.display = 'none';
     }
+
+    if (this.model.isSettingsVisible) {
+        this.updateSettingsVisibility(true);
+    } else if (this.model.isInboxVisible) {
+        this.updateInboxVisibility(true);
+    }
     
     // Update undo/redo buttons
     this.updateUndoRedoButtons();
@@ -1116,6 +1167,17 @@ renderWorkspace() {
             this.updateRightViewport(null);
         }
     }
+
+     // CRITICAL: Preserve panel visibility at the end of rendering
+    // This ensures no panel is inadvertently hidden during workspace updates
+    setTimeout(() => {
+        if (this.model.isInboxVisible) {
+            this.updateInboxVisibility(true);
+        }
+        if (this.model.isSettingsVisible) {
+            this.updateSettingsVisibility(true);
+        }
+    }, 0);
     
     OPTIMISM.log('Workspace rendering complete');
 }
@@ -1726,6 +1788,7 @@ async createImageElementDOM(elementData) {
 }
     
 // In view.js, update the selectElement method to hide the grid panel
+// In view.js, modify selectElement to use the controller
 selectElement(element, elementData, isDragging = false) {
     // Check if this is an image and images are locked
     if (elementData.type === 'image' && this.model.imagesLocked) {
@@ -1738,8 +1801,13 @@ selectElement(element, elementData, isDragging = false) {
     element.classList.add('selected');
     this.model.selectedElement = element.dataset.id;
     
-    // Close settings panel and grid panel
-    this.settingsPanel.style.display = 'none';
+    // Close all panels
+    if (this.model.isSettingsVisible) {
+        this.controller.toggleSettingsVisibility();
+    }
+    if (this.model.isInboxVisible) {
+        this.controller.toggleInboxVisibility();
+    }
     
     // Hide grid panel
     const gridPanel = document.getElementById('grid-panel');
@@ -2419,21 +2487,14 @@ findBreadcrumbDropTarget(e) {
     return null;
 }
 
+// In view.js, replace the setupSettingsPanel method
 setupSettingsPanel() {
     OPTIMISM.log('Setting up settings panel');
     
     // Toggle settings panel visibility when settings button is clicked
     this.settingsToggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isVisible = this.settingsPanel.style.display === 'block';
-        
-        // Toggle visibility
-        this.settingsPanel.style.display = isVisible ? 'none' : 'block';
-        
-        // Close style panel if settings panel is opening
-        if (!isVisible) {
-            this.stylePanel.style.display = 'none';
-        }
+        this.controller.toggleSettingsVisibility();
     });
     
     // Create Grid Settings option
@@ -2469,25 +2530,25 @@ setupSettingsPanel() {
             this.settingsPanel.appendChild(gridSettingsOption);
         }
 
-        // In the setupSettingsPanel method, after the lockImagesOption
-const disableNestingOption = document.createElement('div');
-disableNestingOption.className = 'settings-option';
-disableNestingOption.innerHTML = '<a href="#" class="option-value" id="settings-disable-nesting-button">' + 
-    (this.model.isNestingDisabled ? 'Enable Nesting' : 'Disable Nesting') + '</a>';
+        // Add the nesting disable option
+        const disableNestingOption = document.createElement('div');
+        disableNestingOption.className = 'settings-option';
+        disableNestingOption.innerHTML = '<a href="#" class="option-value" id="settings-disable-nesting-button">' + 
+            (this.model.isNestingDisabled ? 'Enable Nesting' : 'Disable Nesting') + '</a>';
 
-// Add the new option after lockImagesOption
-if (nextElement) {
-    this.settingsPanel.insertBefore(disableNestingOption, lockImagesOption.nextSibling);
-} else {
-    this.settingsPanel.appendChild(disableNestingOption);
-}
+        // Add the new option after lockImagesOption
+        if (nextElement) {
+            this.settingsPanel.insertBefore(disableNestingOption, lockImagesOption.nextSibling);
+        } else {
+            this.settingsPanel.appendChild(disableNestingOption);
+        }
 
-// Add the event listener for the new button
-document.getElementById('settings-disable-nesting-button')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    this.toggleNestingDisabled();
-});
+        // Add the event listener for the new button
+        document.getElementById('settings-disable-nesting-button')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleNestingDisabled();
+        });
         
         // Set up event handlers for the new options
         document.getElementById('settings-copy-link-button')?.addEventListener('click', (e) => {
@@ -2535,6 +2596,7 @@ document.getElementById('settings-disable-nesting-button')?.addEventListener('cl
         if (gridPanel) {
             // Close other panels
             this.stylePanel.style.display = 'none';
+            this.settingsPanel.style.display = 'none';
             
             // Toggle grid panel visibility
             const isVisible = gridPanel.style.display === 'block';
@@ -2577,6 +2639,9 @@ document.getElementById('settings-disable-nesting-button')?.addEventListener('cl
         e.stopPropagation();
         this.controller.toggleTheme();
     });
+    
+    // Set initial visibility based on model state
+    this.updateSettingsVisibility(this.model.isSettingsVisible);
     
     OPTIMISM.log('Settings panel set up successfully');
 }
@@ -3201,6 +3266,7 @@ this.controller.toggleInboxVisibility();
     OPTIMISM.log('Inbox panel set up successfully');
 }
 
+// In view.js, modify the updateInboxVisibility method
 updateInboxVisibility(isVisible) {
     if (!this.inboxPanel) {
         this.setupInboxPanel();
@@ -3212,8 +3278,16 @@ updateInboxVisibility(isVisible) {
         this.stylePanel.style.display = 'none';
         this.settingsPanel.style.display = 'none';
         
-        // Show inbox panel
-        this.inboxPanel.style.display = 'block';
+        // CRITICAL: Apply direct forceful styling to ensure inbox appears above everything
+        this.inboxPanel.style.display = 'block'; 
+        this.inboxPanel.style.zIndex = '1000'; // Use a very high z-index
+        this.inboxPanel.style.position = 'fixed';
+        this.inboxPanel.style.top = '41px';
+        this.inboxPanel.style.right = '0';
+        this.inboxPanel.style.backgroundColor = 'var(--bg-color)';
+        this.inboxPanel.style.width = 'var(--panel-width)';
+        
+        // Render content
         this.renderInboxPanel();
     } else {
         this.inboxPanel.style.display = 'none';
@@ -3658,6 +3732,13 @@ updateSplitViewLayout(isEnabled) {
         
         // Re-render the workspace to ensure all elements are positioned correctly
         this.renderWorkspace();
+
+        // CRITICAL: Preserve inbox visibility if it was visible
+        if (this.model.isInboxVisible) {
+            setTimeout(() => {
+                this.updateInboxVisibility(true);
+            }, 10);
+        }
         
         OPTIMISM.log('VIEW: Split view removed successfully');
         return;
@@ -4087,8 +4168,8 @@ setupSplitViewToggle() {
 
 // Add a method to ensure panels have the proper z-index
 ensurePanelZIndices() {
-    // Make sure all panels have a z-index higher than the right viewport
-    const panelZIndex = 200; // Higher than right viewport's 150
+    // Make sure all panels have a z-index higher than the right viewport and Arena
+    const panelZIndex = 250; // Higher than right viewport's 150 and Arena's 150
     
     // Style panel
     if (this.stylePanel) {
@@ -4501,6 +4582,13 @@ updateArenaViewLayout(isEnabled) {
         
         // Re-render the workspace to ensure all elements are positioned correctly
         this.renderWorkspace();
+ // CRITICAL: Preserve inbox visibility if it was visible
+ if (this.model.isInboxVisible) {
+    setTimeout(() => {
+        this.updateInboxVisibility(true);
+    }, 10);
+}
+
         return;
     }
     
@@ -4795,6 +4883,130 @@ updateNestingDisabledState(isDisabled) {
     if (settingsButton) {
         settingsButton.textContent = isDisabled ? "Enable Nesting" : "Disable Nesting";
     }
+}
+
+// In view.js, add this method
+updateSettingsVisibility(isVisible) {
+    if (isVisible) {
+        // Close other panels first
+        this.stylePanel.style.display = 'none';
+        if (this.inboxPanel) {
+            this.inboxPanel.style.display = 'none';
+        }
+        const gridPanel = document.getElementById('grid-panel');
+        if (gridPanel) {
+            gridPanel.style.display = 'none';
+        }
+        
+        // Show settings panel
+        this.settingsPanel.style.display = 'block';
+        
+        // Ensure settings panel is on top of split view or Arena
+        this.settingsPanel.style.zIndex = '250';
+    } else {
+        this.settingsPanel.style.display = 'none';
+    }
+}
+
+// In view.js:
+updatePanelVisibility(panelName, isVisible) {
+    // Hide all panels first
+    if (isVisible) {
+        this.stylePanel.style.display = 'none';
+        this.settingsPanel.style.display = 'none';
+        this.inboxPanel.style.display = 'none';
+        document.getElementById('grid-panel').style.display = 'none';
+    }
+    
+    // Show the requested panel
+    switch(panelName) {
+        case 'settings':
+            if (isVisible) {
+                this.settingsPanel.style.display = 'block';
+            }
+            break;
+        case 'inbox':
+            if (isVisible) {
+                this.inboxPanel.style.display = 'block';
+                this.renderInboxPanel();
+            }
+            break;
+        case 'grid':
+            if (isVisible) {
+                document.getElementById('grid-panel').style.display = 'block';
+                this.updateGridInputValues();
+            }
+            break;
+        // Add more panels as needed
+    }
+}
+
+// Ensure consistent panel styling for all panels
+setupConsistentPanelStyling() {
+    const panels = [
+        this.stylePanel,
+        this.settingsPanel,
+        this.inboxPanel,
+        document.getElementById('grid-panel')
+    ];
+    
+    panels.forEach(panel => {
+        if (panel) {
+            // Ensure proper positioning
+            panel.style.position = 'fixed';
+            panel.style.top = '41px'; // Below title bar
+            panel.style.right = '0';
+            panel.style.width = 'var(--panel-width)';
+            panel.style.height = 'calc(100vh - 40px)';
+            panel.style.zIndex = '250'; // Above split view/Arena
+            panel.style.boxSizing = 'border-box';
+            panel.style.overflow = 'auto';
+            
+            // Consistent background and styling
+            panel.style.backgroundColor = 'var(--bg-color)';
+            panel.style.padding = '20px';
+            panel.style.paddingTop = '60px';
+        }
+    });
+}
+
+// In view.js, add this method and call it during initialization
+setupPanelStackingContext() {
+    // Create a style element to ensure proper panel stacking
+    const stackingStyle = document.createElement('style');
+    stackingStyle.id = 'panel-stacking-style';
+    stackingStyle.textContent = `
+        /* Force panels to use highest stacking context */
+        #inbox-panel {
+            z-index: 1000 !important;
+            position: fixed !important;
+            top: 41px !important;
+            right: 0 !important;
+        }
+        
+        #settings-panel {
+            z-index: 1000 !important;
+        }
+        
+        #style-panel {
+            z-index: 1000 !important;
+        }
+        
+        #grid-panel {
+            z-index: 1000 !important;
+        }
+        
+        /* Make sure viewport elements never cover panels */
+        #right-viewport, 
+        #arena-viewport,
+        #resize-divider,
+        #arena-resize-divider {
+            z-index: 150 !important;
+        }
+    `;
+    document.head.appendChild(stackingStyle);
+    
+    OPTIMISM.log('Panel stacking context styles applied');
 }
     
 }
