@@ -26,7 +26,7 @@ class CanvasModel {
         this.undoStack = [];
         this.redoStack = [];
         this.maxHistorySize = 50; // Limit history size to prevent memory issues
-        
+        this.isNestingDisabled = false; // Add this line to track nesting setting
         // Debug panel visibility state
         this.isDebugVisible = false;
         this.inboxCards = []; // Array to store inbox cards
@@ -138,6 +138,12 @@ async initialize() {
                         this.isSplitViewEnabled = appState.isSplitViewEnabled;
                         OPTIMISM.log(`Loaded split view state: ${this.isSplitViewEnabled}`);
                     }
+
+                    // In the loadData method, inside the check for appState
+if (appState.isNestingDisabled !== undefined) {
+    this.isNestingDisabled = appState.isNestingDisabled;
+    OPTIMISM.log(`Loaded nesting disabled state: ${this.isNestingDisabled}`);
+}
 
                     // Load Are.na panel state
                 if (appState.isArenaVisible !== undefined) {
@@ -881,12 +887,13 @@ resetBackupReminder() {
                 inboxCards: this.inboxCards,
                 isInboxVisible: this.isInboxVisible,
                 isGridVisible: this.isGridVisible,
+                isNestingDisabled: this.isNestingDisabled, // Add this line
                 isSplitViewEnabled: this.isSplitViewEnabled,
-                isArenaVisible: this.isArenaVisible, // Add this line
+                isArenaVisible: this.isArenaVisible,
                 gridLayout: this.gridLayout
             };
             
-            OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout}, arena: ${this.isArenaVisible ? 'on' : 'off'})`);
+            OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout}, arena: ${this.isArenaVisible ? 'on' : 'off'}, nesting disabled: ${this.isNestingDisabled ? 'yes' : 'no'})`);
             await this.db.put('canvasData', appState);
         } catch (error) {
             OPTIMISM.logError('Error saving app state:', error);
@@ -1441,6 +1448,13 @@ async toggleArenaView() {
     OPTIMISM.log(`Are.na view set to: ${this.isArenaVisible}`);
     await this.saveAppState();
     return this.isArenaVisible;
+}
+
+async toggleNestingDisabled() {
+    this.isNestingDisabled = !this.isNestingDisabled;
+    OPTIMISM.log(`Nesting disabled state set to: ${this.isNestingDisabled}`);
+    await this.saveAppState();
+    return this.isNestingDisabled;
 }
 
 }

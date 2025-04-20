@@ -2241,35 +2241,41 @@ document.addEventListener('mouseup', (e) => {
     }
     // If not on a breadcrumb or for a quick link, check if dragged over another element
     else {
-        const dropTarget = this.findDropTarget(e);
-        if (dropTarget && dropTarget !== this.draggedElement) {
-            const targetId = dropTarget.dataset.id;
-            
-            OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
-            
-            // Deselect all elements before moving
-            this.deselectAllElements();
-            
-            this.controller.moveElement(draggedId, targetId);
-        } else {
-            // Not dropped on any target, just update position
-            const newX = parseFloat(this.draggedElement.style.left);
-            const newY = parseFloat(this.draggedElement.style.top);
-            
-            OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-            
-            // If it's an image, also update z-index
-            if (isImage) {
-                this.controller.updateElement(draggedId, { 
-                    x: newX, 
-                    y: newY,
-                    zIndex: parseInt(this.draggedElement.style.zIndex) || 1
-                });
-            } else {
-                this.controller.updateElement(draggedId, { x: newX, y: newY });
+        // Skip nesting check if nesting is disabled
+        if (!this.model.isNestingDisabled) {
+            const dropTarget = this.findDropTarget(e);
+            if (dropTarget && dropTarget !== this.draggedElement) {
+                const targetId = dropTarget.dataset.id;
+                
+                OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
+                
+                // Deselect all elements before moving
+                this.deselectAllElements();
+                
+                this.controller.moveElement(draggedId, targetId);
+                return; // Exit early to avoid position update
             }
         }
+        
+        // Not dropped on any target, just update position
+        const newX = parseFloat(this.draggedElement.style.left);
+        const newY = parseFloat(this.draggedElement.style.top);
+        
+        OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
+        
+        // If it's an image, also update z-index
+        if (isImage) {
+            this.controller.updateElement(draggedId, { 
+                x: newX, 
+                y: newY,
+                zIndex: parseInt(this.draggedElement.style.zIndex) || 1
+            });
+        } else {
+            this.controller.updateElement(draggedId, { x: newX, y: newY });
+        }
     }
+   
+    
     
     // Reset drag state
     this.draggedElement.classList.remove('dragging');
@@ -2322,10 +2328,12 @@ handleDragOver(e) {
         return;
     }
     
-    // Then check for element targets
-    const dropTarget = this.findDropTarget(e);
-    if (dropTarget && dropTarget !== this.draggedElement) {
-        dropTarget.classList.add('drag-over');  // Keep original style for elements
+    // Then check for element targets if nesting is not disabled
+    if (!this.model.isNestingDisabled) {
+        const dropTarget = this.findDropTarget(e);
+        if (dropTarget && dropTarget !== this.draggedElement) {
+            dropTarget.classList.add('drag-over');  // Keep original style for elements
+        }
     }
 }
     
@@ -2340,6 +2348,11 @@ findDropTarget(e) {
             
             // Don't allow dropping onto locked cards
             if (this.model.isCardLocked(element.dataset.id)) {
+                continue;
+            }
+
+             // Skip if nesting is disabled
+             if (this.model.isNestingDisabled) {
                 continue;
             }
             
@@ -2455,6 +2468,26 @@ setupSettingsPanel() {
             this.settingsPanel.appendChild(lockImagesOption);
             this.settingsPanel.appendChild(gridSettingsOption);
         }
+
+        // In the setupSettingsPanel method, after the lockImagesOption
+const disableNestingOption = document.createElement('div');
+disableNestingOption.className = 'settings-option';
+disableNestingOption.innerHTML = '<a href="#" class="option-value" id="settings-disable-nesting-button">' + 
+    (this.model.isNestingDisabled ? 'Enable Nesting' : 'Disable Nesting') + '</a>';
+
+// Add the new option after lockImagesOption
+if (nextElement) {
+    this.settingsPanel.insertBefore(disableNestingOption, lockImagesOption.nextSibling);
+} else {
+    this.settingsPanel.appendChild(disableNestingOption);
+}
+
+// Add the event listener for the new button
+document.getElementById('settings-disable-nesting-button')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    this.toggleNestingDisabled();
+});
         
         // Set up event handlers for the new options
         document.getElementById('settings-copy-link-button')?.addEventListener('click', (e) => {
@@ -2639,6 +2672,8 @@ updateImagesLockState(isLocked) {
     if (settingsButton) {
         settingsButton.textContent = imagesLocked ? "Unlock Images" : "Lock Images";
     }
+
+
 }
 
 // In view.js
@@ -4742,6 +4777,24 @@ setupPasteHandler() {
     });
     
     OPTIMISM.log('Paste handler set up successfully');
+}
+
+toggleNestingDisabled() {
+    this.controller.toggleNestingDisabled().then(isDisabled => {
+        // Update the button text in the settings panel
+        const settingsButton = document.getElementById('settings-disable-nesting-button');
+        if (settingsButton) {
+            settingsButton.textContent = isDisabled ? "Enable Nesting" : "Disable Nesting";
+        }
+    });
+}
+
+updateNestingDisabledState(isDisabled) {
+    // Update the button text in settings panel
+    const settingsButton = document.getElementById('settings-disable-nesting-button');
+    if (settingsButton) {
+        settingsButton.textContent = isDisabled ? "Enable Nesting" : "Disable Nesting";
+    }
 }
     
 }

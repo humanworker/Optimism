@@ -1274,4 +1274,22 @@ async toggleArenaView() {
     }
 }
 
+async toggleNestingDisabled() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle nesting disabled: application not initialized');
+        return this.model.isNestingDisabled;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling nesting disabled state');
+        const isDisabled = await this.model.toggleNestingDisabled();
+        this.view.updateNestingDisabledState(isDisabled);
+        OPTIMISM.log(`Nesting disabled state set to ${isDisabled}`);
+        return isDisabled;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling nesting disabled state:', error);
+        return this.model.isNestingDisabled;
+    }
+}
+
 }
