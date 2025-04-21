@@ -2871,7 +2871,7 @@ renderQuickLinks() {
         // Show placeholder text
         const placeholderText = document.createElement('span');
         placeholderText.className = 'quick-link-placeholder';
-        placeholderText.textContent = 'Drag cards here to bookmark';
+        placeholderText.textContent = 'Drag cards here to hold for a lil while';
         placeholderText.style.color = 'var(--element-text-color)';
         placeholderText.style.fontSize = '14px';  // Match other nav links
         placeholderText.style.padding = '4px 8px';
