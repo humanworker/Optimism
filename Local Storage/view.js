@@ -1601,33 +1601,32 @@ if (elementData.autoSize !== undefined) {
     container.addEventListener('mousedown', (e) => {
         // Don't handle if card is locked
         if (this.model.isCardLocked(elementData.id)) return;
-        
+
         // Don't handle if not left mouse button
         if (e.button !== 0) return;
-        
+
         // Don't start drag when on resize handle
         if (e.target === resizeHandle) return;
-        
+
         // Select the element but don't show style panel while dragging
         this.selectElement(container, elementData, true); // Pass true to indicate we're dragging
-        
+
         this.draggedElement = container;
         this.model.selectedElement = elementData.id;
-        
-        // Store original position for potential snap back
+
+        // --- START: Revised Offset Calculation ---
+        const elementRect = container.getBoundingClientRect();
+        this.elemOffsetX = e.clientX - elementRect.left;
+        this.elemOffsetY = e.clientY - elementRect.top;
+        // --- END: Revised Offset Calculation ---
+
+        // Store original position (relative to workspace) for potential snap back
+        // Keep using style.left/top or dataset.numX/Y here as they are relative to the workspace
         container.dataset.originalLeft = container.style.left;
         container.dataset.originalTop = container.style.top;
-        
-        // Get current numerical position values
-        const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
-        const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
-        
-        // Calculate the offset from the current position
-        this.elemOffsetX = e.clientX - currentX;
-        this.elemOffsetY = e.clientY - currentY;
-        
+
         container.classList.add('dragging');
-        e.preventDefault();
+        e.preventDefault(); // Prevent text selection, etc.
     });
     
     resizeHandle.addEventListener('mousedown', (e) => {
@@ -1754,33 +1753,34 @@ async createImageElementDOM(elementData) {
     container.addEventListener('mousedown', (e) => {
         // Don't handle if card is locked
         if (this.model.isCardLocked(elementData.id)) return;
-        
+
+        // Don't handle if image lock is on
+        if (this.model.imagesLocked && elementData.type === 'image') return; // Added check for image lock
+
         // Don't handle if not left mouse button
         if (e.button !== 0) return;
-        
+
         // Don't start drag when on resize handle
         if (e.target === resizeHandle) return;
-        
+
         // Select the element but don't show style panel while dragging
         this.selectElement(container, elementData, true); // Pass true to indicate we're dragging
-        
+
         this.draggedElement = container;
         this.model.selectedElement = elementData.id;
-        
-        // Store original position for potential snap back
+
+        // --- START: Revised Offset Calculation ---
+        const elementRect = container.getBoundingClientRect();
+        this.elemOffsetX = e.clientX - elementRect.left;
+        this.elemOffsetY = e.clientY - elementRect.top;
+        // --- END: Revised Offset Calculation ---
+
+        // Store original position (relative to workspace) for potential snap back
         container.dataset.originalLeft = container.style.left;
         container.dataset.originalTop = container.style.top;
-        
-        // Get current numerical position values
-        const currentX = parseFloat(container.dataset.numX) || parseFloat(container.style.left);
-        const currentY = parseFloat(container.dataset.numY) || parseFloat(container.style.top);
-        
-        // Calculate the offset from the current position
-        this.elemOffsetX = e.clientX - currentX;
-        this.elemOffsetY = e.clientY - currentY;
-        
+
         container.classList.add('dragging');
-        e.preventDefault();
+        e.preventDefault(); // Prevent default image drag behavior
     });
     
     // Updated resize handle event listener
@@ -1932,458 +1932,329 @@ if (lockOption) {
         }
     }
     
-    // In view.js - full method with changes
-    setupDragListeners() {
-        OPTIMISM.log('Setting up drag listeners');
-        
-        // Add workspace drop handler for inbox cards
-        this.workspace.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            
-            // If we're dragging from inbox, add a subtle visual indicator
-            if (this.isDraggingFromInbox) {
-                // Hide image drop zone
-                if (this.dropZoneIndicator) {
-                    this.dropZoneIndicator.style.display = 'none';
-                }
-                
-                // We could add a custom visual indicator here if desired
-            }
-        });
-        
-        this.workspace.addEventListener('drop', (e) => {
-            e.preventDefault();
-            
-            OPTIMISM.log('Drop event on workspace');
-            
-            // Handle drops from inbox to canvas
-            if (this.isDraggingFromInbox) {
-                const cardId = e.dataTransfer.getData('text/plain');
-                if (cardId) {
-                    // Get position relative to workspace
-                    const rect = this.workspace.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    
-                    OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
-                    this.controller.moveFromInboxToCanvas(cardId, x, y);
-                    
-                    // Reset drag state
-                    this.isDraggingFromInbox = false;
-                    
-                    // Ensure drop zone indicator is hidden
-                    if (this.dropZoneIndicator) {
-                        this.dropZoneIndicator.style.display = 'none';
-                    }
-                    
-                    // Stop propagation to prevent other handlers
-                    e.stopPropagation();
-                }
-            }
-        });
+    // In view.js - full method with drag constraint changes
+setupDragListeners() {
+    OPTIMISM.log('Setting up drag listeners');
 
-    // Add this inside setupDragListeners in view.js (before or after existing code)
-// This will ensure we properly remove quick links when dragged off
-document.addEventListener('drop', (e) => {
-    const navControls = document.getElementById('nav-controls');
-    if (e.dataTransfer && e.dataTransfer.types.includes('application/quicklink')) {
+    // Add workspace drop handler for inbox cards
+    this.workspace.addEventListener('dragover', (e) => {
         e.preventDefault();
-        
-        const nodeId = e.dataTransfer.getData('application/quicklink');
-        const navRect = navControls.getBoundingClientRect();
-        
-        if (nodeId && (e.clientX < navRect.left || e.clientX > navRect.right ||
-                        e.clientY < navRect.top || e.clientY > navRect.bottom)) {
-            OPTIMISM.log(`Removing quick link ${nodeId} (dropped outside navbar)`);
-            this.controller.removeQuickLink(nodeId);
-        }
-    }
-});
-    
-    // Add drag events to nav-controls for quick link addition
-    const navControls = document.getElementById('nav-controls');
-    
-    navControls.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Check if we're dragging an element from the workspace
-        if (this.draggedElement) {
-            // Only highlight if not over a breadcrumb (which has its own drop behavior)
-            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-            if (!breadcrumbTarget) {
-                navControls.classList.add('nav-drag-highlight');
+
+        // If we're dragging from inbox, add a subtle visual indicator
+        if (this.isDraggingFromInbox) {
+            // Hide image drop zone
+            if (this.dropZoneIndicator) {
+                this.dropZoneIndicator.style.display = 'none';
             }
+            // We could add a custom visual indicator here if desired
         }
-        
-        // Allow dropping of quick links for removal
-        const quickLinkBeing = e.dataTransfer && e.dataTransfer.types.includes('text/plain');
-        if (quickLinkBeing && !navControls.contains(e.target)) {
-            const linkElement = e.target.closest('.quick-link');
-            if (linkElement) {
-                linkElement.classList.add('drag-over');
+    });
+
+    this.workspace.addEventListener('drop', (e) => {
+        e.preventDefault();
+        OPTIMISM.log('Drop event on workspace');
+
+        // Handle drops from inbox to canvas
+        if (this.isDraggingFromInbox) {
+            const cardId = e.dataTransfer.getData('text/plain');
+            if (cardId) {
+                const rect = this.workspace.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
+                this.controller.moveFromInboxToCanvas(cardId, x, y);
+                this.isDraggingFromInbox = false;
+                if (this.dropZoneIndicator) { this.dropZoneIndicator.style.display = 'none'; }
+                e.stopPropagation();
             }
         }
     });
-    
-    navControls.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        
-        // Check if leaving the nav controls entirely
-        if (!navControls.contains(e.relatedTarget)) {
-            navControls.classList.remove('nav-drag-highlight');
-        }
-        
-        // Clear highlight on links
-        document.querySelectorAll('.quick-link.drag-over').forEach(el => {
-            el.classList.remove('drag-over');
-        });
-    });
-    
-    navControls.addEventListener('drop', (e) => {
-        e.preventDefault();
-        navControls.classList.remove('nav-drag-highlight');
-        
-        // If dragging from the workspace to the nav bar (not over a breadcrumb)
-        if (this.draggedElement) {
-            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-            if (!breadcrumbTarget) {
-                // Add as a quick link if it's in the nav area
-                const draggedId = this.draggedElement.dataset.id;
-                const element = this.model.findElement(draggedId);
-                
-                if (element) {
-                    let title = "Untitled";
-                    if (element.type === 'text' && element.text) {
-                        title = element.text.substring(0, 60);
-                    } else if (element.type === 'image') {
-                        title = "Image";
-                    }
-                    
-                    OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
-                    this.controller.addQuickLink(draggedId, title);
-                }
-            }
-        } else if (e.dataTransfer && e.dataTransfer.types.includes('text/plain')) {
-            // Handle dropping a quick link outside the nav bar for removal
-            const nodeId = e.dataTransfer.getData('text/plain');
-            if (nodeId && !navControls.contains(e.target)) {
-                OPTIMISM.log(`Removing quick link ${nodeId}`);
+
+    // Add drop listener for removing quick links
+    document.addEventListener('drop', (e) => {
+        const navControls = document.getElementById('nav-controls');
+        if (e.dataTransfer && e.dataTransfer.types.includes('application/quicklink')) {
+            e.preventDefault();
+            const nodeId = e.dataTransfer.getData('application/quicklink');
+            const navRect = navControls.getBoundingClientRect();
+            if (nodeId && (e.clientX < navRect.left || e.clientX > navRect.right ||
+                            e.clientY < navRect.top || e.clientY > navRect.bottom)) {
+                OPTIMISM.log(`Removing quick link ${nodeId} (dropped outside navbar)`);
                 this.controller.removeQuickLink(nodeId);
             }
         }
-        
-        // Clear all drag highlights
-        document.querySelectorAll('.quick-link.drag-over').forEach(el => {
-            el.classList.remove('drag-over');
-        });
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-        // Handle resizing
-        if (this.resizingElement) {
-            // Get element type
-            const elementType = this.resizingElement.dataset.type;
-            
-            // Don't resize images if they're locked
-            if (this.model.imagesLocked && elementType === 'image') {
-                return;
-            }
-            
-            // Calculate size delta
-            const deltaWidth = e.clientX - this.dragStartX;
-            const deltaHeight = e.clientY - this.dragStartY;
-            
-            // Apply new dimensions with constraints based on element type
-            let newWidth, newHeight;
-            
-            if (elementType === 'image') {
-                // For images, limit max size to 600px while maintaining aspect ratio
-                const aspectRatio = this.initialHeight / this.initialWidth;
-                
-                // Calculate new dimensions without enforcing aspect ratio yet
-                newWidth = Math.max(50, this.initialWidth + deltaWidth);
-                newHeight = Math.max(50, this.initialHeight + deltaHeight);
-                
-                // Now enforce the 600px max dimension
-                if (newWidth > newHeight) {
-                    // Width is longest dimension
-                    if (newWidth > 600) {
-                        newWidth = 600;
-                        newHeight = Math.round(newWidth * aspectRatio);
-                    }
-                } else {
-                    // Height is longest dimension
-                    if (newHeight > 600) {
-                        newHeight = 600;
-                        newWidth = Math.round(newHeight / aspectRatio);
-                    }
-                }
-            } else {
-                // For text elements, use original constraints
-                newWidth = Math.max(30, this.initialWidth + deltaWidth);
-                newHeight = Math.max(30, this.initialHeight + deltaHeight);
-            }
-            
-            // Check for grid snapping if grid is visible
-            if (this.model.isGridVisible) {
-                // Get the position of the element
-                const elementRect = this.resizingElement.getBoundingClientRect();
-                const workspaceRect = this.workspace.getBoundingClientRect();
-                
-                // Calculate current right and bottom edges relative to workspace
-                const elementLeft = elementRect.left - workspaceRect.left;
-                const elementTop = elementRect.top - workspaceRect.top;
-                const rightEdge = elementLeft + newWidth;
-                const bottomEdge = elementTop + newHeight;
-                
-                // Debug info
-                OPTIMISM.log(`Resizing: Right edge at ${rightEdge}, Bottom edge at ${bottomEdge}`);
-                
-                // Get all vertical grid lines for right edge snapping
-                const vertLines = Array.from(document.querySelectorAll('.grid-line-vertical'));
-                if (vertLines.length > 0) {
-                    OPTIMISM.log(`Found ${vertLines.length} vertical grid lines`);
-                    
-                    // Sort by distance to right edge
-                    vertLines.sort((a, b) => {
-                        const aPos = parseInt(a.style.left);
-                        const bPos = parseInt(b.style.left);
-                        return Math.abs(rightEdge - aPos) - Math.abs(rightEdge - bPos);
-                    });
-                    
-                    // Get the closest line
-                    const closestLine = vertLines[0];
-                    const lineX = parseInt(closestLine.style.left);
-                    
-                    // If the right edge is within 10px of a grid line, snap to it
-                    if (Math.abs(rightEdge - lineX) < 10) {
-                        OPTIMISM.log(`Snapping right edge to grid line at ${lineX}`);
-                        // Adjust width to snap the right edge to the grid line
-                        newWidth = lineX - elementLeft;
-                    }
-                }
-                
-                // Get all horizontal grid lines for bottom edge snapping
-                const horzLines = Array.from(document.querySelectorAll('.grid-line-horizontal'));
-                if (horzLines.length > 0) {
-                    OPTIMISM.log(`Found ${horzLines.length} horizontal grid lines`);
-                    
-                    // Sort by distance to bottom edge
-                    horzLines.sort((a, b) => {
-                        const aPos = parseInt(a.style.top);
-                        const bPos = parseInt(b.style.top);
-                        return Math.abs(bottomEdge - aPos) - Math.abs(bottomEdge - bPos);
-                    });
-                    
-                    // Get the closest line
-                    const closestLine = horzLines[0];
-                    const lineY = parseInt(closestLine.style.top);
-                    
-                    // If the bottom edge is within 10px of a grid line, snap to it
-                    if (Math.abs(bottomEdge - lineY) < 10) {
-                        OPTIMISM.log(`Snapping bottom edge to grid line at ${lineY}`);
-                        // Adjust height to snap the bottom edge to the grid line
-                        newHeight = lineY - elementTop;
-                    }
-                }
-            }
-            
-            // Apply the final dimensions
-            this.resizingElement.style.width = `${newWidth}px`;
-            this.resizingElement.style.height = `${newHeight}px`;
-            
-            return;
-        }
-        
-        // Handle dragging
-        if (!this.draggedElement) return;
-    
-        // Don't drag images if they're locked
-        if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
-            return;
-        }
-    
-        // Calculate new position
-        let newX = e.clientX - this.elemOffsetX;
-        let newY = e.clientY - this.elemOffsetY;
-    
-        // Check for grid snapping if grid is visible
-        if (this.model.isGridVisible) {
-            // Get grid lines
-            const gridContainer = document.getElementById('grid-container');
-            if (gridContainer) {
-                const vertLines = gridContainer.querySelectorAll('.grid-line-vertical');
-                const horzLines = gridContainer.querySelectorAll('.grid-line-horizontal');
-                
-                // Check for vertical line snapping
-                vertLines.forEach(line => {
-                    const lineX = parseInt(line.style.left);
-                    // If within 10px of the line, snap to it
-                    if (Math.abs(newX - lineX) < 10) {
-                        newX = lineX;
-                    }
-                });
-                
-                // Check for horizontal line snapping
-                horzLines.forEach(line => {
-                    const lineY = parseInt(line.style.top);
-                    // If within 10px of the line, snap to it
-                    if (Math.abs(newY - lineY) < 10) {
-                        newY = lineY;
-                    }
-                });
-            }
-        }
-    
-        // Update both style and dataset for consistency
-        this.draggedElement.style.left = `${newX}px`;
-        this.draggedElement.style.top = `${newY}px`;
-        this.draggedElement.dataset.numX = newX;
-        this.draggedElement.dataset.numY = newY;
-    
-        // Highlight potential drop targets
-        this.handleDragOver(e);
     });
 
-    // In view.js - partial update to the mouseup event handler in setupDragListeners
-document.addEventListener('mouseup', (e) => {
-    // Handle end of resizing
+    // Add drag events to nav-controls for quick link addition
+    const navControls = document.getElementById('nav-controls');
+    navControls.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.draggedElement) {
+            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+            if (!breadcrumbTarget) {
+                navControls.classList.add('nav-drag-highlight'); // Use a specific class if needed
+            }
+        }
+         // Highlight for quick link removal (if needed)
+        if (e.dataTransfer && e.dataTransfer.types.includes('application/quicklink')) {
+            // You might add highlighting logic here if you bring back drag-to-remove
+        }
+    });
+
+    navControls.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        if (!navControls.contains(e.relatedTarget)) {
+            navControls.classList.remove('nav-drag-highlight');
+        }
+        // Clear highlight on quick links if needed
+    });
+
+    navControls.addEventListener('drop', (e) => {
+        e.preventDefault();
+        navControls.classList.remove('nav-drag-highlight');
+        if (this.draggedElement) {
+            const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+            if (!breadcrumbTarget) {
+                const draggedId = this.draggedElement.dataset.id;
+                const element = this.model.findElement(draggedId);
+                if (element) {
+                    let title = "Untitled";
+                    if (element.type === 'text' && element.text) { title = element.text.substring(0, 60); }
+                    else if (element.type === 'image') { title = "Image"; }
+                    OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
+                    this.controller.addQuickLink(draggedId, title);
+                     // Snap back dragged element
+                     if (this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
+                        this.draggedElement.style.left = this.draggedElement.dataset.originalLeft;
+                        this.draggedElement.style.top = this.draggedElement.dataset.originalTop;
+                    }
+                }
+            }
+        }
+        // Clear quick link highlights if needed
+    });
+
+    // In view.js, inside the setupDragListeners method
+
+document.addEventListener('mousemove', (e) => {
+    // Handle resizing (keep existing logic)
     if (this.resizingElement) {
-        // Get element type
+        // ... (resizing code remains exactly the same as the previous version) ...
         const elementType = this.resizingElement.dataset.type;
-        
-        // Don't update locked images
-        if (this.model.imagesLocked && elementType === 'image') {
+        if (this.model.imagesLocked && elementType === 'image') return;
+
+        const deltaWidth = e.clientX - this.dragStartX;
+        const deltaHeight = e.clientY - this.dragStartY;
+        let newWidth, newHeight;
+
+        if (elementType === 'image') {
+            const aspectRatio = this.initialHeight / this.initialWidth;
+            newWidth = Math.max(50, this.initialWidth + deltaWidth);
+            newHeight = Math.max(50, this.initialHeight + deltaHeight);
+            if (newWidth > newHeight) {
+                if (newWidth > 600) { newWidth = 600; newHeight = Math.round(newWidth * aspectRatio); }
+            } else {
+                if (newHeight > 600) { newHeight = 600; newWidth = Math.round(newHeight / aspectRatio); }
+            }
+        } else {
+            newWidth = Math.max(30, this.initialWidth + deltaWidth);
+            newHeight = Math.max(30, this.initialHeight + deltaHeight);
+        }
+
+        if (this.model.isGridVisible) {
+             const elementRect = this.resizingElement.getBoundingClientRect();
+             const workspaceRect = this.workspace.getBoundingClientRect();
+             const elementLeft = elementRect.left - workspaceRect.left;
+             const elementTop = elementRect.top - workspaceRect.top;
+             const rightEdge = elementLeft + newWidth;
+             const bottomEdge = elementTop + newHeight;
+
+             const vertLines = Array.from(document.querySelectorAll('.grid-line-vertical'));
+             if (vertLines.length > 0) {
+                 vertLines.sort((a, b) => Math.abs(rightEdge - parseInt(a.style.left)) - Math.abs(rightEdge - parseInt(b.style.left)));
+                 const closestLine = vertLines[0];
+                 const lineX = parseInt(closestLine.style.left);
+                 if (Math.abs(rightEdge - lineX) < 10) { newWidth = lineX - elementLeft; }
+             }
+
+             const horzLines = Array.from(document.querySelectorAll('.grid-line-horizontal'));
+             if (horzLines.length > 0) {
+                 horzLines.sort((a, b) => Math.abs(bottomEdge - parseInt(a.style.top)) - Math.abs(bottomEdge - parseInt(b.style.top)));
+                 const closestLine = horzLines[0];
+                 const lineY = parseInt(closestLine.style.top);
+                 if (Math.abs(bottomEdge - lineY) < 10) { newHeight = lineY - elementTop; }
+             }
+        }
+
+        this.resizingElement.style.width = `${newWidth}px`;
+        this.resizingElement.style.height = `${newHeight}px`;
+        return; // Return after handling resize
+    }
+
+    // Handle dragging
+    if (!this.draggedElement) return;
+
+    // Don't drag locked items (keep existing logic)
+    if ((this.model.imagesLocked && this.draggedElement.dataset.type === 'image') ||
+        (this.model.isCardLocked(this.draggedElement.dataset.id))) {
+        return;
+    }
+
+    // --- FIX FOR JUMPING ---
+
+    // 1. Calculate the desired absolute top-left position based on mouse and initial offset
+    const desiredAbsoluteX = e.clientX - this.elemOffsetX;
+    const desiredAbsoluteY = e.clientY - this.elemOffsetY;
+
+    // 2. Get the workspace's position relative to the viewport
+    const workspaceRect = this.workspace.getBoundingClientRect();
+
+    // 3. Calculate the desired position *relative* to the workspace container
+    let desiredRelativeX = desiredAbsoluteX - workspaceRect.left;
+    let desiredRelativeY = desiredAbsoluteY - workspaceRect.top;
+
+    // 4. Define allowed boundaries *within* the workspace content area
+    const minX_allowed = 0;
+    const maxX_allowed = this.workspace.clientWidth - this.draggedElement.offsetWidth;
+    const minY_allowed = 0;
+    const maxY_allowed = this.workspace.clientHeight - this.draggedElement.offsetHeight;
+
+    // 5. Constrain the *relative* positions
+    let finalX_style = Math.max(minX_allowed, Math.min(desiredRelativeX, maxX_allowed));
+    let finalY_style = Math.max(minY_allowed, Math.min(desiredRelativeY, maxY_allowed));
+
+    // --- END OF FIX ---
+
+    // 6. Grid snapping (apply to the constrained *relative* coordinates)
+    if (this.model.isGridVisible) {
+        const gridContainer = document.getElementById('grid-container');
+        if (gridContainer) {
+            // Snap logic here operates on finalX_style and finalY_style
+            // (which are already relative to the workspace)
+            const vertLines = gridContainer.querySelectorAll('.grid-line-vertical');
+            vertLines.forEach(line => {
+                const lineX = parseInt(line.style.left);
+                if (Math.abs(finalX_style - lineX) < 10) { /* finalX_style = lineX; */ } // Example snap left
+            });
+            const horzLines = gridContainer.querySelectorAll('.grid-line-horizontal');
+            horzLines.forEach(line => {
+                const lineY = parseInt(line.style.top);
+                if (Math.abs(finalY_style - lineY) < 10) { /* finalY_style = lineY; */ } // Example snap top
+            });
+             // Example snap right/bottom
+            const elementRight = finalX_style + this.draggedElement.offsetWidth;
+            vertLines.forEach(line => {
+                const lineX = parseInt(line.style.left);
+                if (Math.abs(elementRight - lineX) < 10) { /* finalX_style = lineX - this.draggedElement.offsetWidth; */ }
+            });
+            const elementBottom = finalY_style + this.draggedElement.offsetHeight;
+            horzLines.forEach(line => {
+                const lineY = parseInt(line.style.top);
+                if (Math.abs(elementBottom - lineY) < 10) { /* finalY_style = lineY - this.draggedElement.offsetHeight; */ }
+            });
+        }
+    }
+
+    // 7. Update element style and data attributes with the final constrained & snapped relative values
+    this.draggedElement.style.left = `${finalX_style}px`;
+    this.draggedElement.style.top = `${finalY_style}px`;
+    this.draggedElement.dataset.numX = finalX_style;
+    this.draggedElement.dataset.numY = finalY_style;
+
+    // Highlight potential drop targets (keep existing logic)
+    this.handleDragOver(e);
+});
+
+    document.addEventListener('mouseup', (e) => {
+        // Handle end of resizing
+        if (this.resizingElement) {
+            const elementType = this.resizingElement.dataset.type;
+            if (this.model.imagesLocked && elementType === 'image') {
+                this.resizingElement = null;
+                return;
+            }
+            const id = this.resizingElement.dataset.id;
+            const width = parseFloat(this.resizingElement.style.width);
+            const height = parseFloat(this.resizingElement.style.height);
+            OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
+            this.controller.updateElement(id, { width, height });
             this.resizingElement = null;
             return;
         }
-        
-        const id = this.resizingElement.dataset.id;
-        const width = parseFloat(this.resizingElement.style.width);
-        const height = parseFloat(this.resizingElement.style.height);
-        
-        OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
-        this.controller.updateElement(id, { width, height });
-        
-        this.resizingElement = null;
-        return;
-    }
-    
-    // Handle end of dragging
-    if (!this.draggedElement) return;
-    
-    // Don't update locked images
-    if (this.model.imagesLocked && this.draggedElement.dataset.type === 'image') {
-        this.draggedElement.classList.remove('dragging');
-        this.draggedElement = null;
-        
-        // Remove highlights
-        const highlighted = document.querySelectorAll('.drag-over');
-        highlighted.forEach(el => el.classList.remove('drag-over'));
-        return;
-    }
-    
-    const draggedId = this.draggedElement.dataset.id;
-    
-    // Check if this is an image element
-    const isImage = this.draggedElement.dataset.type === 'image';
-    
-    // If this is an image, bring it to front of other images
-    if (isImage) {
-        const newZIndex = this.findHighestImageZIndex() + 1;
-        // Make sure we don't exceed our maximum for images
-        const cappedZIndex = Math.min(newZIndex, 99);
-        this.draggedElement.style.zIndex = cappedZIndex;
-    }
-    
-    // First check if dragged over a breadcrumb
-    const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-    if (breadcrumbTarget) {
-        const navIndex = parseInt(breadcrumbTarget.dataset.index);
-        
-        OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
-        
-        // Deselect all elements before moving
-        this.deselectAllElements();
-        
-        // Move the element to the target navigation level
-        this.controller.moveElementToBreadcrumb(draggedId, navIndex);
-    } 
-    // If not on a breadcrumb, check if dragged over the quick links area to create a bookmark
-    else if (this.isOverQuickLinksArea(e)) {
-        // Add as a quick link
-        const element = this.model.findElement(draggedId);
-        
-        if (element) {
-            let title = "Untitled";
-            if (element.type === 'text' && element.text) {
-                title = element.text.substring(0, 60);
-            } else if (element.type === 'image') {
-                title = "Image";
-            }
-            
-            OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
-            this.controller.addQuickLink(draggedId, title);
-            
-            // Snap back to the original position
-            if (this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
-                this.draggedElement.style.left = this.draggedElement.dataset.originalLeft;
-                this.draggedElement.style.top = this.draggedElement.dataset.originalTop;
-                OPTIMISM.log(`Snapping card back to original position`);
-            }
+
+        // Handle end of dragging
+        if (!this.draggedElement) return;
+
+        if ((this.model.imagesLocked && this.draggedElement.dataset.type === 'image') ||
+             this.model.isCardLocked(this.draggedElement.dataset.id)) {
+            this.draggedElement.classList.remove('dragging');
+            this.draggedElement = null;
+            document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
+            return;
         }
-    }
-    // If not on a breadcrumb or for a quick link, check if dragged over another element
-    else {
-        // Skip nesting check if nesting is disabled
-        if (!this.model.isNestingDisabled) {
-            const dropTarget = this.findDropTarget(e);
+
+        const draggedId = this.draggedElement.dataset.id;
+        const isImage = this.draggedElement.dataset.type === 'image';
+        if (isImage) {
+            const newZIndex = this.findHighestImageZIndex() + 1;
+            const cappedZIndex = Math.min(newZIndex, 99);
+            this.draggedElement.style.zIndex = cappedZIndex;
+        }
+
+        const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+        const quickLinksTarget = this.isOverQuickLinksArea(e);
+
+        if (breadcrumbTarget) {
+            const navIndex = parseInt(breadcrumbTarget.dataset.index);
+            OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
+            this.deselectAllElements();
+            this.controller.moveElementToBreadcrumb(draggedId, navIndex);
+        } else if (quickLinksTarget) {
+             const element = this.model.findElement(draggedId);
+             if (element) {
+                 let title = "Untitled";
+                 if (element.type === 'text' && element.text) { title = element.text.substring(0, 60); }
+                 else if (element.type === 'image') { title = "Image"; }
+                 OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
+                 this.controller.addQuickLink(draggedId, title);
+                 // Snap back
+                 if (this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
+                     this.draggedElement.style.left = this.draggedElement.dataset.originalLeft;
+                     this.draggedElement.style.top = this.draggedElement.dataset.originalTop;
+                 }
+             }
+        } else {
+            const dropTarget = !this.model.isNestingDisabled ? this.findDropTarget(e) : null;
             if (dropTarget && dropTarget !== this.draggedElement) {
                 const targetId = dropTarget.dataset.id;
-                
                 OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
-                
-                // Deselect all elements before moving
                 this.deselectAllElements();
-                
                 this.controller.moveElement(draggedId, targetId);
-                return; // Exit early to avoid position update
+                // Reset drag state here as moveElement handles rendering
+                this.draggedElement.classList.remove('dragging');
+                this.draggedElement = null;
+                document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
+                navControls.classList.remove('nav-drag-highlight');
+                return; // Exit early
+            } else {
+                // Not dropped on any target, just update position
+                const newX = parseFloat(this.draggedElement.style.left);
+                const newY = parseFloat(this.draggedElement.style.top);
+                OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
+                const updateProps = { x: newX, y: newY };
+                if (isImage) { updateProps.zIndex = parseInt(this.draggedElement.style.zIndex) || 1; }
+                this.controller.updateElement(draggedId, updateProps);
             }
         }
-        
-        // Not dropped on any target, just update position
-        const newX = parseFloat(this.draggedElement.style.left);
-        const newY = parseFloat(this.draggedElement.style.top);
-        
-        OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-        
-        // If it's an image, also update z-index
-        if (isImage) {
-            this.controller.updateElement(draggedId, { 
-                x: newX, 
-                y: newY,
-                zIndex: parseInt(this.draggedElement.style.zIndex) || 1
-            });
-        } else {
-            this.controller.updateElement(draggedId, { x: newX, y: newY });
-        }
-    }
-   
-    
-    
-    // Reset drag state
-    this.draggedElement.classList.remove('dragging');
-    this.draggedElement = null;
-    
-    // Remove highlights
-    const highlighted = document.querySelectorAll('.drag-over');
-    highlighted.forEach(el => el.classList.remove('drag-over'));
-    
-    // Remove nav controls highlight
-    document.getElementById('nav-controls').classList.remove('nav-drag-highlight');
-});
-    
+
+        // Reset drag state and highlights
+        this.draggedElement.classList.remove('dragging');
+        this.draggedElement = null;
+        document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
+        navControls.classList.remove('nav-drag-highlight');
+    });
+
     OPTIMISM.log('Drag listeners set up successfully');
 }
     
@@ -3646,92 +3517,68 @@ updateGridInputValues() {
 
 // In view.js - Update the updateSplitViewLayout method to add the resizable border
 // In view.js - Update the updateSplitViewLayout method to add the resizable border
+// In view.js - Update the updateSplitViewLayout method
 updateSplitViewLayout(isEnabled) {
     OPTIMISM.log(`VIEW: updateSplitViewLayout called with isEnabled = ${isEnabled}`);
-    
-    // Force boolean type to ensure correct comparison
     isEnabled = Boolean(isEnabled);
-    
     OPTIMISM.log(`VIEW: Converted isEnabled to ${isEnabled}`);
     OPTIMISM.log(`VIEW: Current rightViewport exists: ${Boolean(this.rightViewport)}`);
-    
+
     if (!isEnabled && this.rightViewport) {
         OPTIMISM.log('VIEW: Removing split view...');
-        
-        // Remove the right viewport
         this.rightViewport.remove();
         this.rightViewport = null;
-        
-        // Remove the resize divider if it exists
-        if (this.resizeDivider) {
-            this.resizeDivider.remove();
-            this.resizeDivider = null;
-        }
-        
-        // Restore full width to the main workspace
-        this.workspace.style.width = '100%';
-        
-        // Re-render the workspace to ensure all elements are positioned correctly
-        this.renderWorkspace();
+        if (this.resizeDivider) { this.resizeDivider.remove(); this.resizeDivider = null; }
 
-        // CRITICAL: Preserve inbox visibility if it was visible
-        if (this.model.isInboxVisible) {
-            setTimeout(() => {
-                this.updateInboxVisibility(true);
-            }, 10);
-        }
-        
+        // CHANGE: Restore original workspace positioning and width
+        this.workspace.style.left = 'var(--panel-width)';
+        this.workspace.style.width = 'calc(100vw - 2 * var(--panel-width))';
+        this.workspace.style.position = 'absolute'; // Ensure it's absolute
+
+        this.renderWorkspace();
+        if (this.model.isInboxVisible) { setTimeout(() => { this.updateInboxVisibility(true); }, 10); }
         OPTIMISM.log('VIEW: Split view removed successfully');
         return;
     }
-    
-    // If split view was disabled but is now enabled
+
     if (isEnabled && !this.rightViewport) {
         OPTIMISM.log('VIEW: Creating split view...');
-        
-        // Set initial split position (50%)
         const splitPosition = 50;
-        
-        // Adjust main workspace width and ensure it has proper bounds
-        this.workspace.style.width = `${splitPosition}%`;
-        this.workspace.style.position = 'absolute';
+
+        // CHANGE: Set workspace to left: 0 for split view
         this.workspace.style.left = '0';
+        this.workspace.style.width = `${splitPosition}%`;
+        this.workspace.style.position = 'absolute'; // Keep absolute
         this.workspace.style.overflow = 'hidden';
-        
+
         try {
             // Create the resizable divider
             this.resizeDivider = document.createElement('div');
             this.resizeDivider.id = 'resize-divider';
             this.resizeDivider.style.position = 'fixed';
-            this.resizeDivider.style.top = '41px'; // Below title bar
+            this.resizeDivider.style.top = '41px';
             this.resizeDivider.style.bottom = '0';
-            this.resizeDivider.style.width = '10px'; // Wider clickable area
-            this.resizeDivider.style.left = `calc(${splitPosition}% - 5px)`; // Center on the split
+            this.resizeDivider.style.width = '10px';
+            this.resizeDivider.style.left = `calc(${splitPosition}% - 5px)`; // Adjust based on left edge = 0
             this.resizeDivider.style.cursor = 'col-resize';
-            this.resizeDivider.style.zIndex = '160'; // Above viewport content but below panels
-            
-            // Add visible line in the center of clickable area
+            this.resizeDivider.style.zIndex = '160';
             this.resizeDivider.innerHTML = '<div style="position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background-color: var(--element-border-color);"></div>';
-            
+
             // Create the right viewport container
             this.rightViewport = document.createElement('div');
             this.rightViewport.id = 'right-viewport';
             this.rightViewport.className = 'viewport';
+            this.rightViewport.style.position = 'fixed';
+            this.rightViewport.style.top = '41px';
+            this.rightViewport.style.left = `${splitPosition}%`; // Position relative to the left edge
             this.rightViewport.style.width = `${100 - splitPosition}%`;
-            this.rightViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
-            this.rightViewport.style.position = 'fixed'; // Use fixed positioning
-            this.rightViewport.style.right = '0';
-            this.rightViewport.style.top = '41px'; // Below the title bar with border
+            this.rightViewport.style.height = 'calc(100vh - 41px)'; // Correct height calc
+            this.rightViewport.style.right = 'auto'; // Don't use right positioning
             this.rightViewport.style.boxSizing = 'border-box';
             this.rightViewport.style.overflow = 'hidden';
-            
-            // Ensure solid background that completely covers the area
-            this.rightViewport.style.backgroundColor = 'var(--bg-color)';
-            this.rightViewport.style.backgroundImage = 'none'; // Override any background image
-            
-            // Use a z-index that's high but lower than panels (panels are 200)
-            this.rightViewport.style.zIndex = '150'; 
-            
+            this.rightViewport.style.backgroundColor = 'var(--canvas-bg-color)'; // Match canvas bg
+            this.rightViewport.style.zIndex = '150';
+
             // Add placeholder content
             this.rightViewportContent = document.createElement('div');
             this.rightViewportContent.className = 'right-viewport-content';
@@ -3742,43 +3589,24 @@ updateSplitViewLayout(isEnabled) {
             this.rightViewportContent.style.height = '100%';
             this.rightViewportContent.style.color = 'var(--element-text-color)';
             this.rightViewportContent.style.opacity = '0.5';
-            this.rightViewportContent.style.position = 'relative'; // For proper positioning of elements
+            this.rightViewportContent.style.position = 'relative';
             this.rightViewportContent.textContent = 'Select a card to view contents';
-            
             this.rightViewport.appendChild(this.rightViewportContent);
-            
+
             this.addShadowToRightViewport();
-            
-            // Add the divider and right viewport to the document
+
             document.body.appendChild(this.resizeDivider);
             document.body.appendChild(this.rightViewport);
-            
-            // Add resize drag functionality
-            this.setupResizeDivider();
-            
-            // Add click event to make the right viewport the primary view when clicking on empty space
+            this.setupResizeDivider(); // Call setup for the divider
+
             this.rightViewport.addEventListener('click', (e) => {
-                // Only handle clicks on the viewport itself or the content container (empty space)
-                if (e.target === this.rightViewport || 
-                    (e.target === this.rightViewportContent && 
-                    (e.target.textContent === 'Select a card to view contents' || 
-                    e.target.textContent === 'This card has no content' || 
-                    e.target.textContent === 'No content' ||
-                    e.target.textContent === 'Could not load content'))) {
-                    
-                    // If we have a preview node, navigate to it
-                    if (this.model.previewNodeId) {
-                        this.controller.navigateToElement(this.model.previewNodeId);
-                    }
+                if (e.target === this.rightViewport || e.target === this.rightViewportContent) {
+                     if (this.model.previewNodeId) { this.controller.navigateToElement(this.model.previewNodeId); }
                 }
             });
-            
-            // Ensure panels have proper z-index to appear over the right viewport
+
             this.ensurePanelZIndices();
-            
-            // Re-render the workspace to ensure all elements are positioned correctly
             this.renderWorkspace();
-            
             OPTIMISM.log('VIEW: Split view created successfully');
         } catch (error) {
             OPTIMISM.logError('VIEW: Error creating split view:', error);
@@ -3786,8 +3614,7 @@ updateSplitViewLayout(isEnabled) {
     } else {
         OPTIMISM.log(`VIEW: No action needed. isEnabled=${isEnabled}, rightViewport exists=${Boolean(this.rightViewport)}`);
     }
-    
-    // Make sure to update the button text
+
     const splitViewToggle = document.getElementById('split-view-toggle');
     if (splitViewToggle) {
         const buttonText = isEnabled ? 'Hide Split View' : 'Show Split View';
@@ -4147,101 +3974,68 @@ ensurePanelZIndices() {
 }
 
 // Add a method to set up the resize functionality
+// In view.js
 setupResizeDivider() {
     if (!this.resizeDivider) return;
-    
+
     let isDragging = false;
     let startX = 0;
-    let startLeftWidth = 0;
-    
-    // Get window width for percentage calculations
-    const getWindowWidth = () => {
-        return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-    };
-    
-    // Convert percentage to pixels
-    const percentToPixels = (percent) => {
-        return Math.round((percent / 100) * getWindowWidth());
-    };
-    
-    // Convert pixels to percentage
-    const pixelsToPercent = (pixels) => {
-        return (pixels / getWindowWidth()) * 100;
-    };
-    
-    // Mouse down event on the divider
+    // CHANGE: Store percentage directly
+    let startLeftPercent = 0;
+
+    const getWindowWidth = () => window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+
     this.resizeDivider.addEventListener('mousedown', (e) => {
         isDragging = true;
         startX = e.clientX;
-        
-        // Get current left viewport width in pixels
-        const leftViewportPercentage = parseFloat(this.workspace.style.width);
-        startLeftWidth = percentToPixels(leftViewportPercentage);
-        
-        // Add class to body for styling during resize
+        // CHANGE: Get current percentage
+        startLeftPercent = parseFloat(this.workspace.style.width);
+
         document.body.classList.add('resizing-split-view');
-        
-        // Disable text selection during resize
         document.body.style.userSelect = 'none';
-        
         e.preventDefault();
     });
-    
-    // Mouse move event (drag)
+
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        
-        // Calculate new width
+
         const deltaX = e.clientX - startX;
-        let newLeftWidth = startLeftWidth + deltaX;
-        
-        // Convert to percentage of window
-        let newLeftPercent = pixelsToPercent(newLeftWidth);
-        
+        const windowWidth = getWindowWidth();
+        // CHANGE: Calculate delta percentage
+        const deltaPercent = (deltaX / windowWidth) * 100;
+
+        let newLeftPercent = startLeftPercent + deltaPercent;
         // Apply constraints (minimum 25% for each side)
         newLeftPercent = Math.max(25, Math.min(75, newLeftPercent));
-        
-        // Update viewport widths
+
+        // Update viewport widths and divider position using percentages
         this.workspace.style.width = `${newLeftPercent}%`;
-        this.rightViewport.style.width = `${100 - newLeftPercent}%`;
-        
-        // Update divider position
+        // Check if rightViewport exists before styling
+        if (this.rightViewport) {
+            this.rightViewport.style.left = `${newLeftPercent}%`; // Update right viewport left pos
+            this.rightViewport.style.width = `${100 - newLeftPercent}%`;
+        }
         this.resizeDivider.style.left = `calc(${newLeftPercent}% - 5px)`;
     });
-    
-    // Mouse up event (end drag)
+
     document.addEventListener('mouseup', () => {
         if (isDragging) {
             isDragging = false;
-            
-            // Remove resizing class
             document.body.classList.remove('resizing-split-view');
-            
-            // Re-enable text selection
             document.body.style.userSelect = '';
-            
-            // Re-render workspace to ensure proper layout
-            this.renderWorkspace();
+            // Re-rendering might still be useful if content inside needs recalculating
+            // this.renderWorkspace();
         }
     });
-    
-    // Add a hover effect to make the divider more noticeable
+
+    // Add hover effects
     this.resizeDivider.addEventListener('mouseenter', () => {
         const line = this.resizeDivider.querySelector('div');
-        if (line) {
-            line.style.backgroundColor = 'var(--link-color)';
-            line.style.width = '2px';
-            line.style.left = '4px';
-        }
+        if (line) { line.style.backgroundColor = 'var(--link-color)'; line.style.width = '2px'; line.style.left = '4px'; }
     });
-    
     this.resizeDivider.addEventListener('mouseleave', () => {
         const line = this.resizeDivider.querySelector('div');
-        if (line) {
-            line.style.backgroundColor = 'var(--element-border-color)';
-            line.style.width = '1px';
-            line.style.left = '5px';
-        }
+        if (line) { line.style.backgroundColor = 'var(--element-border-color)'; line.style.width = '1px'; line.style.left = '5px'; }
     });
 }
 
@@ -4372,32 +4166,33 @@ updateRightPaneNestedItemStyles() {
 }
 
 // Add this new helper method to the CanvasView class
-addShadowToRightViewport() {
-    if (!this.rightViewport) return;
-    
+// In view.js
+addShadowToArenaViewport() { // Renamed from addShadowToRightViewport
+    if (!this.arenaViewport) return;
+
     // Remove any existing shadow
-    const existingShadow = document.getElementById('right-viewport-shadow');
+    const existingShadow = document.getElementById('arena-viewport-shadow'); // Use new ID
     if (existingShadow) {
         existingShadow.remove();
     }
-    
+
     // Create a new shadow overlay
     const shadowOverlay = document.createElement('div');
-    shadowOverlay.id = 'right-viewport-shadow';
+    shadowOverlay.id = 'arena-viewport-shadow'; // Use new ID
     shadowOverlay.style.position = 'absolute';
     shadowOverlay.style.top = '0';
-    shadowOverlay.style.left = '0';
+    shadowOverlay.style.left = '0'; // Shadow on the left edge
     shadowOverlay.style.bottom = '0';
     shadowOverlay.style.width = '15px';
     shadowOverlay.style.pointerEvents = 'none';
-    shadowOverlay.style.zIndex = '5';
+    shadowOverlay.style.zIndex = '5'; // Above iframe, below content if any
     shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
     shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
-    
-    // Add the shadow overlay directly to the right viewport
-    this.rightViewport.appendChild(shadowOverlay);
-    
-    OPTIMISM.log('Added shadow to right viewport');
+
+    // Add the shadow overlay directly to the Arena viewport
+    this.arenaViewport.appendChild(shadowOverlay);
+
+    OPTIMISM.log('Added shadow to Are.na viewport'); // Update log message
 }
 
 // Add this new method to the CanvasView class
@@ -4504,70 +4299,61 @@ setupArenaToggle() {
 
 // Add this method to show/hide the Are.na panel
 // In view.js - Modify the updateArenaViewLayout method:
+// In view.js - Modify the updateArenaViewLayout method:
 updateArenaViewLayout(isEnabled) {
     OPTIMISM.log(`Updating Are.na view layout: ${isEnabled}`);
-    
+
     if (!isEnabled && this.arenaViewport) {
         // Remove the Arena viewport
         this.arenaViewport.remove();
         this.arenaViewport = null;
-        
-        // Remove the resize divider if it exists
-        if (this.arenaResizeDivider) {
-            this.arenaResizeDivider.remove();
-            this.arenaResizeDivider = null;
-        }
-        
-        // Restore full width to the main workspace
-        this.workspace.style.width = '100%';
-        
-        // Re-render the workspace to ensure all elements are positioned correctly
-        this.renderWorkspace();
- // CRITICAL: Preserve inbox visibility if it was visible
- if (this.model.isInboxVisible) {
-    setTimeout(() => {
-        this.updateInboxVisibility(true);
-    }, 10);
-}
 
+        // Remove the resize divider if it exists (though we might not use it)
+        if (this.arenaResizeDivider) { this.arenaResizeDivider.remove(); this.arenaResizeDivider = null; }
+
+        // CHANGE: Restore original workspace positioning and width
+        this.workspace.style.left = 'var(--panel-width)';
+        this.workspace.style.width = 'calc(100vw - 2 * var(--panel-width))';
+        this.workspace.style.position = 'absolute'; // Ensure it's absolute
+
+        this.renderWorkspace();
+        if (this.model.isInboxVisible) { setTimeout(() => { this.updateInboxVisibility(true); }, 10); }
         return;
     }
-    
+
     // If Are.na was disabled but is now enabled
     if (isEnabled && !this.arenaViewport) {
-        // Set fixed width for both the workspace and Arena panel
         const workspaceWidth = 70; // 70% for main workspace
         const arenaWidth = 30; // 30% for Arena panel
-        
-        // Adjust main workspace width
-        this.workspace.style.width = `${workspaceWidth}%`;
-        this.workspace.style.position = 'absolute';
+
+        // CHANGE: Set workspace to left: 0 for Arena view
         this.workspace.style.left = '0';
+        this.workspace.style.width = `${workspaceWidth}%`;
+        this.workspace.style.position = 'absolute'; // Keep absolute
         this.workspace.style.overflow = 'hidden';
-        
+
         // Create the Arena viewport container with fixed width
         this.arenaViewport = document.createElement('div');
         this.arenaViewport.id = 'arena-viewport';
         this.arenaViewport.className = 'viewport';
         this.arenaViewport.style.width = `${arenaWidth}%`;
-        this.arenaViewport.style.height = 'calc(100% - 41px)'; // Full height minus title bar with border
-        this.arenaViewport.style.position = 'fixed'; // Use fixed positioning
-        this.arenaViewport.style.right = '0';
-        this.arenaViewport.style.top = '41px'; // Below the title bar with border
+        this.arenaViewport.style.height = 'calc(100vh - 41px)';
+        this.arenaViewport.style.position = 'fixed';
+        this.arenaViewport.style.left = `${workspaceWidth}%`; // Position relative to left edge
+        this.arenaViewport.style.top = '41px';
+        this.arenaViewport.style.right = 'auto'; // Don't use right positioning
         this.arenaViewport.style.boxSizing = 'border-box';
         this.arenaViewport.style.overflow = 'hidden';
-        this.arenaViewport.style.backgroundColor = 'var(--bg-color)';
+        this.arenaViewport.style.backgroundColor = 'var(--canvas-bg-color)'; // Match canvas bg
         this.arenaViewport.style.zIndex = '150';
-        
-        // Create and add the iframe to load are.na
+
+        // Create and add the iframe
         const arenaIframe = document.createElement('iframe');
         arenaIframe.id = 'arena-iframe';
-        arenaIframe.src = './arena/index.html';
+        arenaIframe.src = './arena/index.html'; // Ensure this path is correct
         arenaIframe.style.width = '100%';
         arenaIframe.style.height = '100%';
         arenaIframe.style.border = 'none';
-
-        // Add these attributes to help with login functionality
         arenaIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; camera; microphone; payment; geolocation');
         arenaIframe.setAttribute('allowfullscreen', 'true');
         arenaIframe.setAttribute('loading', 'eager');
@@ -4575,25 +4361,19 @@ updateArenaViewLayout(isEnabled) {
         arenaIframe.setAttribute('referrerpolicy', 'origin');
         arenaIframe.setAttribute('importance', 'high');
         arenaIframe.setAttribute('crossorigin', 'anonymous');
-        
         this.arenaViewport.appendChild(arenaIframe);
-        
+
         // Add shadow effect on the left edge
         this.addShadowToArenaViewport();
-        
-        // Add the Arena viewport to the document (no resize divider)
+
+        // Add the Arena viewport to the document
         document.body.appendChild(this.arenaViewport);
 
-        // Setup cookie handling
-        this.setupArenaCookieHandling();
-        
-        // Ensure panels have proper z-index to appear over the Arena viewport
-        this.ensurePanelZIndices();
-        
-        // Re-render the workspace to ensure all elements are positioned correctly
-        this.renderWorkspace();
+        this.setupArenaCookieHandling(); // Set up cookie handling
+        this.ensurePanelZIndices(); // Ensure panels are on top
+        this.renderWorkspace(); // Re-render workspace
     }
-    
+
     // Make sure to update the button text
     const arenaToggle = document.getElementById('arena-toggle');
     if (arenaToggle) {
