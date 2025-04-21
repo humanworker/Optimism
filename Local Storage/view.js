@@ -1205,6 +1205,8 @@ if (stylePanel) {
                 this.updatePrioritiesVisibility(true);
             }
         }, 0);
+
+      
         
         OPTIMISM.log('Workspace rendering complete');
     }
@@ -2037,10 +2039,14 @@ setupDragListeners() {
 
     // In view.js, inside the setupDragListeners method
 
+// In view.js -> setupDragListeners -> document.addEventListener('mousemove', ...)
+
+// In view.js -> setupDragListeners -> document.addEventListener('mousemove', ...)
+
 document.addEventListener('mousemove', (e) => {
-    // Handle resizing (keep existing logic)
+    // Handle resizing
     if (this.resizingElement) {
-        // ... (resizing code remains exactly the same as the previous version) ...
+        // ... (resizing code remains unchanged from the previous step - no Y snapping) ...
         const elementType = this.resizingElement.dataset.type;
         if (this.model.imagesLocked && elementType === 'image') return;
 
@@ -2049,6 +2055,7 @@ document.addEventListener('mousemove', (e) => {
         let newWidth, newHeight;
 
         if (elementType === 'image') {
+           // ... image aspect ratio ...
             const aspectRatio = this.initialHeight / this.initialWidth;
             newWidth = Math.max(50, this.initialWidth + deltaWidth);
             newHeight = Math.max(50, this.initialHeight + deltaHeight);
@@ -2062,13 +2069,12 @@ document.addEventListener('mousemove', (e) => {
             newHeight = Math.max(30, this.initialHeight + deltaHeight);
         }
 
+        // Grid snapping logic for resizing (only width)
         if (this.model.isGridVisible) {
              const elementRect = this.resizingElement.getBoundingClientRect();
              const workspaceRect = this.workspace.getBoundingClientRect();
              const elementLeft = elementRect.left - workspaceRect.left;
-             const elementTop = elementRect.top - workspaceRect.top;
              const rightEdge = elementLeft + newWidth;
-             const bottomEdge = elementTop + newHeight;
 
              const vertLines = Array.from(document.querySelectorAll('.grid-line-vertical'));
              if (vertLines.length > 0) {
@@ -2077,14 +2083,7 @@ document.addEventListener('mousemove', (e) => {
                  const lineX = parseInt(closestLine.style.left);
                  if (Math.abs(rightEdge - lineX) < 10) { newWidth = lineX - elementLeft; }
              }
-
-             const horzLines = Array.from(document.querySelectorAll('.grid-line-horizontal'));
-             if (horzLines.length > 0) {
-                 horzLines.sort((a, b) => Math.abs(bottomEdge - parseInt(a.style.top)) - Math.abs(bottomEdge - parseInt(b.style.top)));
-                 const closestLine = horzLines[0];
-                 const lineY = parseInt(closestLine.style.top);
-                 if (Math.abs(bottomEdge - lineY) < 10) { newHeight = lineY - elementTop; }
-             }
+             // No horizontal snapping for resizing
         }
 
         this.resizingElement.style.width = `${newWidth}px`;
@@ -2092,77 +2091,70 @@ document.addEventListener('mousemove', (e) => {
         return; // Return after handling resize
     }
 
-    // Handle dragging
+    // --- Handle DRAGGING ---
     if (!this.draggedElement) return;
 
-    // Don't drag locked items (keep existing logic)
+    // ... (Don't drag locked items check remains the same) ...
     if ((this.model.imagesLocked && this.draggedElement.dataset.type === 'image') ||
         (this.model.isCardLocked(this.draggedElement.dataset.id))) {
         return;
     }
 
-    // --- FIX FOR JUMPING ---
-
-    // 1. Calculate the desired absolute top-left position based on mouse and initial offset
-    const desiredAbsoluteX = e.clientX - this.elemOffsetX;
-    const desiredAbsoluteY = e.clientY - this.elemOffsetY;
-
-    // 2. Get the workspace's position relative to the viewport
+    // Calculate desired position relative to workspace (including scroll)
     const workspaceRect = this.workspace.getBoundingClientRect();
+    let desiredRelativeX = e.clientX - workspaceRect.left - this.elemOffsetX + this.workspace.scrollLeft;
+    let desiredRelativeY = e.clientY - workspaceRect.top - this.elemOffsetY + this.workspace.scrollTop;
 
-    // 3. Calculate the desired position *relative* to the workspace container
-    let desiredRelativeX = desiredAbsoluteX - workspaceRect.left;
-    let desiredRelativeY = desiredAbsoluteY - workspaceRect.top;
-
-    // 4. Define allowed boundaries *within* the workspace content area
+    // --- Define allowed boundaries ---
     const minX_allowed = 0;
-    const maxX_allowed = this.workspace.clientWidth - this.draggedElement.offsetWidth;
+    const maxX_allowed = this.workspace.scrollWidth - this.draggedElement.offsetWidth;
     const minY_allowed = 0;
-    const maxY_allowed = this.workspace.clientHeight - this.draggedElement.offsetHeight;
+    // **** REMOVE maxY_allowed constraint calculation during drag ****
+    // const maxY_allowed = this.workspace.scrollHeight - this.draggedElement.offsetHeight;
 
-    // 5. Constrain the *relative* positions
+    // Constrain X position
     let finalX_style = Math.max(minX_allowed, Math.min(desiredRelativeX, maxX_allowed));
-    let finalY_style = Math.max(minY_allowed, Math.min(desiredRelativeY, maxY_allowed));
+    // Constrain Y position ONLY by the top boundary during drag
+    let finalY_style = Math.max(minY_allowed, desiredRelativeY);
 
-    // --- END OF FIX ---
-
-    // 6. Grid snapping (apply to the constrained *relative* coordinates)
+    // Grid snapping (apply after initial constraints)
     if (this.model.isGridVisible) {
         const gridContainer = document.getElementById('grid-container');
         if (gridContainer) {
-            // Snap logic here operates on finalX_style and finalY_style
-            // (which are already relative to the workspace)
+            // Vertical lines (affect X position)
             const vertLines = gridContainer.querySelectorAll('.grid-line-vertical');
             vertLines.forEach(line => {
                 const lineX = parseInt(line.style.left);
-                if (Math.abs(finalX_style - lineX) < 10) { /* finalX_style = lineX; */ } // Example snap left
+                // Snap left edge
+                if (Math.abs(finalX_style - lineX) < 10) { finalX_style = lineX; }
+                // Snap right edge
+                const elementRight = finalX_style + this.draggedElement.offsetWidth;
+                if (Math.abs(elementRight - lineX) < 10) { finalX_style = lineX - this.draggedElement.offsetWidth; }
             });
+
+            // Horizontal lines (affect Y position)
             const horzLines = gridContainer.querySelectorAll('.grid-line-horizontal');
             horzLines.forEach(line => {
                 const lineY = parseInt(line.style.top);
-                if (Math.abs(finalY_style - lineY) < 10) { /* finalY_style = lineY; */ } // Example snap top
+                // Snap top edge
+                if (Math.abs(finalY_style - lineY) < 10) { finalY_style = lineY; }
+                 // Snap bottom edge
+                const elementBottom = finalY_style + this.draggedElement.offsetHeight;
+                if (Math.abs(elementBottom - lineY) < 10) { finalY_style = lineY - this.draggedElement.offsetHeight; }
             });
-             // Example snap right/bottom
-            const elementRight = finalX_style + this.draggedElement.offsetWidth;
-            vertLines.forEach(line => {
-                const lineX = parseInt(line.style.left);
-                if (Math.abs(elementRight - lineX) < 10) { /* finalX_style = lineX - this.draggedElement.offsetWidth; */ }
-            });
-            const elementBottom = finalY_style + this.draggedElement.offsetHeight;
-            horzLines.forEach(line => {
-                const lineY = parseInt(line.style.top);
-                if (Math.abs(elementBottom - lineY) < 10) { /* finalY_style = lineY - this.draggedElement.offsetHeight; */ }
-            });
+
+             // Re-apply minimum Y constraint *after* potential grid snapping
+             finalY_style = Math.max(minY_allowed, finalY_style);
         }
     }
 
-    // 7. Update element style and data attributes with the final constrained & snapped relative values
+    // Update element style and data attributes
     this.draggedElement.style.left = `${finalX_style}px`;
     this.draggedElement.style.top = `${finalY_style}px`;
     this.draggedElement.dataset.numX = finalX_style;
     this.draggedElement.dataset.numY = finalY_style;
 
-    // Highlight potential drop targets (keep existing logic)
+    // Highlight potential drop targets
     this.handleDragOver(e);
 });
 
@@ -2180,6 +2172,7 @@ document.addEventListener('mousemove', (e) => {
             OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
             this.controller.updateElement(id, { width, height });
             this.resizingElement = null;
+            
             return;
         }
 
@@ -2245,6 +2238,7 @@ document.addEventListener('mousemove', (e) => {
                 const updateProps = { x: newX, y: newY };
                 if (isImage) { updateProps.zIndex = parseInt(this.draggedElement.style.zIndex) || 1; }
                 this.controller.updateElement(draggedId, updateProps);
+               
             }
         }
 
@@ -5143,5 +5137,7 @@ findPathInNode(node, elementId, parentId) {
     
     return null;
 }
+
+    
     
 }

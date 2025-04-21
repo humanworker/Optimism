@@ -89,6 +89,8 @@ async createElement(x, y) {
         
         // Update undo/redo buttons
         this.view.updateUndoRedoButtons();
+
+        
         
         // Show backup reminder if needed
         if (showBackupReminder) {
@@ -143,6 +145,8 @@ async createElement(x, y) {
             
             // Update undo/redo buttons
             this.view.updateUndoRedoButtons();
+
+            
             
             // Show backup reminder if needed
             if (showBackupReminder) {

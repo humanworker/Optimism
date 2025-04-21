@@ -46,18 +46,26 @@
         }
     
         #workspace {
-    position: absolute; /* Position relative to body */
-    top: 41px; /* Below title bar */
-    left: var(--panel-width); /* Leave space on the left */
-    width: calc(100vw - 2 * var(--panel-width)); /* Width minus both side strips */
-    height: calc(100vh - 41px); /* Full height minus title bar */
-    box-sizing: border-box;
-    background-color: var(--canvas-bg-color);
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 20px 20px;
-    overflow: hidden; /* Prevent content spilling */
-    z-index: 1; /* Above body background, below panels */
-}
+            position: absolute;
+            top: 41px; /* Below title bar */
+            left: var(--panel-width); /* Default, JS might override for split/arena */
+            width: calc(100vw - 2 * var(--panel-width)); /* Default, JS might override */
+            /* --- CHANGES START --- */
+            /* SET fixed height to fill viewport below title bar */
+            height: calc(100vh - 41px);
+            /* REMOVE min-height and height: auto */
+            /* min-height: calc(120vh - 41px); */
+            /* height: auto; */
+            /* --- CHANGES END --- */
+            box-sizing: border-box;
+            background-color: var(--canvas-bg-color);
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+            /* KEEP overflow settings */
+            overflow-y: auto; /* Allow vertical scrolling */
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+            z-index: 1;
+        }
     
 #title-bar {
     position: fixed; /* Keep fixed */
