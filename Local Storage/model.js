@@ -14,7 +14,7 @@ class CanvasModel {
         this.selectedElement = null;
         this.editCounter = 0;
         this.lastBackupReminder = 0;
-        this.backupReminderThreshold = 100;
+        this.backupReminderThreshold = 200;
         this.deletedImageQueue = []; // Queue of deleted image IDs with edit counters
         this.imagesLocked = false; // Add this property to track image lock state
         this.lockedCards = []; // Array to store IDs of individually locked cards
