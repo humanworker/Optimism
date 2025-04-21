@@ -59,26 +59,27 @@
     z-index: 1; /* Above body background, below panels */
 }
     
-        #title-bar {
-            position: fixed; /* Keep title bar fixed */
-            top: 0;
-            left: 0; /* Align with the body */
-            right: 0; /* Align with the body */
-            height: 40px;
-            /* CHANGE: Use canvas background for title bar to match workspace */
-            background-color: var(--canvas-bg-color);
-            border-bottom: 1px solid var(--element-border-color);
-            display: flex !important;
-            align-items: center;
-            padding: 0 10px;
-            z-index: 100; /* Above workspace */
-            justify-content: space-between;
-            visibility: visible !important;
-            /* We need padding on left/right to account for panel width */
-            padding-left: var(--panel-width);
-            padding-right: var(--panel-width);
-            box-sizing: border-box; /* Include padding in width calculation */
-        }
+#title-bar {
+    position: fixed; /* Keep fixed */
+    top: 0;
+    left: 0; /* Span full width */
+    right: 0; /* Span full width */
+    height: 40px;
+    /* CHANGE: Use panel background color */
+    background-color: var(--panel-bg-color);
+    border-bottom: 1px solid var(--element-border-color);
+    display: flex !important;
+    align-items: center;
+    /* CHANGE: Remove side padding, keep only horizontal spacing */
+    padding: 0 10px;
+    z-index: 100;
+    justify-content: space-between;
+    visibility: visible !important;
+    box-sizing: border-box;
+    /* REMOVE these lines: */
+    /* padding-left: var(--panel-width); */
+    /* padding-right: var(--panel-width); */
+}
     
         #nav-controls {
             display: flex;
@@ -321,24 +322,25 @@
         }
     
         /* Panels */
-        #style-panel,
-        #settings-panel,
-        #inbox-panel,
-        #grid-panel,
-        #priorities-panel {
-            position: fixed;
-            top: 41px; /* Below title bar */
-            right: 0;
-            width: var(--panel-width);
-            height: calc(100vh - 41px); /* Full height minus title bar */
-            background-color: var(--panel-bg-color) !important; /* Use variable */
-            padding: 20px;
-            padding-top: 60px; /* Extra space for title bar */
-            box-sizing: border-box;
-            overflow-y: auto;
-            display: none; /* Hidden by default */
-            z-index: 1000 !important; /* High z-index */
-        }
+#style-panel,
+#settings-panel,
+#inbox-panel,
+#grid-panel,
+#priorities-panel {
+    position: fixed;
+    top: 41px; /* Below title bar */
+    right: 0;
+    width: var(--panel-width);
+    height: calc(100vh - 41px); /* Full height minus title bar */
+    /* CHANGE: Ensure it uses the variable and !important */
+    background-color: var(--panel-bg-color) !important;
+    padding: 20px;
+    padding-top: 60px; /* Extra space for title bar */
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: none; /* Hidden by default */
+    z-index: 1000 !important; /* High z-index */
+}
     
         .panel-heading {
             font-size: 16px;
@@ -509,14 +511,15 @@
             display: none; /* Hidden by default */
         }
         #confirmation-dialog .dialog-content, .modal-content { /* Added wrapper for confirm dialog */
-            background-color: var(--panel-bg-color) !important; /* Use variable */
-            border: 1px solid var(--element-border-color);
-            border-radius: 5px;
-            padding: 20px;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
+    /* CHANGE: Ensure it uses the variable and !important */
+    background-color: var(--panel-bg-color) !important;
+    border: 1px solid var(--element-border-color);
+    border-radius: 5px;
+    padding: 20px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
         .dialog-title, .modal-title {
             font-size: 18px;
             margin-bottom: 15px;

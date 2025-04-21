@@ -98,13 +98,13 @@ class CanvasView {
             #settings-panel, 
             #inbox-panel, 
             #grid-panel {
-                background-color: #FFFFCC !important; /* Light yellow background */
+                background-color: #e5e5e5 !important; /* Light yellow background */
             }
             
             /* Also style the modal and confirmation dialogs to match */
             #confirmation-dialog,
             .modal-content {
-                background-color: #FFFFCC !important;
+                background-color: #e5e5e5 !important;
             }
         `;
         document.head.appendChild(panelStyles);
@@ -3096,7 +3096,7 @@ updateInboxVisibility(isVisible) {
         this.inboxPanel.style.position = 'fixed';
         this.inboxPanel.style.top = '41px';
         this.inboxPanel.style.right = '0';
-        this.inboxPanel.style.backgroundColor = 'var(--bg-color)';
+        
         this.inboxPanel.style.width = 'var(--panel-width)';
         
         // Render content
@@ -4766,7 +4766,7 @@ setupPrioritiesPanel() {
                 right: 0;
                 width: var(--panel-width);
                 height: calc(100vh - 40px);
-                background-color: #FFFFCC !important; /* Yellow background like other panels */
+                background-color: #e5e5e5 !important; /* Yellow background like other panels */
                 padding: 20px;
                 padding-top: 60px;
                 box-sizing: border-box;
@@ -4911,13 +4911,13 @@ setupPrioritiesPanel() {
             #inbox-panel, 
             #grid-panel,
             #priorities-panel {
-                background-color: #FFFFCC !important; /* Light yellow background */
+                background-color: #e5e5e5 !important; /* Light yellow background */
             }
             
             /* Also style the modal and confirmation dialogs to match */
             #confirmation-dialog,
             .modal-content {
-                background-color: #FFFFCC !important;
+                background-color: #e5e5e5 !important;
             }
         `;
         document.head.appendChild(panelBgStyles);
@@ -4968,7 +4968,7 @@ updatePrioritiesVisibility(isVisible) {
         this.prioritiesPanel.style.position = 'fixed';
         this.prioritiesPanel.style.top = '41px';
         this.prioritiesPanel.style.right = '0';
-        this.prioritiesPanel.style.backgroundColor = 'var(--bg-color)';
+      
         this.prioritiesPanel.style.width = 'var(--panel-width)';
         
         // Render content
