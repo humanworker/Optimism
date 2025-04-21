@@ -383,6 +383,13 @@ if (styleProperties.isLocked !== undefined) {
             
             if (result) {
                 OPTIMISM.log('Element deleted successfully');
+                
+                // Clear the selected element in the model since it's been deleted
+                this.model.selectedElement = null;
+                
+                // Hide the style panel since no element is selected
+                this.view.stylePanel.style.display = 'none';
+                
                 this.view.renderWorkspace();
                 
                 // Restore grid if it was visible
