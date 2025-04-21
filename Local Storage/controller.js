@@ -26,6 +26,7 @@ async initialize() {
         this.view.setupGridPanel();
         this.view.setupArenaToggle(); // Add this line
         this.view.setupSplitViewToggle();
+        this.view.setupPrioritiesPanel(); // Add this line
         this.view.updateTheme(this.model.isDarkTheme);
         
         // Initialize debug panel state
@@ -1326,6 +1327,56 @@ async togglePanel(panelName) {
     } catch (error) {
         OPTIMISM.logError(`Error toggling panel '${panelName}':`, error);
         return false;
+    }
+}
+
+async toggleCardPriority(cardId) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle card priority: application not initialized');
+        return false;
+    }
+    
+    try {
+        OPTIMISM.log(`Toggling priority state for card ${cardId}`);
+        const isPriority = await this.model.toggleCardPriority(cardId);
+        
+        // Update the card's appearance immediately
+        const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+        if (container) {
+            if (isPriority) {
+                container.classList.add('has-priority-border');
+                OPTIMISM.log(`Added priority border to card ${cardId}`);
+            } else {
+                container.classList.remove('has-priority-border');
+                OPTIMISM.log(`Removed priority border from card ${cardId}`);
+            }
+        } else {
+            OPTIMISM.log(`Could not find container for card ${cardId} to update border`);
+        }
+        
+        OPTIMISM.log(`Card priority state set to ${isPriority}`);
+        return isPriority;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling card priority state:', error);
+        return this.model.isCardPriority(cardId);
+    }
+}
+
+async togglePrioritiesVisibility() {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot toggle priorities: application not initialized');
+        return this.model.isPrioritiesVisible;
+    }
+    
+    try {
+        OPTIMISM.log('Toggling priorities panel visibility');
+        const isVisible = await this.model.togglePrioritiesVisibility();
+        this.view.updatePrioritiesVisibility(isVisible);
+        OPTIMISM.log(`Priorities panel visibility set to ${isVisible}`);
+        return isVisible;
+    } catch (error) {
+        OPTIMISM.logError('Error toggling priorities visibility:', error);
+        return this.model.isPrioritiesVisible;
     }
 }
 

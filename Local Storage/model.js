@@ -37,6 +37,8 @@ this.gridLayout = '1x2'; // Default layout
 this.isSplitViewEnabled = false; // Track split view mode
 this.previewNodeId = null; // Track the node being previewed
 this.isArenaVisible = false; // Track are.na panel visibility
+this.priorityCards = []; // Array to store IDs of priority cards
+    this.isPrioritiesVisible = false; // Track priorities panel visibility
 
 // Panel management
 this.panels = {
@@ -125,6 +127,16 @@ async initialize() {
                     if (appState.editCounter !== undefined) {
                         this.editCounter = appState.editCounter;
                         OPTIMISM.log(`Loaded edit counter: ${this.editCounter}`);
+                    }
+
+                    if (appState.priorityCards !== undefined) {
+                        this.priorityCards = appState.priorityCards;
+                        OPTIMISM.log(`Loaded ${this.priorityCards.length} priority cards`);
+                    }
+                    
+                    if (appState.isPrioritiesVisible !== undefined) {
+                        this.isPrioritiesVisible = appState.isPrioritiesVisible;
+                        OPTIMISM.log(`Loaded priorities visibility state: ${this.isPrioritiesVisible}`);
                     }
                     
                     if (appState.lastBackupReminder !== undefined) {
@@ -906,7 +918,9 @@ resetBackupReminder() {
                 isNestingDisabled: this.isNestingDisabled,
                 isSplitViewEnabled: this.isSplitViewEnabled,
                 isArenaVisible: this.isArenaVisible,
-                gridLayout: this.gridLayout
+                gridLayout: this.gridLayout,
+                priorityCards: this.priorityCards,
+            isPrioritiesVisible: this.isPrioritiesVisible
             };
             
             OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout}, arena: ${this.isArenaVisible ? 'on' : 'off'}, nesting disabled: ${this.isNestingDisabled ? 'yes' : 'no'}, settings: ${this.isSettingsVisible ? 'visible' : 'hidden'}, inbox: ${this.isInboxVisible ? 'visible' : 'hidden'})`);
@@ -1523,5 +1537,51 @@ async togglePanel(panelName) {
     await this.saveAppState();
     return this.panels[panelName];
 }
+
+isCardPriority(cardId) {
+    return this.priorityCards.includes(cardId);
+}
+
+// Toggle priority status
+async toggleCardPriority(cardId) {
+    if (this.isCardPriority(cardId)) {
+        // Remove from priorities
+        const index = this.priorityCards.indexOf(cardId);
+        if (index !== -1) {
+            this.priorityCards.splice(index, 1);
+            OPTIMISM.log(`Card ${cardId} removed from priorities`);
+            await this.saveAppState();
+            return false;
+        }
+    } else {
+        // Add to priorities
+        this.priorityCards.push(cardId);
+        OPTIMISM.log(`Card ${cardId} added to priorities`);
+        await this.saveAppState();
+        return true;
+    }
+    return this.isCardPriority(cardId);
+}
+
+// Toggle priorities panel visibility
+async togglePrioritiesVisibility() {
+    // Close other panels but NOT split view or Arena
+    if (this.isSettingsVisible) {
+        this.isSettingsVisible = false;
+    }
+    if (this.isGridVisible) {
+        this.isGridVisible = false;
+    }
+    if (this.isInboxVisible) {
+        this.isInboxVisible = false;
+    }
+    
+    this.isPrioritiesVisible = !this.isPrioritiesVisible;
+    OPTIMISM.log(`Priorities visibility set to: ${this.isPrioritiesVisible}`);
+    await this.saveAppState();
+    return this.isPrioritiesVisible;
+}
+
+
 
 }

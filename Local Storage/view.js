@@ -29,6 +29,8 @@ class CanvasView {
         this.confirmImportButton = document.getElementById('confirm-import');
         this.arenaViewport = null; // Will be created when are.na view is enabled
         this.arenaResizeDivider = null; // Will be created for resizing
+        this.prioritiesPanel = null; // Will be created when needed
+    this.prioritiesToggle = null; // Will be created when needed
         
         // Quick links container
         this.quickLinksContainer = null; // Will be created in setupQuickLinks method
@@ -320,6 +322,15 @@ class CanvasView {
                e.preventDefault();
                this.controller.toggleInboxVisibility();
             }
+
+            // Toggle priority with 'P' key when an element is selected
+    if (e.key.toLowerCase() === 'p' && 
+    document.activeElement.tagName !== 'TEXTAREA' && 
+    document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    if (this.model.selectedElement) {
+        this.controller.toggleCardPriority(this.model.selectedElement);
+    }}
                 
             // Style shortcuts (only when an element is selected and not in edit mode)
             if (this.model.selectedElement && 
@@ -1082,6 +1093,14 @@ renderWorkspace() {
 
     // Update quick links
     this.renderQuickLinks();
+
+    // Apply priority state to cards if needed
+    this.model.priorityCards.forEach(cardId => {
+        const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+        if (container) {
+            container.classList.add('has-priority-border');
+        }
+    });
     
     // Render elements
     if (this.model.currentNode.elements) {
@@ -2813,7 +2832,7 @@ styleElem.textContent = `
        
     }
     .element-container.drag-over {
-        border: 2px dashed var(--element-border-color) !important;
+        border: 1px dashed var(--element-border-color) !important;
     }
 `;
 document.head.appendChild(styleElem);
@@ -4915,6 +4934,9 @@ updatePanelVisibility(panelName, isVisible) {
         this.stylePanel.style.display = 'none';
         this.settingsPanel.style.display = 'none';
         this.inboxPanel.style.display = 'none';
+        if (this.prioritiesPanel) {
+            this.prioritiesPanel.style.display = 'none';
+        }
         document.getElementById('grid-panel').style.display = 'none';
     }
     
@@ -4929,6 +4951,15 @@ updatePanelVisibility(panelName, isVisible) {
             if (isVisible) {
                 this.inboxPanel.style.display = 'block';
                 this.renderInboxPanel();
+            }
+            break;
+            case 'priorities':
+            if (isVisible) {
+                if (!this.prioritiesPanel) {
+                    this.setupPrioritiesPanel();
+                }
+                this.prioritiesPanel.style.display = 'block';
+                this.renderPrioritiesPanel();
             }
             break;
         case 'grid':
@@ -4947,6 +4978,7 @@ setupConsistentPanelStyling() {
         this.stylePanel,
         this.settingsPanel,
         this.inboxPanel,
+        this.prioritiesPanel,
         document.getElementById('grid-panel')
     ];
     
@@ -4977,7 +5009,7 @@ setupPanelStackingContext() {
     stackingStyle.id = 'panel-stacking-style';
     stackingStyle.textContent = `
         /* Force panels to use highest stacking context */
-        #inbox-panel {
+        #inbox-panel, #priorities-panel {
             z-index: 1000 !important;
             position: fixed !important;
             top: 41px !important;
@@ -5007,6 +5039,407 @@ setupPanelStackingContext() {
     document.head.appendChild(stackingStyle);
     
     OPTIMISM.log('Panel stacking context styles applied');
+}
+
+setupPrioritiesPanel() {
+    OPTIMISM.log('Setting up priorities panel');
+    
+    // Create the priorities panel if it doesn't exist
+    if (!this.prioritiesPanel) {
+        this.prioritiesPanel = document.createElement('div');
+        this.prioritiesPanel.id = 'priorities-panel';
+        this.prioritiesPanel.className = 'side-panel';
+        this.prioritiesPanel.innerHTML = `
+            <div class="panel-heading">Priorities</div>
+            <div class="priorities-container"></div>
+        `;
+        document.body.appendChild(this.prioritiesPanel);
+        
+        // Add CSS for priorities panel
+        const styleElem = document.createElement('style');
+        styleElem.textContent = `
+            #priorities-panel {
+                position: fixed;
+                top: 41px;
+                right: 0;
+                width: var(--panel-width);
+                height: calc(100vh - 40px);
+                background-color: #FFFFCC !important; /* Yellow background like other panels */
+                padding: 20px;
+                padding-top: 60px;
+                box-sizing: border-box;
+                overflow-y: auto;
+                display: none;
+                z-index: 200;
+            }
+            
+            .priorities-container {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .priority-card {
+                border: 1px solid var(--red-text-color);
+                border-radius: 4px;
+                padding: 10px;
+                font-size: 14px;
+                cursor: pointer;
+                position: relative;
+                background-color: var(--bg-color);
+                overflow: hidden;
+                max-height: 80px;
+            }
+            
+            .priority-card-content {
+                white-space: pre-wrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                max-height: 40px;
+            }
+            
+            .priority-card-image {
+                max-height: 60px;
+                max-width: 100%;
+                object-fit: contain;
+                display: block;
+                margin: 0 auto;
+            }
+            
+            .priority-hint {
+                color: var(--element-text-color);
+                opacity: 0.7;
+                text-align: center;
+                margin: 20px 0;
+                font-style: italic;
+            }
+            
+            .has-priority-border {
+                border: 1px solid var(--red-text-color) !important;
+            }
+        `;
+        document.head.appendChild(styleElem);
+    }
+    
+    // Make sure to add the priorities toggle to the settings panel
+    let prioritiesToggleAdded = false;
+    const settingsPanel = document.getElementById('settings-panel');
+    if (settingsPanel) {
+        // Check if the toggle already exists
+        const existingToggle = document.getElementById('priorities-toggle');
+        if (!existingToggle) {
+            OPTIMISM.log('Adding priorities toggle to settings panel');
+            
+            // Create the priorities option
+            const prioritiesOption = document.createElement('div');
+            prioritiesOption.className = 'settings-option';
+            prioritiesOption.innerHTML = '<a href="#" class="option-value" id="priorities-toggle">Priorities</a>';
+            
+            // Try to find a good position to insert it - after grid settings but before export
+            const exportOption = settingsPanel.querySelector('#settings-export-button')?.closest('.settings-option');
+            const gridOption = settingsPanel.querySelector('#settings-grid-button')?.closest('.settings-option');
+            
+            if (gridOption && gridOption.nextElementSibling) {
+                // Insert after grid option
+                settingsPanel.insertBefore(prioritiesOption, gridOption.nextElementSibling);
+                prioritiesToggleAdded = true;
+                OPTIMISM.log('Inserted priorities toggle after grid button');
+            } else if (exportOption) {
+                // Insert before export button
+                settingsPanel.insertBefore(prioritiesOption, exportOption);
+                prioritiesToggleAdded = true;
+                OPTIMISM.log('Inserted priorities toggle before export button');
+            } else {
+                // Just add it to the end of the settings panel
+                settingsPanel.appendChild(prioritiesOption);
+                prioritiesToggleAdded = true;
+                OPTIMISM.log('Appended priorities toggle to end of settings panel');
+            }
+            
+            // Add click event handler
+            const prioritiesToggle = document.getElementById('priorities-toggle');
+            if (prioritiesToggle) {
+                prioritiesToggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.controller.togglePrioritiesVisibility();
+                });
+                OPTIMISM.log('Added click handler to priorities toggle');
+            } else {
+                OPTIMISM.logError('Could not find priorities toggle after adding it');
+            }
+        } else {
+            prioritiesToggleAdded = true;
+            OPTIMISM.log('Priorities toggle already exists in settings panel');
+        }
+    } else {
+        OPTIMISM.logError('Could not find settings panel to add priorities toggle');
+    }
+    
+    if (!prioritiesToggleAdded) {
+        OPTIMISM.logError('Could not add priorities toggle to settings panel');
+    }
+    
+    // Apply yellow background via panel styling
+    // Make sure the panel is in the panel-background-styles
+    let panelBgStyles = document.getElementById('panel-background-styles');
+    if (panelBgStyles) {
+        // Check if priorities panel is already in the styles
+        if (!panelBgStyles.textContent.includes('#priorities-panel')) {
+            // Add priorities panel to the panel background styles
+            let cssText = panelBgStyles.textContent;
+            cssText = cssText.replace(
+                /#style-panel, \n            #settings-panel, \n            #inbox-panel, \n            #grid-panel/,
+                '#style-panel, \n            #settings-panel, \n            #inbox-panel, \n            #grid-panel, \n            #priorities-panel'
+            );
+            panelBgStyles.textContent = cssText;
+            OPTIMISM.log('Added priorities panel to panel background styles');
+        }
+    } else {
+        // If the panel-background-styles element doesn't exist, create it
+        panelBgStyles = document.createElement('style');
+        panelBgStyles.id = 'panel-background-styles';
+        panelBgStyles.textContent = `
+            /* Yellow background for all panels */
+            #style-panel, 
+            #settings-panel, 
+            #inbox-panel, 
+            #grid-panel,
+            #priorities-panel {
+                background-color: #FFFFCC !important; /* Light yellow background */
+            }
+            
+            /* Also style the modal and confirmation dialogs to match */
+            #confirmation-dialog,
+            .modal-content {
+                background-color: #FFFFCC !important;
+            }
+        `;
+        document.head.appendChild(panelBgStyles);
+        OPTIMISM.log('Created new panel background styles including priorities panel');
+    }
+    
+    // Ensure the panel is included in panel management
+    this.setupConsistentPanelStyling();
+    this.setupPanelStackingContext();
+    this.ensurePanelZIndices();
+    
+    // Add document click listener to close panel
+    document.addEventListener('click', (e) => {
+        if (this.prioritiesPanel && 
+            this.prioritiesPanel.style.display === 'block' && 
+            !this.prioritiesPanel.contains(e.target) && 
+            e.target.id !== 'priorities-toggle') {
+            
+            // Use controller to properly update model state
+            this.controller.togglePrioritiesVisibility();
+        }
+    });
+    
+    // Initial rendering based on current state
+    this.updatePrioritiesVisibility(this.model.isPrioritiesVisible);
+    
+    OPTIMISM.log('Priorities panel set up successfully');
+}
+
+// Add method to update the visibility of the priorities panel
+updatePrioritiesVisibility(isVisible) {
+    if (!this.prioritiesPanel) {
+        this.setupPrioritiesPanel();
+        return;
+    }
+    
+    if (isVisible) {
+        // Close other panels first
+        this.stylePanel.style.display = 'none';
+        this.settingsPanel.style.display = 'none';
+        if (this.inboxPanel) {
+            this.inboxPanel.style.display = 'none';
+        }
+        
+        // CRITICAL: Apply direct forceful styling to ensure panel appears above everything
+        this.prioritiesPanel.style.display = 'block'; 
+        this.prioritiesPanel.style.zIndex = '1000'; // Use a very high z-index
+        this.prioritiesPanel.style.position = 'fixed';
+        this.prioritiesPanel.style.top = '41px';
+        this.prioritiesPanel.style.right = '0';
+        this.prioritiesPanel.style.backgroundColor = 'var(--bg-color)';
+        this.prioritiesPanel.style.width = 'var(--panel-width)';
+        
+        // Render content
+        this.renderPrioritiesPanel();
+    } else {
+        this.prioritiesPanel.style.display = 'none';
+    }
+}
+
+// Render the priorities panel content
+renderPrioritiesPanel() {
+    if (!this.prioritiesPanel) {
+        this.setupPrioritiesPanel();
+        return;
+    }
+    
+    const container = this.prioritiesPanel.querySelector('.priorities-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (this.model.priorityCards.length === 0) {
+        const hint = document.createElement('div');
+        hint.className = 'priority-hint';
+        hint.textContent = 'Press "P" while a card is selected to mark it as a priority';
+        container.appendChild(hint);
+        return;
+    }
+    
+    // Render each priority card
+    for (const cardId of this.model.priorityCards) {
+        // Find the card in the canvas data structure
+        const element = this.findElementById(cardId);
+        if (!element) continue; // Skip if element not found
+        
+        const cardElement = document.createElement('div');
+        cardElement.className = 'priority-card';
+        cardElement.dataset.id = cardId;
+        cardElement.dataset.type = element.type;
+        
+        if (element.type === 'text') {
+            // Text card
+            const content = document.createElement('div');
+            content.className = 'priority-card-content';
+            // Truncate text for the display
+            const truncatedText = element.text ? 
+                (element.text.length > 100 ? element.text.substring(0, 100) + '...' : element.text) : '';
+            content.textContent = truncatedText;
+            cardElement.appendChild(content);
+        } else if (element.type === 'image' && element.imageDataId) {
+            // Image card
+            const img = document.createElement('img');
+            img.className = 'priority-card-image';
+            
+            // Load image data
+            this.model.getImageData(element.imageDataId)
+                .then(imageData => {
+                    if (imageData) {
+                        img.src = imageData;
+                    } else {
+                        img.alt = 'Image not found';
+                    }
+                })
+                .catch(error => {
+                    OPTIMISM.logError(`Error loading image for priority card ${cardId}:`, error);
+                    img.alt = 'Error loading image';
+                });
+            
+            cardElement.appendChild(img);
+        }
+        
+        // Add click event to navigate to card
+        cardElement.addEventListener('click', () => {
+            this.navigateToCardElement(cardId);
+        });
+        
+        container.appendChild(cardElement);
+    }
+}
+
+// Helper method to find an element by ID in the entire data structure
+findElementById(elementId) {
+    // First check if the element is in the current node
+    const elementInCurrent = this.model.findElement(elementId);
+    if (elementInCurrent) return elementInCurrent;
+    
+    // If not in current node, search through the entire structure
+    return this.findElementInNode(this.model.data, elementId);
+}
+
+// Recursive search for an element in a node and its children
+findElementInNode(node, elementId) {
+    // Check if element is in this node
+    if (node.elements) {
+        const element = node.elements.find(el => el.id === elementId);
+        if (element) return element;
+    }
+    
+    // Check in children nodes
+    if (node.children) {
+        for (const childId in node.children) {
+            const childNode = node.children[childId];
+            const foundElement = this.findElementInNode(childNode, elementId);
+            if (foundElement) return foundElement;
+        }
+    }
+    
+    return null;
+}
+
+// Method to navigate to a card from the priorities panel
+navigateToCardElement(elementId) {
+    // Close the priorities panel first
+    this.updatePrioritiesVisibility(false);
+    
+    // Find the path to the element
+    const path = this.findPathToElement(elementId);
+    if (!path) {
+        OPTIMISM.logError(`Could not find path to element ${elementId}`);
+        return;
+    }
+    
+    // Navigate to the parent node
+    if (path.parentNodeId) {
+        this.controller.navigateToNode(path.parentNodeId).then(success => {
+            if (success) {
+                // After navigation, select the element
+                setTimeout(() => {
+                    const container = document.querySelector(`.element-container[data-id="${elementId}"]`);
+                    if (container) {
+                        const element = this.model.findElement(elementId);
+                        if (element) {
+                            this.selectElement(container, element);
+                        }
+                    }
+                }, 100);
+            }
+        });
+    }
+}
+
+// Find the path to an element
+findPathToElement(elementId) {
+    // Check if element is in current node
+    const element = this.model.findElement(elementId);
+    if (element) {
+        return { parentNodeId: this.model.currentNode.id };
+    }
+    
+    // Otherwise, need to find it recursively
+    return this.findPathInNode(this.model.data, elementId, null);
+}
+
+// Recursive search for element path
+findPathInNode(node, elementId, parentId) {
+    // Check if element is in this node
+    if (node.elements) {
+        const element = node.elements.find(el => el.id === elementId);
+        if (element) {
+            return { parentNodeId: node.id };
+        }
+    }
+    
+    // Check in children nodes
+    if (node.children) {
+        for (const childId in node.children) {
+            const childNode = node.children[childId];
+            const foundPath = this.findPathInNode(childNode, elementId, node.id);
+            if (foundPath) return foundPath;
+        }
+    }
+    
+    return null;
 }
     
 }
