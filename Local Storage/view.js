@@ -1080,126 +1080,134 @@ if (stylePanel) {
         return this.isMac ? e.metaKey : e.ctrlKey;
     }
     
-    // In view.js - Update the renderWorkspace method
-// In view.js - Update the renderWorkspace method
-// In view.js - Modify the renderWorkspace method
-renderWorkspace() {
-    OPTIMISM.log('Rendering workspace');
-    // Clear workspace
-    this.workspace.innerHTML = '';
-    
-    // Update breadcrumbs
-    this.renderBreadcrumbs();
-
-    // Update quick links
-    this.renderQuickLinks();
-
-    // Apply priority state to cards if needed
-    this.model.priorityCards.forEach(cardId => {
-        const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
-        if (container) {
-            container.classList.add('has-priority-border');
-        }
-    });
-    
-    // Render elements
-    if (this.model.currentNode.elements) {
-        const elementsCount = this.model.currentNode.elements.length;
-        OPTIMISM.log(`Rendering ${elementsCount} element(s)`);
+    renderWorkspace() {
+        OPTIMISM.log('Rendering workspace');
+        // Clear workspace
+        this.workspace.innerHTML = '';
         
-        // Sort elements: 1. First by type (images before text)
-        // 2. Then by z-index for images
-        const sortedElements = [...this.model.currentNode.elements].sort((a, b) => {
-            if (a.type === 'image' && b.type === 'text') return -1;
-            if (a.type === 'text' && b.type === 'image') return 1;
-            if (a.type === 'image' && b.type === 'image') {
-                // Higher z-index comes later (on top)
-                return (a.zIndex || 1) - (b.zIndex || 1);
-            }
-            return 0;
-        });
+        // Update breadcrumbs
+        this.renderBreadcrumbs();
+    
+        // Update quick links
+        this.renderQuickLinks();
         
-        sortedElements.forEach(element => {
-            try {
-                if (element.type === 'text') {
-                    this.createTextElementDOM(element);
-                } else if (element.type === 'image') {
-                    this.createImageElementDOM(element);
-                } else {
-                    OPTIMISM.logError(`Unknown element type: ${element.type}`);
+        // Render elements
+        if (this.model.currentNode.elements) {
+            const elementsCount = this.model.currentNode.elements.length;
+            OPTIMISM.log(`Rendering ${elementsCount} element(s)`);
+            
+            // Sort elements: 1. First by type (images before text)
+            // 2. Then by z-index for images
+            const sortedElements = [...this.model.currentNode.elements].sort((a, b) => {
+                if (a.type === 'image' && b.type === 'text') return -1;
+                if (a.type === 'text' && b.type === 'image') return 1;
+                if (a.type === 'image' && b.type === 'image') {
+                    // Higher z-index comes later (on top)
+                    return (a.zIndex || 1) - (b.zIndex || 1);
                 }
-            } catch (error) {
-                OPTIMISM.logError(`Error rendering element ${element.id}:`, error);
+                return 0;
+            });
+            
+            sortedElements.forEach(element => {
+                try {
+                    if (element.type === 'text') {
+                        this.createTextElementDOM(element);
+                    } else if (element.type === 'image') {
+                        this.createImageElementDOM(element);
+                    } else {
+                        OPTIMISM.logError(`Unknown element type: ${element.type}`);
+                    }
+                } catch (error) {
+                    OPTIMISM.logError(`Error rendering element ${element.id}:`, error);
+                }
+            });
+        } else {
+            OPTIMISM.log('No elements to render');
+        }
+    
+        // Apply locked state to cards if needed
+        this.model.lockedCards.forEach(cardId => {
+            const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+            if (container) {
+                container.classList.add('card-locked');
             }
         });
-    } else {
-        OPTIMISM.log('No elements to render');
-    }
-
-    // Apply locked state to cards if needed
-    this.model.lockedCards.forEach(cardId => {
-        const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
-        if (container) {
-            container.classList.add('card-locked');
+    
+        // Apply priority state to cards if needed - ENSURE THIS RUNS AFTER CARDS ARE CREATED
+        if (this.model.priorityCards && this.model.priorityCards.length > 0) {
+            OPTIMISM.log(`Applying priority borders to ${this.model.priorityCards.length} cards`);
+            this.model.priorityCards.forEach(cardId => {
+                const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+                if (container) {
+                    container.classList.add('has-priority-border');
+                    OPTIMISM.log(`Applied priority border to card ${cardId}`);
+                } else {
+                    OPTIMISM.log(`Card ${cardId} not found in current view to apply priority border`);
+                }
+            });
         }
-    });
-
-    // Update styles for locked cards
-    this.updateLockedCardStyles();
-
-    // Apply locked state to images if needed
-    if (this.model.imagesLocked) {
-        this.updateImagesLockState();
-    }
     
-    // Re-render the grid if it was visible
-    if (this.model.isGridVisible) {
-        this.renderGrid();
-    }
+        // Update styles for locked cards
+        this.updateLockedCardStyles();
     
-    // Hide style panel when no element is selected
-    if (!this.model.selectedElement) {
-        this.stylePanel.style.display = 'none';
-    }
-
-    if (this.model.isSettingsVisible) {
-        this.updateSettingsVisibility(true);
-    } else if (this.model.isInboxVisible) {
-        this.updateInboxVisibility(true);
-    }
-    
-    // Update undo/redo buttons
-    this.updateUndoRedoButtons();
-    
-    // Update page title
-    this.updatePageTitle();
-    
-    // If split view is enabled but the preview node ID is null,
-    // update the right viewport to show empty state
-    if (this.model.isSplitViewEnabled && this.rightViewport) {
-        if (!this.model.previewNodeId) {
-            this.updateRightViewport(null);
-        } else if (this.model.previewNodeId === this.model.currentNode.id) {
-            // If the preview is showing the same level as the current node,
-            // clear the preview
-            this.model.previewNodeId = null;
-            this.updateRightViewport(null);
+        // Apply locked state to images if needed
+        if (this.model.imagesLocked) {
+            this.updateImagesLockState();
         }
-    }
-
-     // CRITICAL: Preserve panel visibility at the end of rendering
-    // This ensures no panel is inadvertently hidden during workspace updates
-    setTimeout(() => {
-        if (this.model.isInboxVisible) {
-            this.updateInboxVisibility(true);
+        
+        // Re-render the grid if it was visible
+        if (this.model.isGridVisible) {
+            this.renderGrid();
         }
+        
+        // Hide style panel when no element is selected
+        if (!this.model.selectedElement) {
+            this.stylePanel.style.display = 'none';
+        }
+    
         if (this.model.isSettingsVisible) {
             this.updateSettingsVisibility(true);
+        } else if (this.model.isInboxVisible) {
+            this.updateInboxVisibility(true);
+        } else if (this.model.isPrioritiesVisible) {
+            this.updatePrioritiesVisibility(true);
         }
-    }, 0);
+        
+        // Update undo/redo buttons
+        this.updateUndoRedoButtons();
+        
+        // Update page title
+        this.updatePageTitle();
+        
+        // If split view is enabled but the preview node ID is null,
+        // update the right viewport to show empty state
+        if (this.model.isSplitViewEnabled && this.rightViewport) {
+            if (!this.model.previewNodeId) {
+                this.updateRightViewport(null);
+            } else if (this.model.previewNodeId === this.model.currentNode.id) {
+                // If the preview is showing the same level as the current node,
+                // clear the preview
+                this.model.previewNodeId = null;
+                this.updateRightViewport(null);
+            }
+        }
     
-    OPTIMISM.log('Workspace rendering complete');
-}
+        // CRITICAL: Preserve panel visibility at the end of rendering
+        // This ensures no panel is inadvertently hidden during workspace updates
+        setTimeout(() => {
+            if (this.model.isInboxVisible) {
+                this.updateInboxVisibility(true);
+            }
+            if (this.model.isSettingsVisible) {
+                this.updateSettingsVisibility(true);
+            }
+            if (this.model.isPrioritiesVisible) {
+                this.updatePrioritiesVisibility(true);
+            }
+        }, 0);
+        
+        OPTIMISM.log('Workspace rendering complete');
+    }
     
     // In view.js, ensure the updatePageTitle method is correctly implemented
 updatePageTitle() {
