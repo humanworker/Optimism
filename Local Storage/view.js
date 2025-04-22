@@ -4380,25 +4380,21 @@ updateArenaViewLayout(isEnabled) {
             this.arenaResizeDivider = null; 
         }
 
-        // CRITICAL: Restore original workspace positioning, width, AND overflow
+        // Restore original workspace positioning, width, AND overflow
         this.workspace.style.left = 'var(--panel-width)';
         this.workspace.style.width = 'calc(100vw - 2 * var(--panel-width))';
         this.workspace.style.position = 'absolute';
-        this.workspace.style.overflow = 'auto'; // EXPLICITLY set to 'auto'
-        this.workspace.style.overflowY = 'auto'; // ALSO set overflowY explicitly
-        this.workspace.style.overflowX = 'hidden'; // Keep X hidden
+        this.workspace.style.overflow = 'auto';
+        this.workspace.style.overflowY = 'auto';
+        this.workspace.style.overflowX = 'hidden';
 
         this.renderWorkspace();
         
-        // IMPORTANT: Make sure we enforce scrollbar visibility after render
+        // Make sure we enforce scrollbar visibility after render
         setTimeout(() => {
             this.workspace.style.overflow = 'auto';
             this.workspace.style.overflowY = 'auto';
             this.workspace.style.overflowX = 'hidden';
-            
-            if (this.model.isInboxVisible) { 
-                this.updateInboxVisibility(true);
-            }
         }, 50);
         
         return;
@@ -4406,6 +4402,9 @@ updateArenaViewLayout(isEnabled) {
 
     // If Are.na was disabled but is now enabled
     if (isEnabled && !this.arenaViewport) {
+        // Hide left-side panels (Priorities and Inbox)
+        this.hideLeftPanels();
+
         const workspaceWidth = 70; // 70% for main workspace
         const arenaWidth = 30; // 30% for Arena panel
 
@@ -4413,9 +4412,9 @@ updateArenaViewLayout(isEnabled) {
         this.workspace.style.left = '0';
         this.workspace.style.width = `${workspaceWidth}%`;
         this.workspace.style.position = 'absolute';
-        this.workspace.style.overflow = 'auto'; // EXPLICITLY set to 'auto'
-        this.workspace.style.overflowY = 'auto'; // ALSO set overflowY explicitly 
-        this.workspace.style.overflowX = 'hidden'; // Keep X hidden
+        this.workspace.style.overflow = 'auto';
+        this.workspace.style.overflowY = 'auto';
+        this.workspace.style.overflowX = 'hidden';
 
         // Create the Arena viewport container
         this.arenaViewport = document.createElement('div');
@@ -4442,7 +4441,7 @@ updateArenaViewLayout(isEnabled) {
         arenaIframe.style.width = '100%';
         arenaIframe.style.height = '100%';
         arenaIframe.style.border = 'none';
-        arenaIframe.style.display = 'block'; // Explicitly set display to block
+        arenaIframe.style.display = 'block';
         
         // Set iframe attributes
         arenaIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; camera; microphone; payment; geolocation');
@@ -4462,7 +4461,7 @@ updateArenaViewLayout(isEnabled) {
         this.setupArenaCookieHandling();
         this.ensurePanelZIndices();
         
-        // IMPORTANT: Make sure we enforce scrollbar visibility after render
+        // Make sure we enforce scrollbar visibility after render
         setTimeout(() => {
             this.workspace.style.overflow = 'auto';
             this.workspace.style.overflowY = 'auto';
@@ -5186,6 +5185,38 @@ updateSpacerPosition() {
     spacer.style.top = `${spacerTop}px`;
 
     OPTIMISM.log(`Spacer positioned at ${spacerTop}px below the lowest element.`);
+}
+
+// Add a new helper method for hiding left panels
+hideLeftPanels() {
+    // Store current state in model for future reference if needed
+    const prioritiesWasVisible = this.model.isPrioritiesVisible;
+    const inboxWasVisible = this.model.isInboxVisible;
+    
+    // Hide Priorities panel if it's visible
+    if (this.model.isPrioritiesVisible) {
+        if (this.prioritiesPanel) {
+            this.prioritiesPanel.style.display = 'none';
+            this.model.isPrioritiesVisible = false;
+            OPTIMISM.log('Priorities panel hidden when opening Are.na');
+        }
+    }
+    
+    // Hide Inbox panel if it's visible
+    if (this.model.isInboxVisible) {
+        if (this.inboxPanel) {
+            this.inboxPanel.style.display = 'none';
+            this.model.isInboxVisible = false;
+            OPTIMISM.log('Inbox panel hidden when opening Are.na');
+        }
+    }
+    
+    // Save the new state
+    this.model.saveAppState().then(() => {
+        OPTIMISM.log('Saved app state after hiding left panels');
+    }).catch(error => {
+        OPTIMISM.logError('Error saving app state after hiding left panels:', error);
+    });
 }
 
     
