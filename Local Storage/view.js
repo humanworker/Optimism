@@ -1816,8 +1816,6 @@ async createImageElementDOM(elementData) {
     return container;
 }
     
-// In view.js, update the selectElement method to hide the grid panel
-// In view.js, modify selectElement to use the controller
 selectElement(element, elementData, isDragging = false) {
     // Check if this is an image and images are locked
     if (elementData.type === 'image' && this.model.imagesLocked) {
@@ -1830,12 +1828,8 @@ selectElement(element, elementData, isDragging = false) {
     element.classList.add('selected');
     this.model.selectedElement = element.dataset.id;
     
-    // Close all panels
     if (this.model.isSettingsVisible) {
         this.controller.toggleSettingsVisibility();
-    }
-    if (this.model.isInboxVisible) {
-        this.controller.toggleInboxVisibility();
     }
     
     // Hide grid panel
@@ -3086,16 +3080,22 @@ updateInboxVisibility(isVisible) {
     }
     
     if (isVisible) {
-        // Close other panels first
-        this.stylePanel.style.display = 'none';
-        this.settingsPanel.style.display = 'none';
+        // Close other LEFT-SIDE panels only
+        if (this.prioritiesPanel) {
+            this.prioritiesPanel.style.display = 'none';
+        }
+        
+        // Don't close right-side panels
+        // this.stylePanel.style.display = 'none';
+        // this.settingsPanel.style.display = 'none';
         
         // CRITICAL: Apply direct forceful styling to ensure inbox appears above everything
         this.inboxPanel.style.display = 'block'; 
         this.inboxPanel.style.zIndex = '1000'; // Use a very high z-index
         this.inboxPanel.style.position = 'fixed';
         this.inboxPanel.style.top = '41px';
-        this.inboxPanel.style.right = '0';
+        this.inboxPanel.style.left = '0'; // Now on the left
+        this.inboxPanel.style.right = 'auto';
         
         this.inboxPanel.style.width = 'var(--panel-width)';
         
@@ -3423,12 +3423,17 @@ toggleGridPanel() {
         
         // If opening the panel, refresh selection states
         if (!isVisible) {
-            // Close other panels
+            // Close other RIGHT-SIDE panels only
             this.stylePanel.style.display = 'none';
             this.settingsPanel.style.display = 'none';
-            if (this.inboxPanel) {
-                this.inboxPanel.style.display = 'none';
-            }
+            
+            // Don't close left-side panels
+            // if (this.inboxPanel) {
+            //     this.inboxPanel.style.display = 'none';
+            // }
+            // if (this.prioritiesPanel) {
+            //     this.prioritiesPanel.style.display = 'none';
+            // }
             
             // Update selection states to reflect current settings
             this.updateGridVisibility(this.model.isGridVisible);
@@ -4606,18 +4611,23 @@ updateNestingDisabledState(isDisabled) {
     }
 }
 
-// In view.js, add this method
+// Change these to only close panels on the same side:
 updateSettingsVisibility(isVisible) {
     if (isVisible) {
-        // Close other panels first
+        // Close other RIGHT-SIDE panels only
         this.stylePanel.style.display = 'none';
-        if (this.inboxPanel) {
-            this.inboxPanel.style.display = 'none';
-        }
         const gridPanel = document.getElementById('grid-panel');
         if (gridPanel) {
             gridPanel.style.display = 'none';
         }
+        
+        // Don't close left-side panels
+        // if (this.inboxPanel) {
+        //     this.inboxPanel.style.display = 'none';
+        // }
+        // if (this.prioritiesPanel) {
+        //     this.prioritiesPanel.style.display = 'none';
+        // }
         
         // Show settings panel
         this.settingsPanel.style.display = 'block';
@@ -4631,15 +4641,24 @@ updateSettingsVisibility(isVisible) {
 
 // In view.js:
 updatePanelVisibility(panelName, isVisible) {
-    // Hide all panels first
+    // Determine which side the panel belongs to
+    const isLeftPanel = panelName === 'inbox' || panelName === 'priorities';
+    const isRightPanel = panelName === 'settings' || panelName === 'style' || panelName === 'grid';
+    
+    // Only hide panels on the same side
     if (isVisible) {
-        this.stylePanel.style.display = 'none';
-        this.settingsPanel.style.display = 'none';
-        this.inboxPanel.style.display = 'none';
-        if (this.prioritiesPanel) {
-            this.prioritiesPanel.style.display = 'none';
+        if (isLeftPanel) {
+            // Hide other left panels
+            this.inboxPanel.style.display = 'none';
+            if (this.prioritiesPanel) {
+                this.prioritiesPanel.style.display = 'none';
+            }
+        } else if (isRightPanel) {
+            // Hide other right panels
+            this.stylePanel.style.display = 'none';
+            this.settingsPanel.style.display = 'none';
+            document.getElementById('grid-panel').style.display = 'none';
         }
-        document.getElementById('grid-panel').style.display = 'none';
     }
     
     // Show the requested panel
@@ -4655,7 +4674,7 @@ updatePanelVisibility(panelName, isVisible) {
                 this.renderInboxPanel();
             }
             break;
-            case 'priorities':
+        case 'priorities':
             if (isVisible) {
                 if (!this.prioritiesPanel) {
                     this.setupPrioritiesPanel();
@@ -4868,20 +4887,23 @@ updatePrioritiesVisibility(isVisible) {
     }
     
     if (isVisible) {
-        // Close other panels first
-        this.stylePanel.style.display = 'none';
-        this.settingsPanel.style.display = 'none';
+        // Close other LEFT-SIDE panels only
         if (this.inboxPanel) {
             this.inboxPanel.style.display = 'none';
         }
         
-        // CRITICAL: Apply direct forceful styling to ensure panel appears above everything
+        // Don't close right-side panels
+        // this.stylePanel.style.display = 'none';
+        // this.settingsPanel.style.display = 'none';
+        
+        // CRITICAL: Apply direct forceful styling to ensure priorities panel appears above everything
         this.prioritiesPanel.style.display = 'block'; 
         this.prioritiesPanel.style.zIndex = '1000'; // Use a very high z-index
         this.prioritiesPanel.style.position = 'fixed';
         this.prioritiesPanel.style.top = '41px';
-        this.prioritiesPanel.style.right = '0';
-      
+        this.prioritiesPanel.style.left = '0'; // Now on the left
+        this.prioritiesPanel.style.right = 'auto';
+        
         this.prioritiesPanel.style.width = 'var(--panel-width)';
         
         // Render content

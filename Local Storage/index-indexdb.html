@@ -59,6 +59,8 @@
     overflow-x: hidden; /* Prevent horizontal scrolling */
     z-index: 1;
 }
+
+
     
 #title-bar {
     position: fixed; /* Keep fixed */
@@ -322,18 +324,17 @@
             display: none !important;
         }
     
-        /* Panels */
-#style-panel,
+        #style-panel,
 #settings-panel,
 #inbox-panel,
 #grid-panel,
 #priorities-panel {
     position: fixed;
     top: 41px; /* Below title bar */
-    right: 0;
+    /* Change positioning - inbox and priorities on left, others on right */
+    /* We'll handle specific positioning in each panel below */
     width: var(--panel-width);
     height: calc(100vh - 41px); /* Full height minus title bar */
-    /* CHANGE: Ensure it uses the variable and !important */
     background-color: var(--panel-bg-color) !important;
     padding: 20px;
     padding-top: 60px; /* Extra space for title bar */
@@ -341,6 +342,20 @@
     overflow-y: auto;
     display: none; /* Hidden by default */
     z-index: 1000 !important; /* High z-index */
+}
+
+/* Add specific positioning for each panel type */
+#style-panel,
+#settings-panel,
+#grid-panel {
+    right: 0;
+    left: auto;
+}
+
+#inbox-panel,
+#priorities-panel {
+    left: 0;
+    right: auto;
 }
     
         .panel-heading {
