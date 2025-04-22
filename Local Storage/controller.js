@@ -107,10 +107,11 @@ async createElement(x, y) {
     }
 }
     
+// In controller.js - update the addImage method
 async addImage(file, x, y) {
     if (!this.isInitialized) {
         OPTIMISM.logError('Cannot add image: application not initialized');
-        return;
+        throw new Error('Application not initialized');
     }
 
     try {
@@ -158,14 +159,12 @@ async addImage(file, x, y) {
             this.view.showBackupReminderModal();
         }
 
-        this.updateSpacerPosition();
-
         OPTIMISM.log('Image added successfully');
 
         return element.id;
     } catch (error) {
         OPTIMISM.logError('Error adding image:', error);
-        throw error;
+        throw error; // Re-throw to allow caller to handle
     }
 }
     
@@ -806,81 +805,86 @@ async updateElementWithUndo(id, newProperties, oldProperties) {
     }
 }
 
-    // For controller.js - Updated addImageFromUrl method
-    async addImageFromUrl(url, x, y) {
-        if (!this.isInitialized) {
-            OPTIMISM.logError('Cannot add image: application not initialized');
-            return;
+    // In controller.js - update the addImageFromUrl method
+async addImageFromUrl(url, x, y) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot add image: application not initialized');
+        throw new Error('Application not initialized');
+    }
+    
+    try {
+        OPTIMISM.log(`Adding image from URL: ${url} at position (${x}, ${y})`);
+        
+        // Clean up Are.na URLs (remove query parameters)
+        if (url.includes('d2w9rnfcy7mm78.cloudfront.net')) {
+            const cleanUrl = url.split('?')[0];
+            OPTIMISM.log(`Cleaned up Are.na URL: ${cleanUrl}`);
+            url = cleanUrl;
         }
         
-        try {
-            OPTIMISM.log(`Adding image from URL: ${url} at position (${x}, ${y})`);
+        // Use a reliable imgproxy service
+        const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=default`;
+        OPTIMISM.log(`Using image proxy: ${proxyUrl}`);
+        
+        // Create a new Image element to load the image through the proxy
+        const img = new Image();
+        
+        // Create a promise that resolves when the image loads
+        const imageLoaded = new Promise((resolve, reject) => {
+            img.onload = () => {
+                OPTIMISM.log(`Image loaded successfully via proxy: ${img.width}x${img.height}`);
+                resolve(img);
+            };
             
-            // Clean up Are.na URLs (remove query parameters)
-            if (url.includes('d2w9rnfcy7mm78.cloudfront.net')) {
-                const cleanUrl = url.split('?')[0];
-                OPTIMISM.log(`Cleaned up Are.na URL: ${cleanUrl}`);
-                url = cleanUrl;
-            }
-            
-            // Use a reliable imgproxy service
-            const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=default`;
-            OPTIMISM.log(`Using image proxy: ${proxyUrl}`);
-            
-            // Create a new Image element to load the image through the proxy
-            const img = new Image();
-            
-            // Create a promise that resolves when the image loads
-            const imageLoaded = new Promise((resolve, reject) => {
-                img.onload = () => {
-                    OPTIMISM.log(`Image loaded successfully via proxy: ${img.width}x${img.height}`);
-                    resolve(img);
-                };
-                
-                img.onerror = (err) => {
-                    OPTIMISM.logError('Error loading image via proxy:', err);
-                    reject(new Error('Failed to load image via proxy'));
-                };
-            });
-            
-            // Set the source to start loading
-            img.crossOrigin = 'anonymous';
-            img.src = proxyUrl;
-            
-            // Wait for the image to load
-            const loadedImg = await imageLoaded;
-            
-            // Create a canvas to convert the image to a blob
-            const canvas = document.createElement('canvas');
-            canvas.width = loadedImg.width;
-            canvas.height = loadedImg.height;
-            
-            // Draw the image on the canvas
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(loadedImg, 0, 0);
-            
-            // Convert canvas to blob
-            const blob = await new Promise((resolve) => {
-                canvas.toBlob(resolve, 'image/png');
-            });
-            
-            if (!blob) {
-                throw new Error('Failed to convert image to blob');
-            }
-            
-            // Create a File object from the blob
-            const filename = 'arena-image.png';
-            const file = new File([blob], filename, { type: 'image/png' });
-            
-            OPTIMISM.log(`Successfully created file from image: ${filename}, size: ${file.size} bytes`);
-            
-            // Now use the existing method to add the image
-            return await this.addImage(file, x, y);
-        } catch (error) {
-            OPTIMISM.logError('Error adding image from URL:', error);
-            throw error;
+            img.onerror = (err) => {
+                OPTIMISM.logError('Error loading image via proxy:', err);
+                reject(new Error('Failed to load image via proxy'));
+            };
+        });
+        
+        // Set a timeout to handle cases where the image might never load
+        const imageLoadTimeout = new Promise((resolve, reject) => {
+            setTimeout(() => reject(new Error('Image load timed out')), 15000);
+        });
+        
+        // Set the source to start loading
+        img.crossOrigin = 'anonymous';
+        img.src = proxyUrl;
+        
+        // Wait for the image to load or timeout
+        const loadedImg = await Promise.race([imageLoaded, imageLoadTimeout]);
+        
+        // Create a canvas to convert the image to a blob
+        const canvas = document.createElement('canvas');
+        canvas.width = loadedImg.width;
+        canvas.height = loadedImg.height;
+        
+        // Draw the image on the canvas
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(loadedImg, 0, 0);
+        
+        // Convert canvas to blob
+        const blob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, 'image/png');
+        });
+        
+        if (!blob) {
+            throw new Error('Failed to convert image to blob');
         }
+        
+        // Create a File object from the blob
+        const filename = 'arena-image.png';
+        const file = new File([blob], filename, { type: 'image/png' });
+        
+        OPTIMISM.log(`Successfully created file from image: ${filename}, size: ${file.size} bytes`);
+        
+        // Now use the existing method to add the image
+        return await this.addImage(file, x, y);
+    } catch (error) {
+        OPTIMISM.logError('Error adding image from URL:', error);
+        throw error; // Re-throw to allow caller to handle
     }
+}
 
 // Add this method to the CanvasController class in controller.js
 async toggleImagesLocked() {

@@ -661,186 +661,198 @@ if (gridPanel &&
             }
         });
         
-        // Handle drop events
-        document.addEventListener('drop', async (e) => {
-            e.preventDefault();
+        // In view.js - modify the drop event handler in setupImageDropZone()
+document.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    
+    // Hide the drop zone indicator
+    if (this.dropZoneIndicator) {
+        this.dropZoneIndicator.style.display = 'none';
+    }
+    
+    // Skip if it's an internal drag operation
+    if (this.draggedElement || this.inboxDragTarget) return;
+    
+    // Get correct coordinates relative to the workspace
+    const rect = this.workspace.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    let handled = false;
+    
+    // Check if we have an arena image being dragged
+    if (this.arenaImageBeingDragged) {
+        OPTIMISM.log(`Arena image dropped, attempting to add: ${this.arenaImageBeingDragged}`);
+        this.showLoading('Adding image from Are.na...');
+        
+        try {
+            // Process and add the image from URL
+            await this.controller.addImageFromUrl(this.arenaImageBeingDragged, x, y);
+            OPTIMISM.log('Successfully added Arena image to canvas');
+            handled = true;
+        } catch (error) {
+            OPTIMISM.logError('Error adding Arena image:', error);
+            alert('Failed to add image from Are.na. Please try again.');
+        } finally {
+            this.hideLoading();
+            this.arenaImageBeingDragged = null;
+        }
+        
+        // If we've handled the Arena image, don't continue
+        if (handled) return;
+    }
+    
+    // First check if we have files (local files)
+    if (e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        
+        // Only handle image files
+        if (file.type.startsWith('image/')) {
+            OPTIMISM.log(`Image file dropped: ${file.name} (${file.type})`);
+            this.showLoading();
             
-            // Hide the drop zone indicator
-            if (this.dropZoneIndicator) {
-                this.dropZoneIndicator.style.display = 'none';
+            try {
+                // Process and add the image
+                await this.controller.addImage(file, x, y);
+                OPTIMISM.log('Successfully added dropped image file to canvas');
+                handled = true;
+                return; // Return immediately after successful handling
+            } catch (error) {
+                OPTIMISM.logError('Error adding image file:', error);
+                alert('Failed to add image file. Please try again.');
+            } finally {
+                this.hideLoading();
             }
+        }
+    }
+    
+    // If already handled a file, don't continue
+    if (handled) return;
+    
+    // Check all available types in the data transfer
+    const types = e.dataTransfer.types;
+    OPTIMISM.log("Available drop types: " + types.join(", "));
+    
+    // Look for HTML content first (most likely to contain image data when dragging from a webpage)
+    if (types.includes('text/html')) {
+        const html = e.dataTransfer.getData('text/html');
+        OPTIMISM.log("Received HTML: " + html.substring(0, 100) + "...");
+        
+        // Look for image tags in the HTML
+        const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
+        if (imgMatch && imgMatch[1]) {
+            const imgSrc = imgMatch[1];
+            OPTIMISM.log(`Found image source in HTML: ${imgSrc}`);
             
-            // Skip if it's an internal drag operation
-            if (this.draggedElement || this.inboxDragTarget) return;
-            
-            // Get correct coordinates relative to the workspace
-            const rect = this.workspace.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            let handled = false;
-            
-            // Check if we have an arena image being dragged
-            if (this.arenaImageBeingDragged) {
-                OPTIMISM.log(`Arena image dropped, attempting to add: ${this.arenaImageBeingDragged}`);
-                this.showLoading('Adding image from Are.na...');
+            this.showLoading();
+            try {
+                await this.controller.addImageFromUrl(imgSrc, x, y);
+                OPTIMISM.log('Successfully added image from HTML source');
+                handled = true;
+                return; // Return immediately after successful handling
+            } catch (error) {
+                OPTIMISM.logError('Error adding image from HTML source:', error);
+                // Continue to other methods if this fails
+            } finally {
+                this.hideLoading();
+            }
+        }
+        
+        // Also check for base64 encoded images
+        if (!handled) {
+            const base64Match = html.match(/src=["']data:image\/([^;]+);base64,([^"']+)["']/i);
+            if (base64Match) {
+                const imageType = base64Match[1];
+                const base64Data = base64Match[2];
+                
+                OPTIMISM.log(`Base64 image data found of type: ${imageType}`);
+                this.showLoading();
                 
                 try {
-                    // Process and add the image from URL
-                    await this.controller.addImageFromUrl(this.arenaImageBeingDragged, x, y);
-                    OPTIMISM.log('Successfully added Arena image to canvas');
+                    // Convert base64 to blob
+                    const byteString = atob(base64Data);
+                    const ab = new ArrayBuffer(byteString.length);
+                    const ia = new Uint8Array(ab);
+                    
+                    for (let i = 0; i < byteString.length; i++) {
+                        ia[i] = byteString.charCodeAt(i);
+                    }
+                    
+                    const blob = new Blob([ab], { type: `image/${imageType}` });
+                    const file = new File([blob], `image.${imageType}`, { type: `image/${imageType}` });
+                    
+                    // Add the image
+                    await this.controller.addImage(file, x, y);
+                    OPTIMISM.log('Successfully added base64 image');
                     handled = true;
+                    return; // Return immediately after successful handling
                 } catch (error) {
-                    OPTIMISM.logError('Error adding Arena image:', error);
-                    alert('Failed to add image from Are.na. Please try again.');
+                    OPTIMISM.logError('Error adding base64 image:', error);
+                    // Continue to other methods if this fails
                 } finally {
                     this.hideLoading();
-                    this.arenaImageBeingDragged = null;
-                }
-                
-                // If we've handled the Arena image, don't continue
-                if (handled) return;
-            }
-            
-            // First check if we have files (local files)
-            if (e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
-                
-                // Only handle image files
-                if (file.type.startsWith('image/')) {
-                    OPTIMISM.log(`Image file dropped: ${file.name} (${file.type})`);
-                    this.showLoading();
-                    
-                    try {
-                        // Process and add the image
-                        await this.controller.addImage(file, x, y);
-                        handled = true;
-                    } catch (error) {
-                        OPTIMISM.logError('Error adding image file:', error);
-                        alert('Failed to add image file. Please try again.');
-                    } finally {
-                        this.hideLoading();
-                    }
                 }
             }
+        }
+    }
+    
+    // If not handled yet, check for URL or text containing an image URL
+    if (!handled && (types.includes('text/uri-list') || types.includes('text/plain'))) {
+        let url = '';
+        
+        // Try URI list first
+        if (types.includes('text/uri-list')) {
+            url = e.dataTransfer.getData('text/uri-list');
+        } 
+        // If not available, try plain text
+        else {
+            url = e.dataTransfer.getData('text/plain');
+        }
+        
+        if (url) {
+            OPTIMISM.log(`Found URL: ${url}`);
             
-            // If already handled a file, don't continue
-            if (handled) return;
+            // Check if URL is for an image file
+            const isImageUrl = url.match(/\.(jpe?g|png|gif|bmp|webp|svg)(\?.*)?$/i);
             
-            // Check all available types in the data transfer
-            const types = e.dataTransfer.types;
-            OPTIMISM.log("Available drop types: " + types.join(", "));
-            
-            // Look for HTML content first (most likely to contain image data when dragging from a webpage)
-            if (types.includes('text/html')) {
-                const html = e.dataTransfer.getData('text/html');
-                OPTIMISM.log("Received HTML: " + html.substring(0, 100) + "...");
-                
-                // Look for image tags in the HTML
-                const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
-                if (imgMatch && imgMatch[1]) {
-                    const imgSrc = imgMatch[1];
-                    OPTIMISM.log(`Found image source in HTML: ${imgSrc}`);
-                    
-                    this.showLoading();
-                    try {
-                        await this.controller.addImageFromUrl(imgSrc, x, y);
-                        handled = true;
-                    } catch (error) {
-                        OPTIMISM.logError('Error adding image from HTML source:', error);
-                        // Don't alert here, try other methods
-                    } finally {
-                        this.hideLoading();
-                    }
+            if (isImageUrl) {
+                this.showLoading();
+                try {
+                    await this.controller.addImageFromUrl(url, x, y);
+                    OPTIMISM.log('Successfully added image from URL');
+                    handled = true;
+                    return; // Return immediately after successful handling
+                } catch (error) {
+                    OPTIMISM.logError('Error adding image from URL:', error);
+                    // Don't show alert yet, wait until end
+                } finally {
+                    this.hideLoading();
                 }
-                
-                // Also check for base64 encoded images
-                if (!handled) {
-                    const base64Match = html.match(/src=["']data:image\/([^;]+);base64,([^"']+)["']/i);
-                    if (base64Match) {
-                        const imageType = base64Match[1];
-                        const base64Data = base64Match[2];
-                        
-                        OPTIMISM.log(`Base64 image data found of type: ${imageType}`);
-                        this.showLoading();
-                        
-                        try {
-                            // Convert base64 to blob
-                            const byteString = atob(base64Data);
-                            const ab = new ArrayBuffer(byteString.length);
-                            const ia = new Uint8Array(ab);
-                            
-                            for (let i = 0; i < byteString.length; i++) {
-                                ia[i] = byteString.charCodeAt(i);
-                            }
-                            
-                            const blob = new Blob([ab], { type: `image/${imageType}` });
-                            const file = new File([blob], `image.${imageType}`, { type: `image/${imageType}` });
-                            
-                            // Add the image
-                            await this.controller.addImage(file, x, y);
-                            handled = true;
-                        } catch (error) {
-                            OPTIMISM.logError('Error adding base64 image:', error);
-                            // Don't alert yet, try other methods
-                        } finally {
-                            this.hideLoading();
-                        }
-                    }
+            } else {
+                // Not obviously an image URL, but might be a dynamic image or an image
+                // without a file extension. Try to fetch it anyway.
+                this.showLoading();
+                try {
+                    await this.controller.addImageFromUrl(url, x, y);
+                    OPTIMISM.log('Successfully added image from URL without extension');
+                    handled = true;
+                    return; // Return immediately after successful handling
+                } catch (error) {
+                    OPTIMISM.logError('URL does not appear to be an image:', error);
+                    // Don't show alert yet, wait until end
+                } finally {
+                    this.hideLoading();
                 }
             }
-            
-            // If not handled yet, check for URL or text containing an image URL
-            if (!handled && (types.includes('text/uri-list') || types.includes('text/plain'))) {
-                let url = '';
-                
-                // Try URI list first
-                if (types.includes('text/uri-list')) {
-                    url = e.dataTransfer.getData('text/uri-list');
-                } 
-                // If not available, try plain text
-                else {
-                    url = e.dataTransfer.getData('text/plain');
-                }
-                
-                if (url) {
-                    OPTIMISM.log(`Found URL: ${url}`);
-                    
-                    // Check if URL is for an image file
-                    const isImageUrl = url.match(/\.(jpe?g|png|gif|bmp|webp|svg)(\?.*)?$/i);
-                    
-                    if (isImageUrl) {
-                        this.showLoading();
-                        try {
-                            await this.controller.addImageFromUrl(url, x, y);
-                            handled = true;
-                        } catch (error) {
-                            OPTIMISM.logError('Error adding image from URL:', error);
-                        } finally {
-                            this.hideLoading();
-                        }
-                    } else {
-                        // Not obviously an image URL, but might be a dynamic image or an image
-                        // without a file extension. Try to fetch it anyway.
-                        this.showLoading();
-                        try {
-                            await this.controller.addImageFromUrl(url, x, y);
-                            handled = true;
-                        } catch (error) {
-                            OPTIMISM.logError('URL does not appear to be an image:', error);
-                        } finally {
-                            this.hideLoading();
-                        }
-                    }
-                }
-            }
-            
-            // If we've tried everything and still couldn't process the drop
-            if (!handled) {
-                OPTIMISM.log('Could not process dropped content as an image');
-                alert('The dropped content could not be processed as an image.');
-            }
-        });
+        }
+    }
+    
+    // If we've tried everything and still couldn't process the drop, only then show error
+    if (!handled) {
+        OPTIMISM.log('Could not process dropped content as an image');
+        alert('The dropped content could not be processed as an image.');
+    }
+});
         
         OPTIMISM.log('Image drop zone set up successfully');
     }
@@ -4497,121 +4509,123 @@ checkThirdPartyCookies() {
 setupPasteHandler() {
     OPTIMISM.log('Setting up paste handler');
     
-    document.addEventListener('paste', async (e) => {
-        // Don't handle paste when focus is in a text field
-        if (document.activeElement.tagName === 'TEXTAREA' || 
-            document.activeElement.tagName === 'INPUT') {
-            return;
-        }
-        
-        e.preventDefault();
-        
-        // Get clipboard data
-        const clipboardData = e.clipboardData || window.clipboardData;
-        
-        if (!clipboardData) {
-            OPTIMISM.logError('Clipboard data not available');
-            return;
-        }
-        
-        // Calculate position at the center of the viewport
-        const rect = this.workspace.getBoundingClientRect();
-        const x = rect.width / 2;
-        const y = rect.height / 2;
-        
-        OPTIMISM.log(`Processing paste at center position (${x}, ${y})`);
-        
-        // Check for images in the clipboard
-        const items = clipboardData.items;
-        let imageHandled = false;
-        
-        if (items) {
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    // It's an image - get as a file
-                    const file = items[i].getAsFile();
-                    if (file) {
-                        OPTIMISM.log(`Found image in clipboard: ${file.name || 'unnamed'} (${file.type})`);
-                        this.showLoading('Adding pasted image...');
-                        
-                        try {
-                            // Add the image using the existing method
-                            await this.controller.addImage(file, x, y);
-                            OPTIMISM.log('Successfully added pasted image to canvas');
-                            imageHandled = true;
-                            break; // Only handle one image
-                        } catch (error) {
-                            OPTIMISM.logError('Error adding pasted image:', error);
-                            alert('Failed to add pasted image. Please try again.');
-                        } finally {
-                            this.hideLoading();
-                        }
+    // In view.js - modify the paste handler in setupPasteHandler()
+document.addEventListener('paste', async (e) => {
+    // Don't handle paste when focus is in a text field
+    if (document.activeElement.tagName === 'TEXTAREA' || 
+        document.activeElement.tagName === 'INPUT') {
+        return;
+    }
+    
+    e.preventDefault();
+    
+    // Get clipboard data
+    const clipboardData = e.clipboardData || window.clipboardData;
+    
+    if (!clipboardData) {
+        OPTIMISM.logError('Clipboard data not available');
+        return;
+    }
+    
+    // Calculate position at the center of the viewport
+    const rect = this.workspace.getBoundingClientRect();
+    const x = rect.width / 2;
+    const y = rect.height / 2;
+    
+    OPTIMISM.log(`Processing paste at center position (${x}, ${y})`);
+    
+    // Check for images in the clipboard
+    const items = clipboardData.items;
+    let imageHandled = false;
+    
+    if (items) {
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                // It's an image - get as a file
+                const file = items[i].getAsFile();
+                if (file) {
+                    OPTIMISM.log(`Found image in clipboard: ${file.name || 'unnamed'} (${file.type})`);
+                    this.showLoading('Adding pasted image...');
+                    
+                    try {
+                        // Add the image using the existing method
+                        await this.controller.addImage(file, x, y);
+                        OPTIMISM.log('Successfully added pasted image to canvas');
+                        imageHandled = true;
+                        this.hideLoading();
+                        return; // Return immediately after successful handling
+                    } catch (error) {
+                        OPTIMISM.logError('Error adding pasted image:', error);
+                        alert('Failed to add pasted image. Please try again.');
+                        this.hideLoading();
+                        return; // Return after showing error
                     }
                 }
             }
         }
-        
-        // If no image was found, try getting text
-        if (!imageHandled) {
-            let text = clipboardData.getData('text/plain');
-            if (text && text.trim() !== '') {
-                OPTIMISM.log(`Found text in clipboard (${text.length} characters)`);
+    }
+    
+    // If no image was found, try getting text
+    if (!imageHandled) {
+        let text = clipboardData.getData('text/plain');
+        if (text && text.trim() !== '') {
+            OPTIMISM.log(`Found text in clipboard (${text.length} characters)`);
+            
+            try {
+                // Create a new text element
+                const element = {
+                    id: crypto.randomUUID(),
+                    type: 'text',
+                    x: x,
+                    y: y,
+                    text: text,
+                    width: 200, // Initial width will be adjusted
+                    height: 100, // Initial height will be adjusted
+                    style: {
+                        textSize: 'small',
+                        textColor: 'default',
+                        hasHeader: false
+                    },
+                    autoSize: true // Flag to indicate this element should auto-size
+                };
                 
-                try {
-                    // Create a new text element
-                    const element = {
-                        id: crypto.randomUUID(),
-                        type: 'text',
-                        x: x,
-                        y: y,
-                        text: text,
-                        width: 200, // Initial width will be adjusted
-                        height: 100, // Initial height will be adjusted
-                        style: {
-                            textSize: 'small',
-                            textColor: 'default',
-                            hasHeader: false
-                        },
-                        autoSize: true // Flag to indicate this element should auto-size
-                    };
+                // Create an add element command
+                const command = new AddElementCommand(this.model, element);
+                
+                // Execute the command
+                const { result, showBackupReminder } = await this.model.execute(command);
+                
+                // Create and render the element
+                const elemDOM = this.createTextElementDOM(element);
+                
+                // Auto-size to fit content
+                const textarea = elemDOM.querySelector('.text-element');
+                if (textarea && elemDOM.dataset.autoSize === 'true') {
+                    this.autoSizeElement(elemDOM, textarea);
                     
-                    // Create an add element command
-                    const command = new AddElementCommand(this.model, element);
-                    
-                    // Execute the command
-                    const { result, showBackupReminder } = await this.model.execute(command);
-                    
-                    // Create and render the element
-                    const elemDOM = this.createTextElementDOM(element);
-                    
-                    // Auto-size to fit content
-                    const textarea = elemDOM.querySelector('.text-element');
-                    if (textarea && elemDOM.dataset.autoSize === 'true') {
-                        this.autoSizeElement(elemDOM, textarea);
-                        
-                        // Update the element dimensions in the model
-                        this.controller.updateElement(element.id, {
-                            width: parseInt(elemDOM.style.width),
-                            height: parseInt(elemDOM.style.height),
-                            autoSize: false // Turn off auto-size after initial sizing
-                        });
-                    }
-                    
-                    // Show backup reminder if needed
-                    if (showBackupReminder) {
-                        this.view.showBackupReminderModal();
-                    }
-                    
-                    OPTIMISM.log('Successfully added pasted text to canvas');
-                } catch (error) {
-                    OPTIMISM.logError('Error adding pasted text:', error);
-                    alert('Failed to add pasted text. Please try again.');
+                    // Update the element dimensions in the model
+                    this.controller.updateElement(element.id, {
+                        width: parseInt(elemDOM.style.width),
+                        height: parseInt(elemDOM.style.height),
+                        autoSize: false // Turn off auto-size after initial sizing
+                    });
                 }
-            } else {
-                OPTIMISM.log('No valid content found in clipboard');
+                
+                // Show backup reminder if needed
+                if (showBackupReminder) {
+                    this.showBackupReminderModal();
+                }
+                
+                OPTIMISM.log('Successfully added pasted text to canvas');
+            } catch (error) {
+                OPTIMISM.logError('Error adding pasted text:', error);
+                alert('Failed to add pasted text. Please try again.');
             }
+        } else {
+            OPTIMISM.log('No valid content found in clipboard');
         }
-    });
+    }
+});
     
     OPTIMISM.log('Paste handler set up successfully');
 }
