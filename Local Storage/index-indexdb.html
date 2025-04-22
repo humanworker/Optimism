@@ -46,26 +46,19 @@
         }
     
         #workspace {
-            position: absolute;
-            top: 41px; /* Below title bar */
-            left: var(--panel-width); /* Default, JS might override for split/arena */
-            width: calc(100vw - 2 * var(--panel-width)); /* Default, JS might override */
-            /* --- CHANGES START --- */
-            /* REMOVE fixed height - JS will set min-height */
-            /* height: calc(100vh - 41px); */
-            /* Set a base min-height (can be overridden by JS) */
-            min-height: calc(100vh - 41px);
-            height: auto; /* Allow height to be determined by content/min-height */
-            /* --- CHANGES END --- */
-            box-sizing: border-box;
-            background-color: var(--canvas-bg-color);
-            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-            background-size: 20px 20px;
-            /* KEEP overflow settings */
-            overflow-y: auto; /* Allow vertical scrolling */
-            overflow-x: hidden; /* Prevent horizontal scrolling */
-            z-index: 1;
-        }
+    position: absolute;
+    top: 41px; /* Below title bar */
+    left: var(--panel-width); /* Default, JS might override for split/arena */
+    width: calc(100vw - 2 * var(--panel-width)); /* Default, JS might override */
+    height: calc(100vh - 41px); /* Fixed height for scroll calculation */
+    box-sizing: border-box;
+    background-color: var(--canvas-bg-color);
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    overflow-y: auto; /* Allow vertical scrolling */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    z-index: 1;
+}
     
 #title-bar {
     position: fixed; /* Keep fixed */

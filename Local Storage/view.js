@@ -2245,15 +2245,13 @@ document.addEventListener('mousemove', (e) => {
         }
 
         // Reset drag state and highlights
-        this.draggedElement.classList.remove('dragging');
-        this.draggedElement = null;
-        document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
-        navControls.classList.remove('nav-drag-highlight');
+    this.draggedElement.classList.remove('dragging');
+    this.draggedElement = null;
+    document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
+    navControls.classList.remove('nav-drag-highlight');
 
- // Update spacer if position or size changed directly via mouseup
- if (positionOrSizeChanged) {
+    // Always update spacer position after drag operations
     this.updateSpacerPosition();
-}
 
     });
 
@@ -5146,12 +5144,24 @@ findPathInNode(node, elementId, parentId) {
     return null;
 }
 
-// In view.js
 updateSpacerPosition() {
     const spacer = document.getElementById('content-spacer');
     if (!spacer) {
-        OPTIMISM.logError('Content spacer element not found!');
-        return;
+        // Create the spacer if it doesn't exist
+        const newSpacer = document.createElement('div');
+        newSpacer.id = 'content-spacer';
+        newSpacer.style.position = 'absolute';
+        newSpacer.style.left = '0';
+        newSpacer.style.width = '1px';
+        newSpacer.style.height = '30vh'; // 30% of viewport height for padding
+        newSpacer.style.visibility = 'hidden';
+        newSpacer.style.pointerEvents = 'none';
+        this.workspace.appendChild(newSpacer);
+        
+        OPTIMISM.log('Created missing content spacer element');
+        
+        // Use the newly created spacer
+        return this.updateSpacerPosition();
     }
 
     const elements = this.workspace.querySelectorAll('.element-container');
@@ -5168,28 +5178,15 @@ updateSpacerPosition() {
         });
     }
 
-    // Calculate the required top position for the spacer
-    const spacerTop = Math.max(0, maxBottom);
+    // Add a minimum padding of 20px even when there are no elements
+    const minPadding = 20;
+    maxBottom = Math.max(maxBottom, minPadding);
+
+    // Position the spacer below the lowest element
+    const spacerTop = maxBottom + 20; // Add 20px extra padding
     spacer.style.top = `${spacerTop}px`;
 
-    // Calculate the required minimum scrollHeight for the workspace
-    // It needs to be at least the spacer's top + spacer's height
-    // We get the spacer's height (20vh) in pixels
-    const spacerHeight = spacer.offsetHeight; // Get its computed height in pixels
-    const requiredScrollHeight = spacerTop + spacerHeight;
-
-    // --- THIS IS THE NEW PART ---
-    // Ensure the workspace's *content area* is tall enough
-    // We set minHeight on the workspace to force the scrollHeight.
-    // We also need to consider the base height of the viewport itself.
-    const baseViewportHeight = this.workspace.clientHeight; // The visible height
-    const finalMinHeight = Math.max(baseViewportHeight, requiredScrollHeight);
-
-    // Set min-height instead of height to allow natural shrinking if content is removed
-    this.workspace.style.minHeight = `${finalMinHeight}px`;
-    // We keep height: calc(100vh - 41px) in the CSS as the visual boundary
-
-    OPTIMISM.log(`Spacer top: ${spacerTop}px. Required scrollHeight >= ${requiredScrollHeight}px. Workspace minHeight set to: ${finalMinHeight}px.`);
+    OPTIMISM.log(`Spacer positioned at ${spacerTop}px below the lowest element.`);
 }
 
     

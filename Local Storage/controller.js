@@ -98,6 +98,8 @@ async createElement(x, y) {
             this.view.showBackupReminderModal();
         }
 
+        this.updateSpacerPosition();
+
         OPTIMISM.log('Text element created successfully');
     } catch (error) {
         OPTIMISM.logError('Error creating element:', error);
@@ -154,6 +156,8 @@ async addImage(file, x, y) {
         if (showBackupReminder) {
             this.view.showBackupReminderModal();
         }
+
+        this.updateSpacerPosition();
 
         OPTIMISM.log('Image added successfully');
 
