@@ -5103,7 +5103,6 @@ findElementInNode(node, elementId) {
 }
 
 // Method to navigate to a card from the priorities panel
-// Method to navigate to a card from the priorities panel
 navigateToCardElement(elementId) {
     // Close the priorities panel first
     this.updatePrioritiesVisibility(false);
@@ -5115,39 +5114,17 @@ navigateToCardElement(elementId) {
         return;
     }
     
-    // Check if the element has children before navigating
-    if (this.model.hasChildren(elementId)) {
-        // First navigate to the parent node
-        if (path.parentNodeId) {
-            this.controller.navigateToNode(path.parentNodeId).then(success => {
-                if (success) {
-                    // After navigating to the parent, navigate directly into the element
-                    setTimeout(() => {
-                        OPTIMISM.log(`Navigating into priority card ${elementId}`);
-                        this.controller.navigateToElement(elementId);
-                    }, 100);
-                }
-            });
-        }
-    } else {
-        // If the element doesn't have children, just navigate to its parent and select it
-        // (original behavior)
-        if (path.parentNodeId) {
-            this.controller.navigateToNode(path.parentNodeId).then(success => {
-                if (success) {
-                    // After navigation, select the element
-                    setTimeout(() => {
-                        const container = document.querySelector(`.element-container[data-id="${elementId}"]`);
-                        if (container) {
-                            const element = this.model.findElement(elementId);
-                            if (element) {
-                                this.selectElement(container, element);
-                            }
-                        }
-                    }, 100);
-                }
-            });
-        }
+    // First navigate to the parent node
+    if (path.parentNodeId) {
+        this.controller.navigateToNode(path.parentNodeId).then(success => {
+            if (success) {
+                // After navigating to the parent, always try to navigate into the element
+                setTimeout(() => {
+                    OPTIMISM.log(`Navigating into priority card ${elementId}`);
+                    this.controller.navigateToElement(elementId);
+                }, 100);
+            }
+        });
     }
 }
 
