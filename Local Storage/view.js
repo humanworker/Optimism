@@ -1269,7 +1269,7 @@ alignOptions.forEach(option => {
         }, 0);
 
         this.updateSpacerPosition(); // Position the spacer after rendering
-        
+        this.workspace.style.overflow = this.model.isArenaVisible ? 'hidden' : 'auto';
         OPTIMISM.log('Workspace rendering complete');
     }
     
@@ -3620,12 +3620,13 @@ updateSplitViewLayout(isEnabled) {
         this.rightViewport.remove();
         this.rightViewport = null;
         if (this.resizeDivider) { this.resizeDivider.remove(); this.resizeDivider = null; }
-
+    
         // CHANGE: Restore original workspace positioning and width
         this.workspace.style.left = 'var(--panel-width)';
         this.workspace.style.width = 'calc(100vw - 2 * var(--panel-width))';
         this.workspace.style.position = 'absolute'; // Ensure it's absolute
-
+        this.workspace.style.overflow = 'auto'; // ADDED: Restore overflow to 'auto'
+    
         this.renderWorkspace();
         if (this.model.isInboxVisible) { setTimeout(() => { this.updateInboxVisibility(true); }, 10); }
         OPTIMISM.log('VIEW: Split view removed successfully');
@@ -4391,6 +4392,7 @@ setupArenaToggle() {
 // Add this method to show/hide the Are.na panel
 // In view.js - Modify the updateArenaViewLayout method:
 // In view.js - Modify the updateArenaViewLayout method:
+// In view.js - Modify the updateArenaViewLayout method:
 updateArenaViewLayout(isEnabled) {
     OPTIMISM.log(`Updating Are.na view layout: ${isEnabled}`);
 
@@ -4406,6 +4408,7 @@ updateArenaViewLayout(isEnabled) {
         this.workspace.style.left = 'var(--panel-width)';
         this.workspace.style.width = 'calc(100vw - 2 * var(--panel-width))';
         this.workspace.style.position = 'absolute'; // Ensure it's absolute
+        this.workspace.style.overflow = 'auto'; // ADDED: Restore overflow to 'auto'
 
         this.renderWorkspace();
         if (this.model.isInboxVisible) { setTimeout(() => { this.updateInboxVisibility(true); }, 10); }
