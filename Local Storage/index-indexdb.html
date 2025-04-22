@@ -18,6 +18,11 @@
             --link-color: #3498db;
             --red-text-color: #ff5555;
             --green-text-color: #55ff55;
+
+            /* NEW: Card Background Colors */
+            --card-bg-yellow: #ffffcc; /* Light yellow */
+            --card-bg-red: #ffcccc;    /* Light red */
+            --card-bg-none: transparent;
         }
     
         /* Light theme */
@@ -182,6 +187,16 @@
             font-size: 14px;
             text-decoration: underline;
             padding-bottom: 3px;
+        }
+
+        .element-container.card-bg-none { /* Increased Specificity */
+            background-color: var(--card-bg-none);
+        }
+        .element-container.card-bg-yellow { /* Increased Specificity */
+            background-color: var(--card-bg-yellow);
+        }
+        .element-container.card-bg-red { /* Increased Specificity */
+            background-color: var(--card-bg-red);
         }
     
         .element-container {
@@ -843,6 +858,19 @@
         <a href="#" class="option-value" data-align="left">Left</a>
         <a href="#" class="option-value" data-align="centre">Centre</a>
         <a href="#" class="option-value" data-align="right">Right</a>
+    </div>
+</div>
+<div class="style-option">
+    <div class="option-label">
+        Card Background
+        <span class="shortcut-badges">
+            <span class="shortcut-badge" title="Cycle Background Colors">4</span>
+        </span>
+    </div>
+    <div class="option-values">
+        <a href="#" class="option-value" data-bgcolor="none">None</a>
+        <a href="#" class="option-value" data-bgcolor="yellow">Yellow</a>
+        <a href="#" class="option-value" data-bgcolor="red">Red</a>
     </div>
 </div>
         <div class="style-option">

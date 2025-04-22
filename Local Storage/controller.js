@@ -61,14 +61,16 @@ async createElement(x, y) {
             x: x,
             y: y,
             text: '',
-            width: 200, // Initial width will be adjusted when text is added
-            height: 100, // Initial height will be adjusted when text is added
+            width: 200,
+            height: 100,
             style: {
-                textSize: 'small', // Default text size
-                textColor: 'default', // Default text color
-                hasHeader: false // Default header setting
+                textSize: 'small',
+                textColor: 'default',
+                textAlign: 'left', // Make sure alignment default is here too
+                hasHeader: false,
+                cardBgColor: 'none' // Add default background color
             },
-            autoSize: true // Flag to indicate this element should auto-size
+            autoSize: true
         };
 
         // Create an add element command
@@ -263,125 +265,145 @@ async updateElementStyle(id, styleProperties) {
         OPTIMISM.logError('Cannot update element style: application not initialized');
         return;
     }
-    
+
     try {
         OPTIMISM.log(`Updating element ${id} style:`, styleProperties);
-        const element = this.model.findElement(id);
-        if (element && element.type === 'text') {
-            // Ensure style object exists
-            if (!element.style) {
-                element.style = {};
-            }
-            
-            // Create a proper update command
-            const newProps = {
-                style: { ...element.style, ...styleProperties }
-            };
-            
-            // Use the update element method to create proper command
-            await this.updateElement(id, newProps);
-            
-            // Update the DOM to reflect style changes
-            const container = document.querySelector(`.element-container[data-id="${id}"]`);
-            if (!container || container.dataset.type !== 'text') return;
-            
+        const element = this.model.findElement(id); // Get element BEFORE update for comparison/check
+
+        // Check if the element exists before proceeding
+        if (!element) {
+            OPTIMISM.logError(`Element ${id} not found for style update.`);
+            return;
+        }
+
+        // Ensure style object exists in the current element data
+        const currentStyle = element.style || {};
+        const newStyle = { ...currentStyle, ...styleProperties };
+
+        // Create a proper update command using the main update method
+        const newProps = { style: newStyle };
+        // *** Execute the command to update the model and handle undo/redo ***
+        await this.updateElement(id, newProps);
+
+        // --- START: Direct DOM Manipulation for Immediate Visual Update ---
+
+        const container = document.querySelector(`.element-container[data-id="${id}"]`);
+        if (!container) {
+            OPTIMISM.logError(`Container for element ${id} not found in DOM.`);
+            return; // Exit if container not found
+        }
+
+        // Get the *updated* element data from the model after the command execution
+        const updatedElement = this.model.findElement(id);
+        if (!updatedElement) {
+             OPTIMISM.logError(`Element ${id} not found in model AFTER update command.`);
+             return; // Should not happen normally, but good check
+        }
+        const finalStyle = updatedElement.style || {}; // Use updated style
+
+        // Handle TEXT SPECIFIC styles (Size, Color, Align, Header, Highlight)
+        if (element.type === 'text') { // Check original element type
             const textarea = container.querySelector('.text-element');
             const display = container.querySelector('.text-display');
-            if (!textarea || !display) return;
-            
-            // Reset all size classes
-            textarea.classList.remove('size-small', 'size-large', 'size-huge');
-            display.classList.remove('size-small', 'size-large', 'size-huge');
-            
-            // Apply the correct size class
-            if (element.style.textSize === 'large') {
-                textarea.classList.add('size-large');
-                display.classList.add('size-large');
-            } else if (element.style.textSize === 'huge') {
-                textarea.classList.add('size-huge');
-                display.classList.add('size-huge');
-            }
-            
-            // Reset all color classes
-            textarea.classList.remove('color-default', 'color-red', 'color-green');
-            display.classList.remove('color-default', 'color-red', 'color-green');
-            
-            // Apply the correct color class
-            if (element.style.textColor) {
-                textarea.classList.add(`color-${element.style.textColor}`);
-                display.classList.add(`color-${element.style.textColor}`);
+            if (!textarea || !display) {
+                 OPTIMISM.logError(`Textarea or display not found for text element ${id}`);
+                 // Continue to update container styles even if inner elements are missing
             } else {
-                textarea.classList.add('color-default');
-                display.classList.add('color-default');
-            }
-            
-            // Reset all alignment classes
-            textarea.classList.remove('align-left', 'align-centre', 'align-right');
-            display.classList.remove('align-left', 'align-centre', 'align-right');
-            
-            // Apply the correct alignment class
-            if (element.style.textAlign) {
-                textarea.classList.add(`align-${element.style.textAlign}`);
-                display.classList.add(`align-${element.style.textAlign}`);
-            } else {
-                textarea.classList.add('align-left'); // Default alignment
-            }
-            
-            // Handle header formatting
-            if (styleProperties.hasHeader !== undefined) {
-                if (styleProperties.hasHeader) {
-                    display.classList.add('has-header');
-                    display.innerHTML = this.view.formatTextWithHeader(element.text || '', true);
-                } else {
-                    display.classList.remove('has-header');
-                    display.innerHTML = this.view.convertUrlsToLinks(element.text || '');
+                // Text Size
+                if (styleProperties.textSize !== undefined) {
+                    textarea.classList.remove('size-small', 'size-large', 'size-huge');
+                    display.classList.remove('size-small', 'size-large', 'size-huge');
+                    if (finalStyle.textSize) {
+                        textarea.classList.add(`size-${finalStyle.textSize}`);
+                        display.classList.add(`size-${finalStyle.textSize}`);
+                    }
                 }
-            }
 
-            // Handle highlight formatting
-            if (styleProperties.isHighlighted !== undefined) {
-                if (styleProperties.isHighlighted) {
-                    textarea.classList.add('is-highlighted');
-                    textarea.style.backgroundColor = 'rgb(255, 255, 176)';
-                    display.classList.add('is-highlighted');
-                } else {
-                    textarea.classList.remove('is-highlighted');
-                    textarea.style.backgroundColor = '';
-                    display.classList.remove('is-highlighted');
+                // Text Color
+                if (styleProperties.textColor !== undefined) {
+                    textarea.classList.remove('color-default', 'color-red', 'color-green');
+                    display.classList.remove('color-default', 'color-red', 'color-green');
+                    const colorClass = `color-${finalStyle.textColor || 'default'}`;
+                    textarea.classList.add(colorClass);
+                    display.classList.add(colorClass);
                 }
-                
-                // Update the display content to add or remove highlighting
-                const hasHeader = element.style && element.style.hasHeader;
-                const isHighlighted = styleProperties.isHighlighted;
-                
-                if (hasHeader) {
-                    display.innerHTML = this.view.formatTextWithHeader(element.text || '', true, isHighlighted);
-                } else {
-                    display.innerHTML = this.view.convertUrlsToLinks(element.text || '', isHighlighted);
-                }
-            }
-            
-            // Handle border setting
-            if (styleProperties.hasBorder !== undefined) {
-                if (styleProperties.hasBorder) {
-                    container.classList.add('has-permanent-border');
-                } else {
-                    container.classList.remove('has-permanent-border');
-                }
-            }
 
-            // Handle card lock setting
-            if (styleProperties.isLocked !== undefined) {
-                if (styleProperties.isLocked) {
-                    await this.model.lockCard(id);
-                } else {
-                    await this.model.unlockCard(id);
+                // Text Alignment
+                if (styleProperties.textAlign !== undefined) {
+                    textarea.classList.remove('align-left', 'align-centre', 'align-right');
+                    display.classList.remove('align-left', 'align-centre', 'align-right');
+                    const alignClass = `align-${finalStyle.textAlign || 'left'}`;
+                    textarea.classList.add(alignClass);
+                    display.classList.add(alignClass);
                 }
-                this.view.updateCardLockState(id, styleProperties.isLocked);
+
+                // Header Formatting (Needs to re-render text display)
+                if (styleProperties.hasHeader !== undefined) {
+                    if (finalStyle.hasHeader) {
+                        display.classList.add('has-header');
+                        // Pass highlight status when re-rendering
+                        display.innerHTML = this.view.formatTextWithHeader(updatedElement.text || '', true, finalStyle.isHighlighted);
+                    } else {
+                        display.classList.remove('has-header');
+                        // Pass highlight status when re-rendering
+                        display.innerHTML = this.view.convertUrlsToLinks(updatedElement.text || '', finalStyle.isHighlighted);
+                    }
+                }
+
+                // Highlight Formatting (Also needs to re-render text display)
+                 if (styleProperties.isHighlighted !== undefined) {
+                    if (finalStyle.isHighlighted) {
+                        textarea.classList.add('is-highlighted');
+                        textarea.style.backgroundColor = 'rgb(255, 255, 176)';
+                        display.classList.add('is-highlighted');
+                    } else {
+                        textarea.classList.remove('is-highlighted');
+                        textarea.style.backgroundColor = '';
+                        display.classList.remove('is-highlighted');
+                    }
+                    // Re-render display content for highlight changes
+                    const hasHeader = finalStyle.hasHeader; // Use updated style
+                    if (hasHeader) {
+                        display.innerHTML = this.view.formatTextWithHeader(updatedElement.text || '', true, finalStyle.isHighlighted);
+                    } else {
+                        display.innerHTML = this.view.convertUrlsToLinks(updatedElement.text || '', finalStyle.isHighlighted);
+                    }
+                }
+            } // end if textarea/display exist
+        } // End TEXT specific styles
+
+        // Handle styles applicable to BOTH Text and Image Containers
+
+        // Card Background Color (THIS IS THE KEY PART)
+        if (styleProperties.cardBgColor !== undefined) {
+            container.classList.remove('card-bg-none', 'card-bg-yellow', 'card-bg-red'); // Clear existing
+            const bgColor = finalStyle.cardBgColor || 'none'; // Get the final color
+            if (bgColor !== 'none') {
+                 container.classList.add(`card-bg-${bgColor}`); // Add the new class if not 'none'
             }
-            
-            OPTIMISM.log('Element style updated successfully');
+             OPTIMISM.log(`Applied background class: card-bg-${bgColor} to container ${id}`);
         }
+
+        // Card Border
+        if (styleProperties.hasBorder !== undefined) {
+            if (finalStyle.hasBorder) {
+                container.classList.add('has-permanent-border');
+            } else {
+                container.classList.remove('has-permanent-border');
+            }
+        }
+
+        // Card Lock (The model update already happened via updateElement, this syncs the View's perception)
+        if (styleProperties.isLocked !== undefined) {
+            // We don't need to call model.lock/unlock again here
+            // Just update the view's class and potentially the style panel selection
+            this.view.updateCardLockState(id, finalStyle.isLocked);
+        }
+
+        // --- END: Direct DOM Manipulation ---
+
+        OPTIMISM.log('Element style updated successfully (including immediate DOM update)');
+
     } catch (error) {
         OPTIMISM.logError('Error updating element style:', error);
     }

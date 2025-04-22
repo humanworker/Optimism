@@ -403,6 +403,20 @@ if (this.model.selectedElement &&
             styleUpdated = true;
             e.preventDefault();
         }
+
+        // 4 = cycle through background colors (None -> Yellow -> Red -> None) (NEW)
+        if (e.key === '4') {
+            const currentBgColor = element.style && element.style.cardBgColor ? element.style.cardBgColor : 'none';
+            let nextBgColor;
+
+            if (currentBgColor === 'none') nextBgColor = 'yellow';
+            else if (currentBgColor === 'yellow') nextBgColor = 'red';
+            else nextBgColor = 'none'; // red or any other goes back to none
+
+            this.controller.updateElementStyle(this.model.selectedElement, { cardBgColor: nextBgColor });
+            styleUpdated = true;
+            e.preventDefault();
+        }
         
         // 5 = toggle header
         else if (e.key === '5') {
@@ -980,6 +994,28 @@ alignOptions.forEach(option => {
         option.classList.add('selected');
     });
 });
+
+const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
+        bgColorOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent closing the panel
+
+                // Only apply if an element is selected
+                if (!this.model.selectedElement) return;
+
+                // Get the selected background color
+                const bgColor = option.dataset.bgcolor;
+
+                // Update the element's style
+                // This applies to BOTH text and image element containers
+                this.controller.updateElementStyle(this.model.selectedElement, { cardBgColor: bgColor });
+
+                // Update the UI to show which option is selected
+                bgColorOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            });
+        });
         
         // Set up color options
         const colorOptions = document.querySelectorAll('.option-value[data-color]');
@@ -1467,6 +1503,19 @@ createTextElementDOM(elementData) {
         container.style.height = `100px`; // Default height
     }
 
+    // Apply background color class (NEW)
+    container.classList.remove('card-bg-none', 'card-bg-yellow', 'card-bg-red'); // Clear previous
+    if (elementData.style && elementData.style.cardBgColor) {
+        const bgColor = elementData.style.cardBgColor;
+        if (bgColor === 'yellow') {
+            container.classList.add('card-bg-yellow');
+        } else if (bgColor === 'red') {
+            container.classList.add('card-bg-red');
+        }
+        // 'none' requires no class (defaults to transparent)
+    }
+
+
     // Store autoSize flag if it exists
 if (elementData.autoSize !== undefined) {
     container.dataset.autoSize = elementData.autoSize;
@@ -1773,6 +1822,18 @@ async createImageElementDOM(elementData) {
     } else {
         container.style.zIndex = '1'; // Default z-index for images
     }
+
+    // Apply background color class (NEW)
+    container.classList.remove('card-bg-none', 'card-bg-yellow', 'card-bg-red'); // Clear previous
+    if (elementData.style && elementData.style.cardBgColor) {
+        const bgColor = elementData.style.cardBgColor;
+        if (bgColor === 'yellow') {
+            container.classList.add('card-bg-yellow');
+        } else if (bgColor === 'red') {
+            container.classList.add('card-bg-red');
+        }
+        // 'none' requires no class (defaults to transparent)
+    }
     
     // Check if this card is locked - ADD THIS HERE
     if (this.model.isCardLocked(elementData.id)) {
@@ -1997,6 +2058,18 @@ updateStylePanel(elementData) {
     if (lockOption) {
         lockOption.classList.add('selected');
     }
+
+    // Set the correct background color option as selected (NEW)
+        // Applies to both text and image containers
+        let selectedBgColor = 'none'; // Default
+        if (elementData.style && elementData.style.cardBgColor) {
+            selectedBgColor = elementData.style.cardBgColor;
+        }
+
+        const bgColorOption = document.querySelector(`.option-value[data-bgcolor="${selectedBgColor}"]`);
+        if (bgColorOption) {
+            bgColorOption.classList.add('selected');
+        }
 }
 
     
