@@ -432,7 +432,7 @@ if (this.model.selectedElement &&
         }
 
         // 8 = move to inbox
-        else if (e.key === '8') {
+        else if (e.key === '9') {
             // Only if an element is selected
             if (this.model.selectedElement) {
                 this.controller.moveToInbox(this.model.selectedElement);
@@ -442,7 +442,7 @@ if (this.model.selectedElement &&
         }
         
         // 9 = toggle card lock
-        else if (e.key === '9') {
+        else if (e.key === '8') {
             // Toggle current lock setting
             const isLocked = this.model.isCardLocked(this.model.selectedElement);
             this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
@@ -897,7 +897,7 @@ if (stylePanel) {
             <div class="option-label">
                 Move to Inbox
                 <span class="shortcut-badges">
-                    <span class="shortcut-badge" title="Move to Inbox">8</span>
+                    <span class="shortcut-badge" title="Move to Inbox">9</span>
                 </span>
             </div>
             <div class="option-values">
