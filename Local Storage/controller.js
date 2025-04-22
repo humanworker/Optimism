@@ -47,13 +47,13 @@ async createElement(x, y) {
         OPTIMISM.logError('Cannot create element: application not initialized');
         return;
     }
-    
+
     try {
         OPTIMISM.log(`Creating text element at position (${x}, ${y})`);
-        
+
         // Calculate default width as 30% of the window width
         const maxWidth = Math.floor(window.innerWidth * 0.3);
-        
+
         const element = {
             id: crypto.randomUUID(),
             type: 'text',
@@ -69,15 +69,15 @@ async createElement(x, y) {
             },
             autoSize: true // Flag to indicate this element should auto-size
         };
-        
+
         // Create an add element command
         const command = new AddElementCommand(this.model, element);
-        
+
         // Execute the command
         const { result, showBackupReminder } = await this.model.execute(command);
-        
+
         const elemDOM = this.view.createTextElementDOM(element);
-        
+
         // Find and focus the textarea inside the container
         const textarea = elemDOM.querySelector('.text-element');
         if (textarea) {
@@ -86,81 +86,83 @@ async createElement(x, y) {
             if (display) display.style.display = 'none';
             textarea.focus();
         }
-        
+
         // Update undo/redo buttons
         this.view.updateUndoRedoButtons();
 
-        
-        
+        // Update spacer position AFTER the element is added to the DOM
+        this.view.updateSpacerPosition();
+
         // Show backup reminder if needed
         if (showBackupReminder) {
             this.view.showBackupReminderModal();
         }
-        
+
         OPTIMISM.log('Text element created successfully');
     } catch (error) {
         OPTIMISM.logError('Error creating element:', error);
     }
 }
     
-    async addImage(file, x, y) {
-        if (!this.isInitialized) {
-            OPTIMISM.logError('Cannot add image: application not initialized');
-            return;
-        }
-        
-        try {
-            OPTIMISM.log(`Adding image at position (${x}, ${y})`);
-            // Compress and resize the image to 1200px max storage dimension, 600px max display dimension, with 0.7 quality
-            const processedImage = await OPTIMISM.resizeImage(file, 1200, 0.95, 600);
-            
-            // Create unique IDs
-            const elementId = crypto.randomUUID();
-            const imageDataId = crypto.randomUUID();
-            
-            // Create element data
-            const element = {
-                id: elementId,
-                type: 'image',
-                imageDataId: imageDataId,
-                x: x,
-                y: y,
-                width: processedImage.width,
-                height: processedImage.height,
-                storageWidth: processedImage.storageWidth,
-                storageHeight: processedImage.storageHeight
-            };
-            
-            // Create an add element command
-            const command = new AddElementCommand(this.model, element);
-            
-            // Set the image data for the command
-            command.setImageData(processedImage.data);
-            
-            // Execute the command
-            const { result, showBackupReminder } = await this.model.execute(command);
-            
-            // Create the DOM element
-            await this.view.createImageElementDOM(element);
-            
-            // Update undo/redo buttons
-            this.view.updateUndoRedoButtons();
-
-            
-            
-            // Show backup reminder if needed
-            if (showBackupReminder) {
-                this.view.showBackupReminderModal();
-            }
-            
-            OPTIMISM.log('Image added successfully');
-            
-            return element.id;
-        } catch (error) {
-            OPTIMISM.logError('Error adding image:', error);
-            throw error;
-        }
+async addImage(file, x, y) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot add image: application not initialized');
+        return;
     }
+
+    try {
+        OPTIMISM.log(`Adding image at position (${x}, ${y})`);
+        // Compress and resize the image to 1200px max storage dimension, 600px max display dimension, with 0.7 quality
+        const processedImage = await OPTIMISM.resizeImage(file, 1200, 0.95, 600);
+
+        // Create unique IDs
+        const elementId = crypto.randomUUID();
+        const imageDataId = crypto.randomUUID();
+
+        // Create element data
+        const element = {
+            id: elementId,
+            type: 'image',
+            imageDataId: imageDataId,
+            x: x,
+            y: y,
+            width: processedImage.width,
+            height: processedImage.height,
+            storageWidth: processedImage.storageWidth,
+            storageHeight: processedImage.storageHeight
+        };
+
+        // Create an add element command
+        const command = new AddElementCommand(this.model, element);
+
+        // Set the image data for the command
+        command.setImageData(processedImage.data);
+
+        // Execute the command
+        const { result, showBackupReminder } = await this.model.execute(command);
+
+        // Create the DOM element
+        await this.view.createImageElementDOM(element);
+
+        // Update undo/redo buttons
+        this.view.updateUndoRedoButtons();
+
+        // Update spacer position AFTER the element is added to the DOM
+        this.view.updateSpacerPosition();
+
+        // Show backup reminder if needed
+        if (showBackupReminder) {
+            this.view.showBackupReminderModal();
+        }
+
+        OPTIMISM.log('Image added successfully');
+
+        return element.id;
+    } catch (error) {
+        OPTIMISM.logError('Error adding image:', error);
+        throw error;
+    }
+}
     
     // In controller.js, modify the updateElement method
 // In controller.js, modify the updateElement method
@@ -374,42 +376,43 @@ if (styleProperties.isLocked !== undefined) {
             OPTIMISM.logError('Cannot delete element: application not initialized');
             return false;
         }
-        
+    
         try {
             OPTIMISM.log(`Deleting element ${id}`);
             const gridWasVisible = this.model.isGridVisible; // Store grid state
-            
+    
             // Create a delete element command
             const command = new DeleteElementCommand(this.model, id);
-            
+    
             // Execute the command
             const { result, showBackupReminder } = await this.model.execute(command);
-            
+    
             if (result) {
                 OPTIMISM.log('Element deleted successfully');
-                
+    
                 // Clear the selected element in the model since it's been deleted
                 this.model.selectedElement = null;
-                
+    
                 // Hide the style panel since no element is selected
                 this.view.stylePanel.style.display = 'none';
-                
+    
+                // renderWorkspace handles the spacer update now
                 this.view.renderWorkspace();
-                
+    
                 // Restore grid if it was visible
                 if (gridWasVisible && !this.model.isGridVisible) {
                     this.model.isGridVisible = true;
                     this.view.updateGridVisibility(true);
                     await this.model.saveAppState();
                 }
-                
+    
                 this.view.updateUndoRedoButtons();
-                
+    
                 // Show backup reminder if needed
                 if (showBackupReminder) {
                     this.view.showBackupReminderModal();
                 }
-                
+    
                 return true;
             }
             OPTIMISM.log('Element deletion failed or element not found');
@@ -419,6 +422,7 @@ if (styleProperties.isLocked !== undefined) {
             return false;
         }
     }
+    
     
     async moveElement(elementId, targetElementId) {
         if (!this.isInitialized) {

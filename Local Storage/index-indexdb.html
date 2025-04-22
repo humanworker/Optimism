@@ -51,11 +51,11 @@
             left: var(--panel-width); /* Default, JS might override for split/arena */
             width: calc(100vw - 2 * var(--panel-width)); /* Default, JS might override */
             /* --- CHANGES START --- */
-            /* SET fixed height to fill viewport below title bar */
-            height: calc(100vh - 41px);
-            /* REMOVE min-height and height: auto */
-            /* min-height: calc(120vh - 41px); */
-            /* height: auto; */
+            /* REMOVE fixed height - JS will set min-height */
+            /* height: calc(100vh - 41px); */
+            /* Set a base min-height (can be overridden by JS) */
+            min-height: calc(100vh - 41px);
+            height: auto; /* Allow height to be determined by content/min-height */
             /* --- CHANGES END --- */
             box-sizing: border-box;
             background-color: var(--canvas-bg-color);
@@ -786,7 +786,9 @@
             <button id="settings-toggle" class="nav-link">Settings</button>
         </div>
     </div>
-    <div id="workspace"></div>
+    <div id="workspace">
+        <div id="content-spacer" style="position: absolute; left: 0; width: 1px; height: 20vh; visibility: hidden; pointer-events: none;"></div>
+    </div>
     <div id="style-panel">
         <div class="style-option">
             <div class="option-label">
