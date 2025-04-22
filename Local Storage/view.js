@@ -1152,6 +1152,8 @@ alignOptions.forEach(option => {
     
         // Update quick links
         this.renderQuickLinks();
+
+        this.workspace.style.overflow = 'auto';
         
         // Render elements
         if (this.model.currentNode.elements) {
@@ -3699,6 +3701,8 @@ updateSplitViewLayout(isEnabled) {
 
             this.ensurePanelZIndices();
             this.renderWorkspace();
+
+            this.workspace.style.overflow = 'auto';
             OPTIMISM.log('VIEW: Split view created successfully');
         } catch (error) {
             OPTIMISM.logError('VIEW: Error creating split view:', error);
@@ -4361,10 +4365,7 @@ setupArenaToggle() {
     OPTIMISM.log('Are.na toggle set up successfully');
 }
 
-// Add this method to show/hide the Are.na panel
-// In view.js - Modify the updateArenaViewLayout method:
-// In view.js - Modify the updateArenaViewLayout method:
-// In view.js - Modify the updateArenaViewLayout method:
+// In view.js - Update the updateArenaViewLayout method:
 updateArenaViewLayout(isEnabled) {
     OPTIMISM.log(`Updating Are.na view layout: ${isEnabled}`);
 
@@ -4373,17 +4374,33 @@ updateArenaViewLayout(isEnabled) {
         this.arenaViewport.remove();
         this.arenaViewport = null;
 
-        // Remove the resize divider if it exists (though we might not use it)
-        if (this.arenaResizeDivider) { this.arenaResizeDivider.remove(); this.arenaResizeDivider = null; }
+        // Remove the resize divider if it exists
+        if (this.arenaResizeDivider) { 
+            this.arenaResizeDivider.remove(); 
+            this.arenaResizeDivider = null; 
+        }
 
-        // CHANGE: Restore original workspace positioning and width
+        // CRITICAL: Restore original workspace positioning, width, AND overflow
         this.workspace.style.left = 'var(--panel-width)';
         this.workspace.style.width = 'calc(100vw - 2 * var(--panel-width))';
-        this.workspace.style.position = 'absolute'; // Ensure it's absolute
-        this.workspace.style.overflow = 'auto'; // ADDED: Restore overflow to 'auto'
+        this.workspace.style.position = 'absolute';
+        this.workspace.style.overflow = 'auto'; // EXPLICITLY set to 'auto'
+        this.workspace.style.overflowY = 'auto'; // ALSO set overflowY explicitly
+        this.workspace.style.overflowX = 'hidden'; // Keep X hidden
 
         this.renderWorkspace();
-        if (this.model.isInboxVisible) { setTimeout(() => { this.updateInboxVisibility(true); }, 10); }
+        
+        // IMPORTANT: Make sure we enforce scrollbar visibility after render
+        setTimeout(() => {
+            this.workspace.style.overflow = 'auto';
+            this.workspace.style.overflowY = 'auto';
+            this.workspace.style.overflowX = 'hidden';
+            
+            if (this.model.isInboxVisible) { 
+                this.updateInboxVisibility(true);
+            }
+        }, 50);
+        
         return;
     }
 
@@ -4392,34 +4409,42 @@ updateArenaViewLayout(isEnabled) {
         const workspaceWidth = 70; // 70% for main workspace
         const arenaWidth = 30; // 30% for Arena panel
 
-        // CHANGE: Set workspace to left: 0 for Arena view
+        // Set workspace layout
         this.workspace.style.left = '0';
         this.workspace.style.width = `${workspaceWidth}%`;
-        this.workspace.style.position = 'absolute'; // Keep absolute
-        this.workspace.style.overflow = 'hidden';
+        this.workspace.style.position = 'absolute';
+        this.workspace.style.overflow = 'auto'; // EXPLICITLY set to 'auto'
+        this.workspace.style.overflowY = 'auto'; // ALSO set overflowY explicitly 
+        this.workspace.style.overflowX = 'hidden'; // Keep X hidden
 
-        // Create the Arena viewport container with fixed width
+        // Create the Arena viewport container
         this.arenaViewport = document.createElement('div');
         this.arenaViewport.id = 'arena-viewport';
         this.arenaViewport.className = 'viewport';
+        
+        // Position and style the viewport
+        this.arenaViewport.style.position = 'fixed';
+        this.arenaViewport.style.top = '41px';
+        this.arenaViewport.style.left = `${workspaceWidth}%`;
         this.arenaViewport.style.width = `${arenaWidth}%`;
         this.arenaViewport.style.height = 'calc(100vh - 41px)';
-        this.arenaViewport.style.position = 'fixed';
-        this.arenaViewport.style.left = `${workspaceWidth}%`; // Position relative to left edge
-        this.arenaViewport.style.top = '41px';
-        this.arenaViewport.style.right = 'auto'; // Don't use right positioning
         this.arenaViewport.style.boxSizing = 'border-box';
         this.arenaViewport.style.overflow = 'hidden';
-        this.arenaViewport.style.backgroundColor = 'var(--canvas-bg-color)'; // Match canvas bg
+        this.arenaViewport.style.backgroundColor = 'var(--canvas-bg-color)';
         this.arenaViewport.style.zIndex = '150';
-
+        
         // Create and add the iframe
         const arenaIframe = document.createElement('iframe');
         arenaIframe.id = 'arena-iframe';
-        arenaIframe.src = './arena/index.html'; // Ensure this path is correct
+        arenaIframe.src = './arena/index.html';
+        
+        // Set iframe styles
         arenaIframe.style.width = '100%';
         arenaIframe.style.height = '100%';
         arenaIframe.style.border = 'none';
+        arenaIframe.style.display = 'block'; // Explicitly set display to block
+        
+        // Set iframe attributes
         arenaIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; camera; microphone; payment; geolocation');
         arenaIframe.setAttribute('allowfullscreen', 'true');
         arenaIframe.setAttribute('loading', 'eager');
@@ -4427,23 +4452,31 @@ updateArenaViewLayout(isEnabled) {
         arenaIframe.setAttribute('referrerpolicy', 'origin');
         arenaIframe.setAttribute('importance', 'high');
         arenaIframe.setAttribute('crossorigin', 'anonymous');
-        this.arenaViewport.appendChild(arenaIframe);
-
-        // Add shadow effect on the left edge
         
+        // Add iframe to viewport
+        this.arenaViewport.appendChild(arenaIframe);
 
         // Add the Arena viewport to the document
         document.body.appendChild(this.arenaViewport);
 
-        this.setupArenaCookieHandling(); // Set up cookie handling
-        this.ensurePanelZIndices(); // Ensure panels are on top
-        this.renderWorkspace(); // Re-render workspace
+        this.setupArenaCookieHandling();
+        this.ensurePanelZIndices();
+        
+        // IMPORTANT: Make sure we enforce scrollbar visibility after render
+        setTimeout(() => {
+            this.workspace.style.overflow = 'auto';
+            this.workspace.style.overflowY = 'auto';
+            this.workspace.style.overflowX = 'hidden';
+        }, 50);
+        
+        this.renderWorkspace();
+        
+        OPTIMISM.log(`Arena viewport created with iframe path: ${arenaIframe.src}`);
     }
 
-    // Make sure to update the button text
+    // Update button text
     const arenaToggle = document.getElementById('arena-toggle');
     if (arenaToggle) {
-        OPTIMISM.log(`Updating Are.na toggle text to: ${isEnabled ? 'Hide Are.na' : 'Show Are.na'}`);
         arenaToggle.textContent = isEnabled ? 'Hide Are.na' : 'Show Are.na';
     }
 }
