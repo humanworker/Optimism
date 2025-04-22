@@ -333,130 +333,116 @@ class CanvasView {
     }}
                 
             // Style shortcuts (only when an element is selected and not in edit mode)
-            if (this.model.selectedElement && 
-                document.activeElement.tagName !== 'TEXTAREA') {
-                
-                const element = this.model.findElement(this.model.selectedElement);
-                
-                // Only apply styling to text elements
-                if (element && element.type === 'text') {
-                    let styleUpdated = false;
-                    
-                    // 0 = reset to default (small text, black, no header, no highlight, no border)
-                    if (e.key === '0') {
-                        this.controller.updateElementStyle(this.model.selectedElement, { 
-                            textSize: 'small', 
-                            textColor: 'default', 
-                            hasHeader: false,
-                            isHighlighted: false,
-                            hasBorder: false
-                        });
-                        styleUpdated = true;
-                        e.preventDefault();
-                    }
-                    
-                    // 1 = small text size
-                    else if (e.key === '1') {
-                        // Only apply if not already small (small is default)
-                        if (element.style && element.style.textSize !== 'small') {
-                            this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'small' });
-                            styleUpdated = true;
-                        }
-                        e.preventDefault();
-                    }
-                    
-                    // 2 = large text size
-                    else if (e.key === '2') {
-                        // Only apply if not already large
-                        if (!element.style || element.style.textSize !== 'large') {
-                            this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'large' });
-                            styleUpdated = true;
-                        }
-                        e.preventDefault();
-                    }
-                    
-                    // 3 = huge text size
-                    else if (e.key === '3') {
-                        // Only apply if not already huge
-                        if (!element.style || element.style.textSize !== 'huge') {
-                            this.controller.updateElementStyle(this.model.selectedElement, { textSize: 'huge' });
-                            styleUpdated = true;
-                        }
-                        e.preventDefault();
-                    }
-                    
-                    // 4 = cycle through text colors (default -> red -> green -> default)
-                    else if (e.key === '4') {
-                        // Get current color
-                        const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
-                        let nextColor;
-                        
-                        // Determine next color
-                        if (currentColor === 'default') nextColor = 'red';
-                        else if (currentColor === 'red') nextColor = 'green';
-                        else nextColor = 'default'; // green or any other color goes back to default
-                        
-                        this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
-                        styleUpdated = true;
-                        e.preventDefault();
-                    }
-                    
-                    // 5 = toggle header
-                    else if (e.key === '5') {
-                        // Toggle current header setting
-                        const hasHeader = element.style && element.style.hasHeader ? true : false;
-                        this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
-                        styleUpdated = true;
-                        e.preventDefault();
-                    }
-                    
-                    // 6 = toggle highlight
-                    else if (e.key === '6') {
-                        // Get the current highlight setting
-                        const isHighlighted = element.style && element.style.isHighlighted ? true : false;
-                        this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
-                        styleUpdated = true;
-                        e.preventDefault();
-                    }
-                    
-                    // 7 = toggle border
-                    else if (e.key === '7') {
-                        // Toggle current border setting
-                        const hasBorder = element.style && element.style.hasBorder ? true : false;
-                        this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: !hasBorder });
-                        styleUpdated = true;
-                        e.preventDefault();
-                    }
+if (this.model.selectedElement && 
+    document.activeElement.tagName !== 'TEXTAREA') {
     
-                    // 8 = move to inbox
-                    else if (e.key === '8') {
-                        // Only if an element is selected
-                        if (this.model.selectedElement) {
-                            this.controller.moveToInbox(this.model.selectedElement);
-                            this.stylePanel.style.display = 'none'; // Hide style panel after moving
-                            e.preventDefault();
-                        }
-                    }
-                    
-                    // 9 = toggle card lock
-                    else if (e.key === '9') {
-                        // Toggle current lock setting
-                        const isLocked = this.model.isCardLocked(this.model.selectedElement);
-                        this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
-                        styleUpdated = true;
-                        e.preventDefault();
-                    }
-                    
-                    // Update style panel if any style changed
-                    if (styleUpdated) {
-                        // Get the updated element data after the style changes
-                        const updatedElement = this.model.findElement(this.model.selectedElement);
-                        if (updatedElement) {
-                            this.updateStylePanel(updatedElement);
-                        }
-                    }
-                }
+    const element = this.model.findElement(this.model.selectedElement);
+    
+    // Only apply styling to text elements
+    if (element && element.type === 'text') {
+        let styleUpdated = false;
+        
+        // 0 = reset to default (small text, black, no header, no highlight, no border)
+        if (e.key === '0') {
+            this.controller.updateElementStyle(this.model.selectedElement, { 
+                textSize: 'small', 
+                textColor: 'default', 
+                hasHeader: false,
+                isHighlighted: false,
+                hasBorder: false
+            });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // 1 = toggle through text sizes (small > large > huge)
+        else if (e.key === '1') {
+            // Get current size
+            const currentSize = element.style && element.style.textSize ? element.style.textSize : 'small';
+            let nextSize;
+            
+            // Determine next size
+            if (currentSize === 'small') nextSize = 'large';
+            else if (currentSize === 'large') nextSize = 'huge';
+            else nextSize = 'small'; // huge or any other size goes back to small
+            
+            this.controller.updateElementStyle(this.model.selectedElement, { textSize: nextSize });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // 4 = cycle through text colors (default -> red -> green -> default)
+        else if (e.key === '4') {
+            // Get current color
+            const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
+            let nextColor;
+            
+            // Determine next color
+            if (currentColor === 'default') nextColor = 'red';
+            else if (currentColor === 'red') nextColor = 'green';
+            else nextColor = 'default'; // green or any other color goes back to default
+            
+            this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // 5 = toggle header
+        else if (e.key === '5') {
+            // Toggle current header setting
+            const hasHeader = element.style && element.style.hasHeader ? true : false;
+            this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // 6 = toggle highlight
+        else if (e.key === '6') {
+            // Get the current highlight setting
+            const isHighlighted = element.style && element.style.isHighlighted ? true : false;
+            this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // 7 = toggle border
+        else if (e.key === '7') {
+            // Toggle current border setting
+            const hasBorder = element.style && element.style.hasBorder ? true : false;
+            this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: !hasBorder });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+
+        // 8 = move to inbox
+        else if (e.key === '8') {
+            // Only if an element is selected
+            if (this.model.selectedElement) {
+                this.controller.moveToInbox(this.model.selectedElement);
+                this.stylePanel.style.display = 'none'; // Hide style panel after moving
+                e.preventDefault();
             }
+        }
+        
+        // 9 = toggle card lock
+        else if (e.key === '9') {
+            // Toggle current lock setting
+            const isLocked = this.model.isCardLocked(this.model.selectedElement);
+            this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // Update style panel if any style changed
+        if (styleUpdated) {
+            // Get the updated element data after the style changes
+            const updatedElement = this.model.findElement(this.model.selectedElement);
+            if (updatedElement) {
+                this.updateStylePanel(updatedElement);
+            }
+        }
+    }
+}
         });
         
         // Prevent right-click context menu
