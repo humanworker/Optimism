@@ -324,7 +324,7 @@ class CanvasView {
             }
 
             // Toggle priority with 'P' key when an element is selected
-    if (e.key.toLowerCase() === 'p' && 
+    if (e.key.toLowerCase() === 'b' && 
     document.activeElement.tagName !== 'TEXTAREA' && 
     document.activeElement.tagName !== 'INPUT') {
     e.preventDefault();
@@ -4810,7 +4810,7 @@ setupPrioritiesPanel() {
         this.prioritiesToggle = document.createElement('button');
         this.prioritiesToggle.id = 'priorities-toggle';
         this.prioritiesToggle.className = 'nav-link';
-        this.prioritiesToggle.textContent = 'Priorities'; // Initial text
+        this.prioritiesToggle.textContent = 'Bookmarks'; // Initial text
 
         // Add click event handler
         this.prioritiesToggle.addEventListener('click', (e) => {
@@ -4857,7 +4857,7 @@ setupPrioritiesPanel() {
         this.prioritiesPanel.style.zIndex = '1000'; // Ensure high z-index
 
         this.prioritiesPanel.innerHTML = `
-            <div class="panel-heading">Priorities</div>
+            <div class="panel-heading">Bookmarks</div>
             <div class="priorities-container"></div>
         `;
         document.body.appendChild(this.prioritiesPanel);
@@ -4968,7 +4968,7 @@ renderPrioritiesPanel() {
     if (this.model.priorityCards.length === 0) {
         const hint = document.createElement('div');
         hint.className = 'priority-hint';
-        hint.textContent = 'Press "P" while a card is selected to mark it as a priority';
+        hint.textContent = 'Press "B" while a card is selected to mark it as a priority';
         container.appendChild(hint);
         return;
     }
