@@ -2157,32 +2157,22 @@ document.addEventListener('mousemove', (e) => {
     if (this.model.isGridVisible) {
         const gridContainer = document.getElementById('grid-container');
         if (gridContainer) {
-            // Vertical lines (affect X position)
+            // Vertical lines (affect X position) - ONLY SNAP LEFT EDGE
             const vertLines = gridContainer.querySelectorAll('.grid-line-vertical');
             vertLines.forEach(line => {
                 const lineX = parseInt(line.style.left);
-                // Snap left edge
+                // Snap left edge only
                 if (Math.abs(finalX_style - lineX) < 10) { finalX_style = lineX; }
-                // Snap right edge
-                const elementRight = finalX_style + this.draggedElement.offsetWidth;
-                if (Math.abs(elementRight - lineX) < 10) { finalX_style = lineX - this.draggedElement.offsetWidth; }
+                // Right edge snapping removed
             });
 
-            // Horizontal lines (affect Y position)
+            // Horizontal lines (affect Y position) - ONLY SNAP TOP EDGE
             const horzLines = gridContainer.querySelectorAll('.grid-line-horizontal');
-            
-            // CHANGED: Prioritize top edge for snapping during drag
             horzLines.forEach(line => {
                 const lineY = parseInt(line.style.top);
-                // PRIORITY: Snap top edge first
+                // Snap top edge only
                 if (Math.abs(finalY_style - lineY) < 10) { finalY_style = lineY; }
-                
-                // Only snap bottom edge if top edge wasn't snapped
-                // REDUCED PRIORITY: Only check bottom edge if top wasn't close to a line
-                else {
-                    const elementBottom = finalY_style + this.draggedElement.offsetHeight;
-                    if (Math.abs(elementBottom - lineY) < 10) { finalY_style = lineY - this.draggedElement.offsetHeight; }
-                }
+                // Bottom edge snapping removed
             });
 
             // Re-apply minimum Y constraint *after* potential grid snapping
