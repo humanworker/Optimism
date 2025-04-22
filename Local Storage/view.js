@@ -467,34 +467,57 @@ class CanvasView {
         // Close style panel when clicking outside
         document.addEventListener('click', (e) => {
             // If clicking outside of both the style panel and any element
-            if (!this.stylePanel.contains(e.target) && 
-                !e.target.closest('.element-container') && 
-                this.stylePanel.style.display === 'block') {
-                this.stylePanel.style.display = 'none';
-            }
-            
-            if (!this.settingsPanel.contains(e.target) && 
-    e.target !== this.settingsToggle && 
-    this.settingsPanel.style.display === 'block') {
-    // Use the controller to update both the visual state and model state
-    this.controller.toggleSettingsVisibility();
+           // 1. Style panel should still close when clicking on blank canvas
+    if (!this.stylePanel.contains(e.target) && 
+    !e.target.closest('.element-container') && 
+    this.stylePanel.style.display === 'block') {
+    this.stylePanel.style.display = 'none';
 }
-            
-            // Close grid panel when clicking outside
-            const gridPanel = document.getElementById('grid-panel');
-            const gridToggle = document.getElementById('grid-toggle');
-            if (gridPanel && 
-                !gridPanel.contains(e.target) && 
-                e.target !== gridToggle && 
-                gridPanel.style.display === 'block') {
-                gridPanel.style.display = 'none';
-            }
-            
-            if (!this.inboxPanel.contains(e.target) && 
+
+// 2. Settings panel should close when clicking on a card (which opens style panel)
+// but NOT when clicking the blank canvas
+if (this.settingsPanel && 
+    this.settingsPanel.style.display === 'block' && 
+    !this.settingsPanel.contains(e.target) && 
+    e.target !== this.settingsToggle) {
+    
+    // Only close if clicking on a card (will open style panel)
+    if (e.target.closest('.element-container')) {
+        this.controller.toggleSettingsVisibility();
+    }
+    // Don't close when clicking elsewhere
+}
+
+// 3. Inbox panel should NOT close when clicking on canvas or cards
+// Only remove this code or comment it out:
+/*
+if (!this.inboxPanel.contains(e.target) && 
     e.target !== this.inboxToggle && 
     this.inboxPanel.style.display === 'block') {
-    // Use the controller to update both the visual state and model state
     this.controller.toggleInboxVisibility();
+}
+*/
+
+// 4. Priority panel should NOT close when clicking on canvas or cards
+// Look for and comment out or remove:
+/*
+if (this.prioritiesPanel &&
+    this.prioritiesPanel.style.display === 'block' &&
+    !this.prioritiesPanel.contains(e.target) &&
+    e.target !== this.prioritiesToggle) {
+    
+    this.controller.togglePrioritiesVisibility();
+}
+*/
+
+// 5. Grid panel can still close when clicking elsewhere
+const gridPanel = document.getElementById('grid-panel');
+const gridToggle = document.getElementById('grid-toggle');
+if (gridPanel && 
+    !gridPanel.contains(e.target) && 
+    e.target !== gridToggle && 
+    gridPanel.style.display === 'block') {
+    gridPanel.style.display = 'none';
 }
         });
         
