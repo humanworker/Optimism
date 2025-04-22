@@ -258,122 +258,134 @@ async updateElement(id, properties) {
     }
 }
     
-    async updateElementStyle(id, styleProperties) {
-        if (!this.isInitialized) {
-            OPTIMISM.logError('Cannot update element style: application not initialized');
-            return;
-        }
-        
-        try {
-            OPTIMISM.log(`Updating element ${id} style:`, styleProperties);
-            const element = this.model.findElement(id);
-            if (element && element.type === 'text') {
-                // Ensure style object exists
-                if (!element.style) {
-                    element.style = {};
-                }
-                
-                // Create a proper update command
-                const newProps = {
-                    style: { ...element.style, ...styleProperties }
-                };
-                
-                // Use the update element method to create proper command
-                await this.updateElement(id, newProps);
-                
-                // Update the DOM to reflect style changes
-                const container = document.querySelector(`.element-container[data-id="${id}"]`);
-                if (!container || container.dataset.type !== 'text') return;
-                
-                const textarea = container.querySelector('.text-element');
-                const display = container.querySelector('.text-display');
-                if (!textarea || !display) return;
-                
-                // Reset all size classes
-                textarea.classList.remove('size-small', 'size-large', 'size-huge');
-                display.classList.remove('size-small', 'size-large', 'size-huge');
-                
-                // Apply the correct size class
-                if (element.style.textSize === 'large') {
-                    textarea.classList.add('size-large');
-                    display.classList.add('size-large');
-                } else if (element.style.textSize === 'huge') {
-                    textarea.classList.add('size-huge');
-                    display.classList.add('size-huge');
-                }
-                
-                // Reset all color classes
-                textarea.classList.remove('color-default', 'color-red', 'color-green');
-                display.classList.remove('color-default', 'color-red', 'color-green');
-                
-                // Apply the correct color class
-                if (element.style.textColor) {
-                    textarea.classList.add(`color-${element.style.textColor}`);
-                    display.classList.add(`color-${element.style.textColor}`);
-                } else {
-                    textarea.classList.add('color-default');
-                    display.classList.add('color-default');
-                }
-                
-                // Handle header formatting
-                if (styleProperties.hasHeader !== undefined) {
-                    if (styleProperties.hasHeader) {
-                        display.classList.add('has-header');
-                        display.innerHTML = this.view.formatTextWithHeader(element.text || '', true);
-                    } else {
-                        display.classList.remove('has-header');
-                        display.innerHTML = this.view.convertUrlsToLinks(element.text || '');
-                    }
-                }
+async updateElementStyle(id, styleProperties) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot update element style: application not initialized');
+        return;
+    }
     
-                // Handle highlight formatting
-                if (styleProperties.isHighlighted !== undefined) {
-                    if (styleProperties.isHighlighted) {
-                        textarea.classList.add('is-highlighted');
-                        textarea.style.backgroundColor = 'rgb(255, 255, 176)';
-                        display.classList.add('is-highlighted');
-                    } else {
-                        textarea.classList.remove('is-highlighted');
-                        textarea.style.backgroundColor = '';
-                        display.classList.remove('is-highlighted');
-                    }
-                    
-                    // Update the display content to add or remove highlighting
-                    const hasHeader = element.style && element.style.hasHeader;
-                    const isHighlighted = styleProperties.isHighlighted;
-                    
-                    if (hasHeader) {
-                        display.innerHTML = this.view.formatTextWithHeader(element.text || '', true, isHighlighted);
-                    } else {
-                        display.innerHTML = this.view.convertUrlsToLinks(element.text || '', isHighlighted);
-                    }
+    try {
+        OPTIMISM.log(`Updating element ${id} style:`, styleProperties);
+        const element = this.model.findElement(id);
+        if (element && element.type === 'text') {
+            // Ensure style object exists
+            if (!element.style) {
+                element.style = {};
+            }
+            
+            // Create a proper update command
+            const newProps = {
+                style: { ...element.style, ...styleProperties }
+            };
+            
+            // Use the update element method to create proper command
+            await this.updateElement(id, newProps);
+            
+            // Update the DOM to reflect style changes
+            const container = document.querySelector(`.element-container[data-id="${id}"]`);
+            if (!container || container.dataset.type !== 'text') return;
+            
+            const textarea = container.querySelector('.text-element');
+            const display = container.querySelector('.text-display');
+            if (!textarea || !display) return;
+            
+            // Reset all size classes
+            textarea.classList.remove('size-small', 'size-large', 'size-huge');
+            display.classList.remove('size-small', 'size-large', 'size-huge');
+            
+            // Apply the correct size class
+            if (element.style.textSize === 'large') {
+                textarea.classList.add('size-large');
+                display.classList.add('size-large');
+            } else if (element.style.textSize === 'huge') {
+                textarea.classList.add('size-huge');
+                display.classList.add('size-huge');
+            }
+            
+            // Reset all color classes
+            textarea.classList.remove('color-default', 'color-red', 'color-green');
+            display.classList.remove('color-default', 'color-red', 'color-green');
+            
+            // Apply the correct color class
+            if (element.style.textColor) {
+                textarea.classList.add(`color-${element.style.textColor}`);
+                display.classList.add(`color-${element.style.textColor}`);
+            } else {
+                textarea.classList.add('color-default');
+                display.classList.add('color-default');
+            }
+            
+            // Reset all alignment classes
+            textarea.classList.remove('align-left', 'align-centre', 'align-right');
+            display.classList.remove('align-left', 'align-centre', 'align-right');
+            
+            // Apply the correct alignment class
+            if (element.style.textAlign) {
+                textarea.classList.add(`align-${element.style.textAlign}`);
+                display.classList.add(`align-${element.style.textAlign}`);
+            } else {
+                textarea.classList.add('align-left'); // Default alignment
+            }
+            
+            // Handle header formatting
+            if (styleProperties.hasHeader !== undefined) {
+                if (styleProperties.hasHeader) {
+                    display.classList.add('has-header');
+                    display.innerHTML = this.view.formatTextWithHeader(element.text || '', true);
+                } else {
+                    display.classList.remove('has-header');
+                    display.innerHTML = this.view.convertUrlsToLinks(element.text || '');
+                }
+            }
+
+            // Handle highlight formatting
+            if (styleProperties.isHighlighted !== undefined) {
+                if (styleProperties.isHighlighted) {
+                    textarea.classList.add('is-highlighted');
+                    textarea.style.backgroundColor = 'rgb(255, 255, 176)';
+                    display.classList.add('is-highlighted');
+                } else {
+                    textarea.classList.remove('is-highlighted');
+                    textarea.style.backgroundColor = '';
+                    display.classList.remove('is-highlighted');
                 }
                 
-                // Handle border setting
-if (styleProperties.hasBorder !== undefined) {
-    if (styleProperties.hasBorder) {
-        container.classList.add('has-permanent-border');
-    } else {
-        container.classList.remove('has-permanent-border');
-    }
-}
-
-// Handle card lock setting
-if (styleProperties.isLocked !== undefined) {
-    if (styleProperties.isLocked) {
-        await this.model.lockCard(id);
-    } else {
-        await this.model.unlockCard(id);
-    }
-    this.view.updateCardLockState(id, styleProperties.isLocked);
-}
+                // Update the display content to add or remove highlighting
+                const hasHeader = element.style && element.style.hasHeader;
+                const isHighlighted = styleProperties.isHighlighted;
                 
-                OPTIMISM.log('Element style updated successfully');
+                if (hasHeader) {
+                    display.innerHTML = this.view.formatTextWithHeader(element.text || '', true, isHighlighted);
+                } else {
+                    display.innerHTML = this.view.convertUrlsToLinks(element.text || '', isHighlighted);
+                }
             }
-        } catch (error) {
-            OPTIMISM.logError('Error updating element style:', error);
+            
+            // Handle border setting
+            if (styleProperties.hasBorder !== undefined) {
+                if (styleProperties.hasBorder) {
+                    container.classList.add('has-permanent-border');
+                } else {
+                    container.classList.remove('has-permanent-border');
+                }
+            }
+
+            // Handle card lock setting
+            if (styleProperties.isLocked !== undefined) {
+                if (styleProperties.isLocked) {
+                    await this.model.lockCard(id);
+                } else {
+                    await this.model.unlockCard(id);
+                }
+                this.view.updateCardLockState(id, styleProperties.isLocked);
+            }
+            
+            OPTIMISM.log('Element style updated successfully');
         }
+    } catch (error) {
+        OPTIMISM.logError('Error updating element style:', error);
     }
+}
     
     async deleteElement(id) {
         if (!this.isInitialized) {

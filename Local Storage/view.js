@@ -332,7 +332,7 @@ class CanvasView {
         this.controller.toggleCardPriority(this.model.selectedElement);
     }}
                 
-            // Style shortcuts (only when an element is selected and not in edit mode)
+           // Style shortcuts (only when an element is selected and not in edit mode)
 if (this.model.selectedElement && 
     document.activeElement.tagName !== 'TEXTAREA') {
     
@@ -349,7 +349,8 @@ if (this.model.selectedElement &&
                 textColor: 'default', 
                 hasHeader: false,
                 isHighlighted: false,
-                hasBorder: false
+                hasBorder: false,
+                textAlign: 'left' // Add default alignment to reset
             });
             styleUpdated = true;
             e.preventDefault();
@@ -371,8 +372,8 @@ if (this.model.selectedElement &&
             e.preventDefault();
         }
         
-        // 4 = cycle through text colors (default -> red -> green -> default)
-        else if (e.key === '4') {
+        // 2 = cycle through text colors (default -> red -> green -> default)
+        else if (e.key === '2') {
             // Get current color
             const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
             let nextColor;
@@ -383,6 +384,22 @@ if (this.model.selectedElement &&
             else nextColor = 'default'; // green or any other color goes back to default
             
             this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
+            styleUpdated = true;
+            e.preventDefault();
+        }
+        
+        // 3 = toggle through text alignment (left -> centre -> right -> left)
+        else if (e.key === '3') {
+            // Get current alignment
+            const currentAlign = element.style && element.style.textAlign ? element.style.textAlign : 'left';
+            let nextAlign;
+            
+            // Determine next alignment
+            if (currentAlign === 'left') nextAlign = 'centre';
+            else if (currentAlign === 'centre') nextAlign = 'right';
+            else nextAlign = 'left'; // right or any other alignment goes back to left
+            
+            this.controller.updateElementStyle(this.model.selectedElement, { textAlign: nextAlign });
             styleUpdated = true;
             e.preventDefault();
         }
@@ -939,6 +956,30 @@ if (stylePanel) {
                 option.classList.add('selected');
             });
         });
+
+        // Set up alignment options
+const alignOptions = document.querySelectorAll('.option-value[data-align]');
+
+// Add click event listeners to each alignment option
+alignOptions.forEach(option => {
+    option.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent closing the panel
+        
+        // Only apply if an element is selected
+        if (!this.model.selectedElement) return;
+        
+        // Get the selected alignment
+        const align = option.dataset.align;
+        
+        // Update the element's style
+        this.controller.updateElementStyle(this.model.selectedElement, { textAlign: align });
+        
+        // Update the UI to show which option is selected
+        alignOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+    });
+});
         
         // Set up color options
         const colorOptions = document.querySelectorAll('.option-value[data-color]');
@@ -1493,6 +1534,16 @@ if (elementData.autoSize !== undefined) {
         textDisplay.classList.add(`color-${elementData.style.textColor}`);
     }
 
+    // Apply text alignment if defined
+    if (elementData.style && elementData.style.textAlign) {
+        textEditor.classList.add(`align-${elementData.style.textAlign}`);
+        textDisplay.classList.add(`align-${elementData.style.textAlign}`);
+    } else {
+        // Default to left alignment
+        textEditor.classList.add('align-left');
+        textDisplay.classList.add('align-left');
+    }
+
     // Apply highlight if defined
     if (elementData.style && elementData.style.isHighlighted) {
         textEditor.classList.add('is-highlighted');
@@ -1875,65 +1926,76 @@ selectElement(element, elementData, isDragging = false) {
     }
 }
     
-    updateStylePanel(elementData) {
-        // Only update style panel for text elements
-        if (elementData.type !== 'text') return;
-        
-        OPTIMISM.log('Updating style panel');
-        
-        // Reset all selected options
-        document.querySelectorAll('.option-value').forEach(opt => opt.classList.remove('selected'));
-        
-        // Set the correct text size option as selected
-        let selectedSize = 'small'; // Default
-        if (elementData.style && elementData.style.textSize) {
-            selectedSize = elementData.style.textSize;
-        }
-        
-        const sizeOption = document.querySelector(`.option-value[data-size="${selectedSize}"]`);
-        if (sizeOption) {
-            sizeOption.classList.add('selected');
-        }
-        
-        // Set the correct text color option as selected
-        let selectedColor = 'default'; // Default
-        if (elementData.style && elementData.style.textColor) {
-            selectedColor = elementData.style.textColor;
-        }
-        
-        const colorOption = document.querySelector(`.option-value[data-color="${selectedColor}"]`);
-        if (colorOption) {
-            colorOption.classList.add('selected');
-        }
-        
-        // Set the correct header option as selected
-        const hasHeader = elementData.style && elementData.style.hasHeader ? 'true' : 'false';
-        const headerOption = document.querySelector(`.option-value[data-header="${hasHeader}"]`);
-        if (headerOption) {
-            headerOption.classList.add('selected');
-        }
+updateStylePanel(elementData) {
+    // Only update style panel for text elements
+    if (elementData.type !== 'text') return;
     
-        // Set the correct highlight option as selected
-        const isHighlighted = elementData.style && elementData.style.isHighlighted ? 'true' : 'false';
-        const highlightOption = document.querySelector(`.option-value[data-highlight="${isHighlighted}"]`);
-        if (highlightOption) {
-            highlightOption.classList.add('selected');
-        }
-        
-        // Set the correct border option as selected
-        const hasBorder = elementData.style && elementData.style.hasBorder ? 'true' : 'false';
-        const borderOption = document.querySelector(`.option-value[data-border="${hasBorder}"]`);
-        if (borderOption) {
-            borderOption.classList.add('selected');
-        }
-// Set the correct lock option as selected
-const isLocked = this.model.isCardLocked(elementData.id) ? 'true' : 'false';
-const lockOption = document.querySelector(`.option-value[data-lock="${isLocked}"]`);
-if (lockOption) {
-    lockOption.classList.add('selected');
-}
-
+    OPTIMISM.log('Updating style panel');
+    
+    // Reset all selected options
+    document.querySelectorAll('.option-value').forEach(opt => opt.classList.remove('selected'));
+    
+    // Set the correct text size option as selected
+    let selectedSize = 'small'; // Default
+    if (elementData.style && elementData.style.textSize) {
+        selectedSize = elementData.style.textSize;
     }
+    
+    const sizeOption = document.querySelector(`.option-value[data-size="${selectedSize}"]`);
+    if (sizeOption) {
+        sizeOption.classList.add('selected');
+    }
+    
+    // Set the correct text color option as selected
+    let selectedColor = 'default'; // Default
+    if (elementData.style && elementData.style.textColor) {
+        selectedColor = elementData.style.textColor;
+    }
+    
+    const colorOption = document.querySelector(`.option-value[data-color="${selectedColor}"]`);
+    if (colorOption) {
+        colorOption.classList.add('selected');
+    }
+    
+    // Set the correct text alignment option as selected
+    let selectedAlign = 'left'; // Default
+    if (elementData.style && elementData.style.textAlign) {
+        selectedAlign = elementData.style.textAlign;
+    }
+    
+    const alignOption = document.querySelector(`.option-value[data-align="${selectedAlign}"]`);
+    if (alignOption) {
+        alignOption.classList.add('selected');
+    }
+    
+    // Set the correct header option as selected
+    const hasHeader = elementData.style && elementData.style.hasHeader ? 'true' : 'false';
+    const headerOption = document.querySelector(`.option-value[data-header="${hasHeader}"]`);
+    if (headerOption) {
+        headerOption.classList.add('selected');
+    }
+
+    // Set the correct highlight option as selected
+    const isHighlighted = elementData.style && elementData.style.isHighlighted ? 'true' : 'false';
+    const highlightOption = document.querySelector(`.option-value[data-highlight="${isHighlighted}"]`);
+    if (highlightOption) {
+        highlightOption.classList.add('selected');
+    }
+    
+    // Set the correct border option as selected
+    const hasBorder = elementData.style && elementData.style.hasBorder ? 'true' : 'false';
+    const borderOption = document.querySelector(`.option-value[data-border="${hasBorder}"]`);
+    if (borderOption) {
+        borderOption.classList.add('selected');
+    }
+    
+    // Set the correct lock option as selected
+    const isLocked = this.model.isCardLocked(elementData.id) ? 'true' : 'false';
+    const lockOption = document.querySelector(`.option-value[data-lock="${isLocked}"]`);
+    if (lockOption) {
+        lockOption.classList.add('selected');
+    }
+}
 
     
     
