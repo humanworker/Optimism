@@ -48,15 +48,16 @@
         #workspace {
     position: absolute;
     top: 41px; /* Below title bar */
-    left: var(--panel-width); /* Default, JS might override for split/arena */
-    width: calc(100vw - 2 * var(--panel-width)); /* Default, JS might override */
-    height: calc(100vh - 41px); /* Fixed height for scroll calculation */
+    /* Center the workspace between the left and right panels */
+    left: var(--panel-width); /* Left edge starts after left panel */
+    width: calc(100vw - 2 * var(--panel-width)); /* Width accounts for both panels */
+    height: calc(100vh - 41px);
     box-sizing: border-box;
     background-color: var(--canvas-bg-color);
     background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     background-size: 20px 20px;
-    overflow-y: auto; /* Allow vertical scrolling */
-    overflow-x: hidden; /* Prevent horizontal scrolling */
+    overflow-y: auto; /* Ensure vertical scrolling is enabled */
+    overflow-x: hidden;
     z-index: 1;
 }
 
