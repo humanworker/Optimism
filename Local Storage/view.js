@@ -4745,205 +4745,118 @@ setupPanelStackingContext() {
 
 setupPrioritiesPanel() {
     OPTIMISM.log('Setting up priorities panel');
-    
-    // Create the priorities panel if it doesn't exist
+
+    // --- START: Create the toggle button in the nav bar ---
+    if (!this.prioritiesToggle) {
+        this.prioritiesToggle = document.createElement('button');
+        this.prioritiesToggle.id = 'priorities-toggle';
+        this.prioritiesToggle.className = 'nav-link';
+        this.prioritiesToggle.textContent = 'Priorities'; // Initial text
+
+        // Add click event handler
+        this.prioritiesToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.controller.togglePrioritiesVisibility();
+        });
+
+        // Add button to the right controls section
+        const rightControls = document.getElementById('right-controls');
+        const inboxToggle = document.getElementById('inbox-toggle'); // Find the inbox toggle
+        if (rightControls && inboxToggle) {
+            // Insert before the inbox toggle
+            rightControls.insertBefore(this.prioritiesToggle, inboxToggle);
+            OPTIMISM.log('Added priorities toggle to right controls before inbox toggle');
+        } else if (rightControls) {
+            // Fallback: Add to the end if inbox toggle isn't found
+            rightControls.appendChild(this.prioritiesToggle);
+             OPTIMISM.log('Added priorities toggle to end of right controls (fallback)');
+        } else {
+             OPTIMISM.logError('Could not find right controls to add priorities toggle');
+        }
+    }
+    // --- END: Create the toggle button in the nav bar ---
+
+
+    // --- START: Create the actual priorities panel ---
     if (!this.prioritiesPanel) {
         this.prioritiesPanel = document.createElement('div');
         this.prioritiesPanel.id = 'priorities-panel';
-        this.prioritiesPanel.className = 'side-panel';
+        // *** REMOVED 'side-panel' class potentially, ensure styling below handles it ***
+        // Apply panel styles directly or ensure a common panel class is used
+        this.prioritiesPanel.style.position = 'fixed';
+        this.prioritiesPanel.style.top = '41px'; // Below title bar
+        this.prioritiesPanel.style.right = '0';
+        this.prioritiesPanel.style.width = 'var(--panel-width)';
+        this.prioritiesPanel.style.height = 'calc(100vh - 41px)'; // Adjusted height
+        this.prioritiesPanel.style.backgroundColor = 'var(--panel-bg-color)'; // Use variable
+        this.prioritiesPanel.style.padding = '20px';
+        this.prioritiesPanel.style.paddingTop = '60px'; // Extra space for heading
+        this.prioritiesPanel.style.boxSizing = 'border-box';
+        this.prioritiesPanel.style.overflowY = 'auto'; // Use overflow-y
+        this.prioritiesPanel.style.display = 'none'; // Hidden by default
+        this.prioritiesPanel.style.zIndex = '1000'; // Ensure high z-index
+
         this.prioritiesPanel.innerHTML = `
             <div class="panel-heading">Priorities</div>
             <div class="priorities-container"></div>
         `;
         document.body.appendChild(this.prioritiesPanel);
-        
-        // Add CSS for priorities panel
+
+        // Optional: Add specific CSS if not covered by general panel styles
         const styleElem = document.createElement('style');
         styleElem.textContent = `
-            #priorities-panel {
-                position: fixed;
-                top: 41px;
-                right: 0;
-                width: var(--panel-width);
-                height: calc(100vh - 40px);
-                background-color: #e5e5e5 !important; /* Yellow background like other panels */
-                padding: 20px;
-                padding-top: 60px;
-                box-sizing: border-box;
-                overflow-y: auto;
-                display: none;
-                z-index: 200;
+            #priorities-panel .panel-heading { margin-bottom: 10px; color: var(--element-text-color);} /* Style heading */
+            #priorities-panel .priorities-container { display: flex; flex-direction: column; gap: 10px; }
+            #priorities-panel .priority-card {
+                border: 1px solid var(--red-text-color); /* Priority border */
+                border-radius: 4px; padding: 10px; font-size: 14px; cursor: pointer;
+                position: relative; background-color: var(--canvas-bg-color); /* Match workspace */
+                overflow: hidden; max-height: 80px;
+                color: var(--element-text-color); /* Ensure text color */
             }
-            
-            .priorities-container {
-                display: flex;
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .priority-card {
-                border: 1px solid var(--red-text-color);
-                border-radius: 4px;
-                padding: 10px;
-                font-size: 14px;
-                cursor: pointer;
-                position: relative;
-                background-color: var(--bg-color);
-                overflow: hidden;
-                max-height: 80px;
-            }
-            
-            .priority-card-content {
-                white-space: pre-wrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
+            #priorities-panel .priority-card-content {
+                white-space: pre-wrap; overflow: hidden; text-overflow: ellipsis;
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
                 max-height: 40px;
             }
-            
-            .priority-card-image {
-                max-height: 60px;
-                max-width: 100%;
-                object-fit: contain;
-                display: block;
-                margin: 0 auto;
-            }
-            
-            .priority-hint {
-                color: var(--element-text-color);
-                opacity: 0.7;
-                text-align: center;
-                margin: 20px 0;
-                font-style: italic;
-            }
-            
-            .has-priority-border {
-                border: 1px solid var(--red-text-color) !important;
-            }
+            #priorities-panel .priority-card-image { max-height: 60px; max-width: 100%; object-fit: contain; display: block; margin: 0 auto; }
+            #priorities-panel .priority-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
         `;
         document.head.appendChild(styleElem);
     }
-    
-    // Make sure to add the priorities toggle to the settings panel
+    // --- END: Create the actual priorities panel ---
+
+
+    // --- REMOVED: Code that added the link to the settings panel ---
+    /*
     let prioritiesToggleAdded = false;
     const settingsPanel = document.getElementById('settings-panel');
-    if (settingsPanel) {
-        // Check if the toggle already exists
-        const existingToggle = document.getElementById('priorities-toggle');
-        if (!existingToggle) {
-            OPTIMISM.log('Adding priorities toggle to settings panel');
-            
-            // Create the priorities option
-            const prioritiesOption = document.createElement('div');
-            prioritiesOption.className = 'settings-option';
-            prioritiesOption.innerHTML = '<a href="#" class="option-value" id="priorities-toggle">Priorities</a>';
-            
-            // Try to find a good position to insert it - after grid settings but before export
-            const exportOption = settingsPanel.querySelector('#settings-export-button')?.closest('.settings-option');
-            const gridOption = settingsPanel.querySelector('#settings-grid-button')?.closest('.settings-option');
-            
-            if (gridOption && gridOption.nextElementSibling) {
-                // Insert after grid option
-                settingsPanel.insertBefore(prioritiesOption, gridOption.nextElementSibling);
-                prioritiesToggleAdded = true;
-                OPTIMISM.log('Inserted priorities toggle after grid button');
-            } else if (exportOption) {
-                // Insert before export button
-                settingsPanel.insertBefore(prioritiesOption, exportOption);
-                prioritiesToggleAdded = true;
-                OPTIMISM.log('Inserted priorities toggle before export button');
-            } else {
-                // Just add it to the end of the settings panel
-                settingsPanel.appendChild(prioritiesOption);
-                prioritiesToggleAdded = true;
-                OPTIMISM.log('Appended priorities toggle to end of settings panel');
-            }
-            
-            // Add click event handler
-            const prioritiesToggle = document.getElementById('priorities-toggle');
-            if (prioritiesToggle) {
-                prioritiesToggle.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.controller.togglePrioritiesVisibility();
-                });
-                OPTIMISM.log('Added click handler to priorities toggle');
-            } else {
-                OPTIMISM.logError('Could not find priorities toggle after adding it');
-            }
-        } else {
-            prioritiesToggleAdded = true;
-            OPTIMISM.log('Priorities toggle already exists in settings panel');
-        }
-    } else {
-        OPTIMISM.logError('Could not find settings panel to add priorities toggle');
-    }
-    
-    if (!prioritiesToggleAdded) {
-        OPTIMISM.logError('Could not add priorities toggle to settings panel');
-    }
-    
-    // Apply yellow background via panel styling
-    // Make sure the panel is in the panel-background-styles
-    let panelBgStyles = document.getElementById('panel-background-styles');
-    if (panelBgStyles) {
-        // Check if priorities panel is already in the styles
-        if (!panelBgStyles.textContent.includes('#priorities-panel')) {
-            // Add priorities panel to the panel background styles
-            let cssText = panelBgStyles.textContent;
-            cssText = cssText.replace(
-                /#style-panel, \n            #settings-panel, \n            #inbox-panel, \n            #grid-panel/,
-                '#style-panel, \n            #settings-panel, \n            #inbox-panel, \n            #grid-panel, \n            #priorities-panel'
-            );
-            panelBgStyles.textContent = cssText;
-            OPTIMISM.log('Added priorities panel to panel background styles');
-        }
-    } else {
-        // If the panel-background-styles element doesn't exist, create it
-        panelBgStyles = document.createElement('style');
-        panelBgStyles.id = 'panel-background-styles';
-        panelBgStyles.textContent = `
-            /* Yellow background for all panels */
-            #style-panel, 
-            #settings-panel, 
-            #inbox-panel, 
-            #grid-panel,
-            #priorities-panel {
-                background-color: #e5e5e5 !important; /* Light yellow background */
-            }
-            
-            /* Also style the modal and confirmation dialogs to match */
-            #confirmation-dialog,
-            .modal-content {
-                background-color: #e5e5e5 !important;
-            }
-        `;
-        document.head.appendChild(panelBgStyles);
-        OPTIMISM.log('Created new panel background styles including priorities panel');
-    }
-    
-    // Ensure the panel is included in panel management
-    this.setupConsistentPanelStyling();
-    this.setupPanelStackingContext();
-    this.ensurePanelZIndices();
-    
+    // ... (rest of the old code that added the link here) ...
+    */
+    // --- END REMOVED ---
+
+
     // Add document click listener to close panel
     document.addEventListener('click', (e) => {
-        if (this.prioritiesPanel && 
-            this.prioritiesPanel.style.display === 'block' && 
-            !this.prioritiesPanel.contains(e.target) && 
-            e.target.id !== 'priorities-toggle') {
-            
+        if (this.prioritiesPanel &&
+            this.prioritiesPanel.style.display === 'block' &&
+            !this.prioritiesPanel.contains(e.target) &&
+            e.target !== this.prioritiesToggle) { // Check against the button
+
             // Use controller to properly update model state
             this.controller.togglePrioritiesVisibility();
         }
     });
-    
+
+    // Ensure panel is included in panel management (redundant calls are okay)
+    this.setupConsistentPanelStyling();
+    this.setupPanelStackingContext();
+    this.ensurePanelZIndices();
+
     // Initial rendering based on current state
     this.updatePrioritiesVisibility(this.model.isPrioritiesVisible);
-    
+
     OPTIMISM.log('Priorities panel set up successfully');
 }
 

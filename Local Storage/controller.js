@@ -27,6 +27,7 @@ async initialize() {
         this.view.setupArenaToggle(); // Add this line
         this.view.setupSplitViewToggle();
         this.view.setupPrioritiesPanel(); // Add this line
+        this.view.setupPrioritiesPanel(); 
         this.view.updateTheme(this.model.isDarkTheme);
         
         // Initialize debug panel state
