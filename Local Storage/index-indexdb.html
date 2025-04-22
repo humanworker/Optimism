@@ -24,7 +24,7 @@
             --card-bg-red: #ffcccc;    /* Light red */
             --card-bg-none: transparent;
         }
-    
+
         /* Light theme */
         .light-theme {
             /* --bg-color: white; REMOVED */
@@ -36,7 +36,7 @@
             --red-text-color: #ff0000;
             --green-text-color: #008800;
         }
-    
+
         body {
             margin: 0;
             padding: 0;
@@ -49,25 +49,24 @@
             overflow: hidden;
             position: relative;
         }
-    
+
         #workspace {
-    position: absolute;
-    top: 41px; /* Below title bar */
-    /* Center the workspace between the left and right panels */
-    left: var(--panel-width); /* Left edge starts after left panel */
-    width: calc(100vw - 2 * var(--panel-width)); /* Width accounts for both panels */
-    height: calc(100vh - 41px);
-    box-sizing: border-box;
-    background-color: var(--canvas-bg-color);
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 20px 20px;
-    overflow-y: auto; /* Ensure vertical scrolling is enabled */
-    overflow-x: hidden;
-    z-index: 1;
-}
+            position: absolute;
+            top: 41px; /* Below title bar */
+            /* RESTORE: Span between panels */
+            left: var(--panel-width);
+            width: calc(100vw - 2 * var(--panel-width));
+            height: calc(100vh - 41px);
+            box-sizing: border-box;
+            background-color: var(--canvas-bg-color);
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow-y: auto; /* Ensure vertical scrolling is enabled */
+            overflow-x: hidden;
+            z-index: 1;
+        }
 
 
-    
 #title-bar {
     position: fixed; /* Keep fixed */
     top: 0;
@@ -89,7 +88,7 @@
     /* padding-left: var(--panel-width); */
     /* padding-right: var(--panel-width); */
 }
-    
+
         #nav-controls {
             display: flex;
             align-items: center;
@@ -98,7 +97,7 @@
             width: 40%; /* Give it a fixed width on the left */
             justify-content: flex-start; /* Align items to the start */
         }
-    
+
         #right-controls {
             display: flex;
             align-items: center;
@@ -106,11 +105,11 @@
             justify-content: flex-end;
             position: relative;
         }
-    
+
         #right-controls .nav-link {
             margin-left: 10px;
         }
-    
+
         #breadcrumb-container {
             display: flex;
             align-items: center;
@@ -121,7 +120,7 @@
             padding-top: 2px;
             padding-bottom: 0px; /* Move breadcrumb text down 2px */
         }
-    
+
         /* Center quick links container (positioning done in JS) */
         #quick-links-container {
             position: absolute;
@@ -135,7 +134,7 @@
             pointer-events: auto; /* Allow interaction */
             z-index: 5; /* Below nav controls */
         }
-    
+
         .breadcrumb-item {
             padding: 4px 8px;
             color: var(--element-text-color);
@@ -149,19 +148,19 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-    
+
         .breadcrumb-item.drag-highlight,
         .quick-link.drag-highlight,
         .quick-link-placeholder.drag-highlight {
             color: var(--green-text-color) !important;
         }
-    
+
         .breadcrumb-separator {
             margin: 0 5px;
             color: var(--element-text-color);
             opacity: 0.3;
         }
-    
+
         .nav-link {
             cursor: pointer;
             padding: 5px 10px;
@@ -172,12 +171,12 @@
             text-decoration: underline;
             padding-bottom: 3px; /* Match breadcrumb text height */
         }
-    
+
         .nav-link:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-    
+
         #theme-toggle { /* This ID might be referenced from old JS, keep for now */
             cursor: pointer;
             padding: 5px 10px;
@@ -198,7 +197,7 @@
         .element-container.card-bg-red { /* Increased Specificity */
             background-color: var(--card-bg-red);
         }
-    
+
         .element-container {
             position: absolute;
             border: 1px solid transparent; /* Border is transparent by default */
@@ -209,19 +208,19 @@
             z-index: 1; /* Base z-index within workspace */
             cursor: move;
         }
-    
+
         .text-element-container {
             z-index: 100 !important; /* Much higher base z-index for text elements */
         }
-    
+
         .image-element-container {
             z-index: 1; /* Base z-index for images - individual images can have 1-99 */
         }
-    
+
         .image-element-container.has-children {
             padding: 4px; /* Space for the border */
         }
-    
+
         .image-element-container.has-children::after {
             content: '';
             position: absolute;
@@ -234,21 +233,21 @@
             pointer-events: none;
             border-radius: 2px;
         }
-    
+
         .element-container.selected {
             border-color: var(--selected-border-color);
         }
-    
+
         /* Apply border if defined */
         .has-permanent-border {
             border-color: var(--selected-border-color) !important;
         }
-    
+
         /* Apply priority border */
         .has-priority-border {
             border: 1px solid var(--red-text-color) !important;
         }
-    
+
         .text-element {
             width: 100%;
             height: 100%;
@@ -264,11 +263,11 @@
             line-height: 1.2;
             cursor: text !important;
         }
-    
+
         .text-element.size-large { font-size: 24px; }
         .text-element.size-huge { font-size: 36px; font-weight: bold; }
         .text-element:focus { outline: none; cursor: text; }
-    
+
         .text-display {
             width: 100%;
             height: 100%;
@@ -283,10 +282,10 @@
             cursor: move;
             line-height: 1.2;
         }
-    
+
         .text-display.size-large { font-size: 24px; }
         .text-display.size-huge { font-size: 36px; font-weight: bold; }
-    
+
         /* Header formatting styles */
         .text-display.has-header .first-line {
             font-weight: bold;
@@ -294,33 +293,33 @@
             display: block;
             margin-bottom: 5px;
         }
-    
+
         /* Color variations */
         .text-element.color-default, .text-display.color-default { color: var(--element-text-color); }
         .text-element.color-red, .text-display.color-red { color: var(--red-text-color); }
         .text-element.color-green, .text-display.color-green { color: var(--green-text-color); }
-    
+
         .text-display a {
             color: var(--link-color);
             text-decoration: underline;
             cursor: pointer;
             pointer-events: auto;
         }
-    
+
         .has-children {
             text-decoration: underline;
             cursor: pointer;
         }
-    
+
         .dragging {
             opacity: 0.7;
             z-index: 200 !important; /* Ensure dragging element is on top */
         }
-    
+
         .drag-over {
             border: 2px dashed var(--element-border-color) !important;
         }
-    
+
         /* Resize handle */
         .resize-handle {
             position: absolute;
@@ -339,7 +338,7 @@
         .image-locked .resize-handle {
             display: none !important;
         }
-    
+
         #style-panel,
 #settings-panel,
 #inbox-panel,
@@ -373,31 +372,31 @@
     left: 0;
     right: auto;
 }
-    
+
         .panel-heading {
             font-size: 16px;
             margin-bottom: 20px;
             color: var(--element-text-color);
         }
-    
+
         .style-option, .settings-option {
             margin-bottom: 30px; /* Increased spacing */
         }
-    
+
         .option-label {
             display: block;
             margin-bottom: 10px;
             color: var(--element-text-color);
             font-size: 14px; /* Match text size */
         }
-    
+
         .option-values {
             margin-bottom: 10px;
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
         }
-    
+
         .option-value {
             cursor: pointer;
             color: var(--element-text-color);
@@ -410,7 +409,7 @@
             text-decoration: underline;
             font-weight: bold;
         }
-    
+
         /* Drop zone indicator */
         #drop-zone-indicator {
             display: none;
@@ -436,7 +435,7 @@
             padding: 20px;
             border-radius: 10px;
         }
-    
+
         /* Loading spinner */
         #loading-overlay {
             position: fixed;
@@ -485,7 +484,7 @@
             margin-top: 8px;
             font-family: Arial, sans-serif;
         }
-    
+
         /* Debug panel */
         #debug-panel {
             position: fixed;
@@ -503,7 +502,7 @@
             z-index: 2000;
             display: none;
         }
-    
+
         /* Reset/Status Buttons */
         #reset-db-button {
             position: fixed;
@@ -530,7 +529,7 @@
             z-index: 2000;
             display: none;
         }
-    
+
         /* Dialogs/Modals */
         #confirmation-dialog, .modal-overlay {
             position: fixed;
@@ -578,7 +577,7 @@
         .cancel-button { background-color: var(--element-border-color); color: var(--element-text-color); }
         .primary-button { background-color: var(--link-color); color: white; }
         .secondary-button { background-color: var(--element-border-color); color: var(--element-text-color); }
-    
+
         /* Image elements */
         .image-element {
             width: 100%;
@@ -586,7 +585,7 @@
             object-fit: contain;
             display: block;
         }
-    
+
         /* Shortcut badges */
         .shortcut-badges {
             display: inline-flex;
@@ -608,7 +607,7 @@
             margin-right: 4px;
             cursor: default;
         }
-    
+
         /* Highlighting */
         .text-element.is-highlighted, .text-display.is-highlighted {
             background-color: transparent;
@@ -625,7 +624,7 @@
             color: black !important;
             padding: 0 2px;
         }
-    
+
         /* Locked cards */
         .card-locked {
             cursor: default !important;
@@ -646,7 +645,7 @@
         .cmd-pressed .element-container:not(.card-locked) { cursor: pointer !important; }
         .cmd-pressed .text-element { cursor: text !important; }
         .cmd-pressed .text-display { cursor: pointer !important; }
-    
+
         /* Inbox */
         #inbox-panel .panel-heading { margin-bottom: 10px; } /* Adjust inbox heading margin */
         .inbox-container { display: flex; flex-direction: column; gap: 10px; }
@@ -681,7 +680,7 @@
         .inbox-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
         #inbox-toggle.drag-highlight { color: var(--green-text-color) !important; }
         #inbox-panel.drag-highlight { border: 2px dashed var(--green-text-color); }
-    
+
         /* Grid */
         .grid-line {
             position: absolute;
@@ -702,35 +701,12 @@
         }
         .grid-btn-decrease:hover, .grid-btn-increase:hover { background-color: rgba(128, 128, 128, 0.1); }
         .grid-input-value { width: 30px; text-align: center; font-size: 14px; color: var(--element-text-color); padding: 0 5px; }
-    
+
         /* Split View / Arena View */
-        .viewport { /* Common class for right-viewport and arena-viewport */
-            box-sizing: border-box;
-            overflow: hidden;
-            background-color: var(--canvas-bg-color); /* Match workspace */
-            position: fixed; /* Use fixed */
-            top: 41px;
-            height: calc(100vh - 41px);
-            z-index: 150; /* Above workspace, below panels */
-        }
-        #resize-divider, #arena-resize-divider {
-            position: fixed;
-            top: 41px; bottom: 0; width: 10px;
-            cursor: col-resize;
-            z-index: 160; /* Above viewports */
-        }
-        #resize-divider > div, #arena-resize-divider > div { /* The visible line */
-            position: absolute; top: 0; bottom: 0; left: 5px; width: 1px;
-            background-color: var(--element-border-color);
-        }
-        body.resizing-split-view, body.resizing-arena-view { cursor: col-resize !important; }
-        body.resizing-split-view *, body.resizing-arena-view * { cursor: col-resize !important; }
-        .right-viewport-content { /* Placeholder/content area for split view */
-            width: 100%; height: 100%;
-            display: flex; justify-content: center; align-items: center;
-            color: var(--element-text-color); opacity: 0.5;
-            position: relative;
-        }
+        /* REMOVED Split View styles: .viewport, #resize-divider, #resize-divider > div, body.resizing-split-view, .right-viewport-content */
+        /* Arena view styles remain */
+        /* REMOVED Preview element styles: .preview-element-container, .preview-text-display, .preview-image */
+
         /* Shadows for split/arena views */
         #right-viewport-shadow, #arena-viewport-shadow {
             position: absolute; top: 0; left: 0; bottom: 0; width: 15px;
@@ -738,22 +714,7 @@
             box-shadow: inset 10px 0 8px -8px rgba(0,0,0,0.3);
             background: linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%);
         }
-        /* Preview elements in split view */
-        .preview-element-container {
-            position: absolute;
-            pointer-events: auto; /* Allow interaction */
-            cursor: pointer;
-        }
-        .preview-element-container.has-children { text-decoration: underline !important; }
-        .preview-text-display {
-            width: 100%; height: 100%; overflow: auto; padding: 8px;
-            box-sizing: border-box; color: var(--element-text-color);
-            font-size: 14px; background-color: transparent;
-        }
-        .preview-text-display.has-children { text-decoration: underline !important; }
-        .preview-text-display.has-children a { text-decoration: underline !important; }
-        .preview-image { width: 100%; height: 100%; object-fit: contain; }
-    
+
         /* Quick Links */
         .quick-link {
             padding: 4px 8px; color: var(--element-text-color); text-decoration: underline;
@@ -766,7 +727,7 @@
             opacity: 0.7; position: relative; top: 1px;
         }
         .quick-link.shift-hover { color: var(--red-text-color) !important; }
-    
+
         /* Priorities Panel */
         #priorities-panel .panel-heading { margin-bottom: 10px; }
         .priorities-container { display: flex; flex-direction: column; gap: 10px; }
@@ -783,7 +744,7 @@
         }
         .priority-card-image { max-height: 60px; max-width: 100%; object-fit: contain; display: block; margin: 0 auto; }
         .priority-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
-    
+
 /* Add these alignment styles to your CSS */
 .text-element.align-left, .text-display.align-left { text-align: left; }
 .text-element.align-centre, .text-display.align-centre { text-align: center; }
@@ -811,7 +772,7 @@
             <!-- Quick links will be added here dynamically -->
         </div>
         <div id="right-controls">
-            
+
             <button id="settings-toggle" class="nav-link">Settings</button>
         </div>
     </div>
@@ -824,7 +785,7 @@
                 Text Size
                 <span class="shortcut-badges">
                     <span class="shortcut-badge" title="Change size">1</span>
-                    
+
                 </span>
             </div>
             <div class="option-values">
@@ -909,7 +870,7 @@
                 <a href="#" class="option-value" data-border="true">Yes</a>
             </div>
         </div>
-       
+
         <div class="style-option">
             <div class="option-label">
                 Lock Card?
@@ -922,7 +883,7 @@
                 <a href="#" class="option-value" data-lock="true">Yes</a>
             </div>
         </div>
-        
+
     </div>
 
     <div id="settings-panel">
@@ -953,7 +914,7 @@
     <div id="debug-panel"></div>
     <div id="status-message">Memory Mode</div>
     <button id="reset-db-button">Reset Database & Reload</button>
-    
+
     <div id="confirmation-dialog">
         <div class="dialog-title">Confirm Import</div>
         <div class="dialog-message">
@@ -1011,7 +972,7 @@
             <a href="#" class="option-value" data-grid="on">On</a>
         </div>
     </div>
-    
+
     <div class="style-option">
         <div class="option-label">Grid Layout</div>
         <div class="option-values grid-input-container">

@@ -6,18 +6,18 @@ class CanvasController {
         this.isInitialized = false;
         this.exportImportManager = null;
     }
-    
+
 // Update the initialize method in controller.js to call our new setup method
 async initialize() {
     OPTIMISM.log('Initializing controller');
     this.view.showLoading();
     try {
         await this.model.initialize();
-        
+
         // Initialize export/import manager
         this.exportImportManager = new ExportImportManager(this.model, this.view);
-        
-        
+
+
         this.view.setupEventListeners();
         this.view.setupDragListeners();
         this.view.setupStylePanel();
@@ -25,15 +25,14 @@ async initialize() {
         this.view.setupUndoRedoButtons();
         this.view.setupGridPanel();
         this.view.setupArenaToggle(); // Add this line
-        this.view.setupSplitViewToggle();
         this.view.setupPrioritiesPanel(); // Add this line
-        this.view.setupPrioritiesPanel(); 
+        this.view.setupPrioritiesPanel();
         this.view.updateTheme(this.model.isDarkTheme);
-        
+
         // Initialize debug panel state
         this.view.updateDebugPanelVisibility(this.model.isDebugVisible);
         this.isInitialized = true;
-        
+
         OPTIMISM.log('Controller initialized successfully');
     } catch (error) {
         OPTIMISM.logError('Failed to initialize controller:', error);
@@ -108,7 +107,7 @@ async createElement(x, y) {
         OPTIMISM.logError('Error creating element:', error);
     }
 }
-    
+
 // In controller.js - update the addImage method
 async addImage(file, x, y) {
     if (!this.isInitialized) {
@@ -169,7 +168,7 @@ async addImage(file, x, y) {
         throw error; // Re-throw to allow caller to handle
     }
 }
-    
+
     // In controller.js, modify the updateElement method
 // In controller.js, modify the updateElement method
 // In controller.js, update the updateElement method to call updateNavigationTitles
@@ -178,45 +177,45 @@ async updateElement(id, properties) {
         OPTIMISM.logError('Cannot update element: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Updating element ${id} with properties:`, properties);
-        
+
         // Special case for text elements with empty text
         const element = this.model.findElement(id);
-        if (element && element.type === 'text' && 
-            properties.text !== undefined && 
+        if (element && element.type === 'text' &&
+            properties.text !== undefined &&
             (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
-            
+
             // Create a delete command instead of an update command
             OPTIMISM.log(`Text is empty, deleting element ${id}`);
             return await this.deleteElement(id);
         }
-        
+
         // Create an update element command
         const command = new UpdateElementCommand(this.model, id, properties);
-        
+
         // Execute the command
         const { result, showBackupReminder } = await this.model.execute(command);
-        
+
         const updatedElement = this.model.findElement(id);
         if (!updatedElement) {
             OPTIMISM.log('Element deleted during update');
             this.view.renderWorkspace();
             return false;
         }
-        
+
         // Handle additional updates based on element type
         if (updatedElement.type === 'text' && properties.text !== undefined) {
             // Update the navigation titles if this element appears in any navigation paths
             await this.model.updateNavigationTitles(id, properties.text);
-            
+
             // Render breadcrumbs to show updated titles
             this.view.renderBreadcrumbs();
-            
+
             // Update page title
             this.view.updatePageTitle();
-            
+
             // If this element is in the current view, update its display
             const container = document.querySelector(`.element-container[data-id="${id}"]`);
             if (container && container.dataset.type === 'text') {
@@ -231,7 +230,7 @@ async updateElement(id, properties) {
                 }
             }
         }
-        
+
         // If dimensions were updated
         if (properties.width !== undefined || properties.height !== undefined) {
             const container = document.querySelector(`.element-container[data-id="${id}"]`);
@@ -245,12 +244,12 @@ async updateElement(id, properties) {
                 OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
             }
         }
-        
+
         // Show backup reminder if needed
         if (showBackupReminder) {
             this.view.showBackupReminderModal();
         }
-        
+
         // Update undo/redo buttons
         this.view.updateUndoRedoButtons();
         return true;
@@ -259,7 +258,7 @@ async updateElement(id, properties) {
         return false;
     }
 }
-    
+
 async updateElementStyle(id, styleProperties) {
     if (!this.isInitialized) {
         OPTIMISM.logError('Cannot update element style: application not initialized');
@@ -408,49 +407,49 @@ async updateElementStyle(id, styleProperties) {
         OPTIMISM.logError('Error updating element style:', error);
     }
 }
-    
+
     async deleteElement(id) {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot delete element: application not initialized');
             return false;
         }
-    
+
         try {
             OPTIMISM.log(`Deleting element ${id}`);
             const gridWasVisible = this.model.isGridVisible; // Store grid state
-    
+
             // Create a delete element command
             const command = new DeleteElementCommand(this.model, id);
-    
+
             // Execute the command
             const { result, showBackupReminder } = await this.model.execute(command);
-    
+
             if (result) {
                 OPTIMISM.log('Element deleted successfully');
-    
+
                 // Clear the selected element in the model since it's been deleted
                 this.model.selectedElement = null;
-    
+
                 // Hide the style panel since no element is selected
                 this.view.stylePanel.style.display = 'none';
-    
+
                 // renderWorkspace handles the spacer update now
                 this.view.renderWorkspace();
-    
+
                 // Restore grid if it was visible
                 if (gridWasVisible && !this.model.isGridVisible) {
                     this.model.isGridVisible = true;
                     this.view.updateGridVisibility(true);
                     await this.model.saveAppState();
                 }
-    
+
                 this.view.updateUndoRedoButtons();
-    
+
                 // Show backup reminder if needed
                 if (showBackupReminder) {
                     this.view.showBackupReminderModal();
                 }
-    
+
                 return true;
             }
             OPTIMISM.log('Element deletion failed or element not found');
@@ -460,32 +459,32 @@ async updateElementStyle(id, styleProperties) {
             return false;
         }
     }
-    
-    
+
+
     async moveElement(elementId, targetElementId) {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot move element: application not initialized');
             return false;
         }
-        
+
         try {
             OPTIMISM.log(`Moving element ${elementId} to target ${targetElementId}`);
             // Create a move element command
             const command = new MoveElementCommand(this.model, elementId, targetElementId);
-            
+
             // Execute the command
             const { result, showBackupReminder } = await this.model.execute(command);
-    
+
             if (result) {
                 OPTIMISM.log('Element moved successfully');
                 this.view.renderWorkspace();
                 this.view.updateUndoRedoButtons();
-                
+
                 // Show backup reminder if needed
                 if (showBackupReminder) {
                     this.view.showBackupReminderModal();
                 }
-                
+
                 return true;
             }
             OPTIMISM.log('Element move failed');
@@ -495,32 +494,32 @@ async updateElementStyle(id, styleProperties) {
             return false;
         }
     }
-    
+
     async moveElementToBreadcrumb(elementId, navIndex) {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot move element: application not initialized');
             return false;
         }
-        
+
         try {
             OPTIMISM.log(`Moving element ${elementId} to navigation level ${navIndex}`);
-            
+
             // Create a breadcrumb move command
             const command = new MoveElementToBreadcrumbCommand(this.model, elementId, navIndex);
-            
+
             // Execute the command
             const { result, showBackupReminder } = await this.model.execute(command);
-            
+
             if (result) {
                 OPTIMISM.log('Element moved to breadcrumb level successfully');
                 this.view.renderWorkspace();
                 this.view.updateUndoRedoButtons();
-                
+
                 // Show backup reminder if needed
                 if (showBackupReminder) {
                     this.view.showBackupReminderModal();
                 }
-                
+
                 return true;
             }
             OPTIMISM.log('Element move to breadcrumb failed');
@@ -530,33 +529,33 @@ async updateElementStyle(id, styleProperties) {
             return false;
         }
     }
-    
+
     async navigateToElement(id) {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot navigate: application not initialized');
             return false;
         }
-        
+
         try {
             OPTIMISM.log(`Navigating to element ${id}`);
             const gridWasVisible = this.model.isGridVisible; // Store grid state
-            
+
             if (await this.model.navigateToElement(id)) {
                 OPTIMISM.log('Navigation successful');
-                
+
                 // Deselect any selected elements
                 this.model.selectedElement = null;
-                
+
                 // Render the workspace
                 this.view.renderWorkspace();
-                
+
                 // Restore grid if it was visible
                 if (gridWasVisible && !this.model.isGridVisible) {
                     this.model.isGridVisible = true;
                     this.view.updateGridVisibility(true);
                     await this.model.saveAppState();
                 }
-                
+
                 return true;
             }
             OPTIMISM.log('Navigation failed');
@@ -572,22 +571,22 @@ async updateElementStyle(id, styleProperties) {
             OPTIMISM.logError('Cannot navigate back: application not initialized');
             return false;
         }
-        
+
         try {
             OPTIMISM.log('Navigating back');
             const gridWasVisible = this.model.isGridVisible; // Store grid state
-            
+
             if (await this.model.navigateBack()) {
                 OPTIMISM.log('Navigation back successful');
                 this.view.renderWorkspace();
-                
+
                 // Restore grid if it was visible
                 if (gridWasVisible && !this.model.isGridVisible) {
                     this.model.isGridVisible = true;
                     this.view.updateGridVisibility(true);
                     await this.model.saveAppState();
                 }
-                
+
                 return true;
             }
             OPTIMISM.log('Navigation back failed');
@@ -603,22 +602,22 @@ async updateElementStyle(id, styleProperties) {
             OPTIMISM.logError('Cannot navigate to index: application not initialized');
             return false;
         }
-        
+
         try {
             OPTIMISM.log(`Navigating to index ${index}`);
             const gridWasVisible = this.model.isGridVisible; // Store grid state
-            
+
             if (await this.model.navigateToIndex(index)) {
                 OPTIMISM.log('Navigation to index successful');
                 this.view.renderWorkspace();
-                
+
                 // Restore grid if it was visible
                 if (gridWasVisible && !this.model.isGridVisible) {
                     this.model.isGridVisible = true;
                     this.view.updateGridVisibility(true);
                     await this.model.saveAppState();
                 }
-                
+
                 return true;
             }
             OPTIMISM.log('Navigation to index failed');
@@ -628,13 +627,13 @@ async updateElementStyle(id, styleProperties) {
             return false;
         }
     }
-    
+
     async toggleDebugPanel() {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot toggle debug panel: application not initialized');
             return;
         }
-        
+
         try {
             OPTIMISM.log('Toggling debug panel');
             const isVisible = this.model.toggleDebugPanel();
@@ -644,13 +643,13 @@ async updateElementStyle(id, styleProperties) {
             OPTIMISM.logError('Error toggling debug panel:', error);
         }
     }
-    
+
     async exportData() {
         if (!this.isInitialized || !this.exportImportManager) {
             OPTIMISM.logError('Cannot export data: application not initialized');
             return;
         }
-        
+
         try {
             OPTIMISM.log('Starting data export');
             await this.exportImportManager.exportData();
@@ -666,7 +665,7 @@ async updateElementStyle(id, styleProperties) {
             OPTIMISM.logError('Cannot export data: application not initialized');
             return;
         }
-        
+
         try {
             OPTIMISM.log('Starting data export without images');
             await this.exportImportManager.exportData(false); // Pass false to exclude images
@@ -676,13 +675,13 @@ async updateElementStyle(id, styleProperties) {
             alert('Failed to export data. Please try again.');
         }
     }
-    
+
     async importData(file) {
         if (!this.isInitialized || !this.exportImportManager) {
             OPTIMISM.logError('Cannot import data: application not initialized');
             return;
         }
-        
+
         try {
             OPTIMISM.log('Starting data import');
             const success = await this.exportImportManager.importData(file);
@@ -698,13 +697,13 @@ async updateElementStyle(id, styleProperties) {
             alert('Failed to import data. Please try again.');
         }
     }
-    
+
     async undo() {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot undo: application not initialized');
             return false;
         }
-        
+
         try {
             OPTIMISM.log('Performing undo');
             if (await this.model.undo()) {
@@ -725,7 +724,7 @@ async updateElementStyle(id, styleProperties) {
             OPTIMISM.logError('Cannot redo: application not initialized');
             return false;
         }
-        
+
         try {
             OPTIMISM.log('Performing redo');
             if (await this.model.redo()) {
@@ -740,13 +739,13 @@ async updateElementStyle(id, styleProperties) {
             return false;
         }
     }
-    
+
     async toggleTheme() {
         if (!this.isInitialized) {
             OPTIMISM.logError('Cannot toggle theme: application not initialized');
             return this.model.isDarkTheme;
         }
-        
+
         try {
             OPTIMISM.log('Toggling theme');
             const isDarkTheme = await this.model.toggleTheme();
@@ -761,24 +760,24 @@ async updateElementStyle(id, styleProperties) {
 
     // In controller.js, add this new method:
 
-    
+
 async updateElementWithUndo(id, newProperties, oldProperties) {
     if (!this.isInitialized) {
         OPTIMISM.logError('Cannot update element: application not initialized');
         return;
     }
-    
+
     try {
         OPTIMISM.log(`Updating element ${id} with properties for undo:`, newProperties);
         // Create an update element command with explicit old properties
         const command = new UpdateElementCommand(this.model, id, newProperties, oldProperties);
-        
+
         // Execute the command
         const { result, showBackupReminder } = await this.model.execute(command);
-        
+
         const element = this.model.findElement(id);
         if (!element) return; // Element might have been deleted
-        
+
         // Handle additional updates based on element type
         if (element.type === 'text' && newProperties.text !== undefined) {
             // If text is empty, the element might have been deleted
@@ -788,16 +787,16 @@ async updateElementWithUndo(id, newProperties, oldProperties) {
                 this.view.renderWorkspace();
                 return;
             }
-            
+
             // Update the navigation titles if this element appears in any navigation paths
             await this.model.updateNavigationTitles(id, newProperties.text);
-            
+
             // Render breadcrumbs to show updated titles
             this.view.renderBreadcrumbs();
-            
+
             // Update page title
             this.view.updatePageTitle();
-            
+
             // If this element is in the current view, update its display
             const container = document.querySelector(`.element-container[data-id="${id}"]`);
             if (container && container.dataset.type === 'text') {
@@ -812,7 +811,7 @@ async updateElementWithUndo(id, newProperties, oldProperties) {
                 }
             }
         }
-        
+
         // If dimensions were updated
         if (newProperties.width !== undefined || newProperties.height !== undefined) {
             const container = document.querySelector(`.element-container[data-id="${id}"]`);
@@ -826,12 +825,12 @@ async updateElementWithUndo(id, newProperties, oldProperties) {
                 OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
             }
         }
-        
+
         // Show backup reminder if needed
         if (showBackupReminder) {
             this.view.showBackupReminderModal();
         }
-        
+
         // Update undo/redo buttons
         this.view.updateUndoRedoButtons();
     } catch (error) {
@@ -845,73 +844,73 @@ async addImageFromUrl(url, x, y) {
         OPTIMISM.logError('Cannot add image: application not initialized');
         throw new Error('Application not initialized');
     }
-    
+
     try {
         OPTIMISM.log(`Adding image from URL: ${url} at position (${x}, ${y})`);
-        
+
         // Clean up Are.na URLs (remove query parameters)
         if (url.includes('d2w9rnfcy7mm78.cloudfront.net')) {
             const cleanUrl = url.split('?')[0];
             OPTIMISM.log(`Cleaned up Are.na URL: ${cleanUrl}`);
             url = cleanUrl;
         }
-        
+
         // Use a reliable imgproxy service
         const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=default`;
         OPTIMISM.log(`Using image proxy: ${proxyUrl}`);
-        
+
         // Create a new Image element to load the image through the proxy
         const img = new Image();
-        
+
         // Create a promise that resolves when the image loads
         const imageLoaded = new Promise((resolve, reject) => {
             img.onload = () => {
                 OPTIMISM.log(`Image loaded successfully via proxy: ${img.width}x${img.height}`);
                 resolve(img);
             };
-            
+
             img.onerror = (err) => {
                 OPTIMISM.logError('Error loading image via proxy:', err);
                 reject(new Error('Failed to load image via proxy'));
             };
         });
-        
+
         // Set a timeout to handle cases where the image might never load
         const imageLoadTimeout = new Promise((resolve, reject) => {
             setTimeout(() => reject(new Error('Image load timed out')), 15000);
         });
-        
+
         // Set the source to start loading
         img.crossOrigin = 'anonymous';
         img.src = proxyUrl;
-        
+
         // Wait for the image to load or timeout
         const loadedImg = await Promise.race([imageLoaded, imageLoadTimeout]);
-        
+
         // Create a canvas to convert the image to a blob
         const canvas = document.createElement('canvas');
         canvas.width = loadedImg.width;
         canvas.height = loadedImg.height;
-        
+
         // Draw the image on the canvas
         const ctx = canvas.getContext('2d');
         ctx.drawImage(loadedImg, 0, 0);
-        
+
         // Convert canvas to blob
         const blob = await new Promise((resolve) => {
             canvas.toBlob(resolve, 'image/png');
         });
-        
+
         if (!blob) {
             throw new Error('Failed to convert image to blob');
         }
-        
+
         // Create a File object from the blob
         const filename = 'arena-image.png';
         const file = new File([blob], filename, { type: 'image/png' });
-        
+
         OPTIMISM.log(`Successfully created file from image: ${filename}, size: ${file.size} bytes`);
-        
+
         // Now use the existing method to add the image
         return await this.addImage(file, x, y);
     } catch (error) {
@@ -926,7 +925,7 @@ async toggleImagesLocked() {
         OPTIMISM.logError('Cannot toggle images locked: application not initialized');
         return this.model.imagesLocked;
     }
-    
+
     try {
         OPTIMISM.log('Toggling images locked state');
         const isLocked = await this.model.toggleImagesLocked();
@@ -944,7 +943,7 @@ async addQuickLink(nodeId, nodeTitle) {
         OPTIMISM.logError('Cannot add quick link: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Adding quick link for node ${nodeId}`);
         const success = await this.model.addQuickLink(nodeId, nodeTitle);
@@ -964,7 +963,7 @@ async removeQuickLink(nodeId) {
         OPTIMISM.logError('Cannot remove quick link: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Removing quick link for node ${nodeId}`);
         const success = await this.model.removeQuickLink(nodeId);
@@ -985,7 +984,7 @@ async navigateToNode(nodeId) {
         OPTIMISM.logError('Cannot navigate to node: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Navigating to node ${nodeId}`);
         if (await this.model.navigateToNode(nodeId)) {
@@ -1007,7 +1006,7 @@ async refreshQuickLinkExpiry(nodeId) {
       OPTIMISM.logError('Cannot refresh quick link: application not initialized');
       return false;
     }
-    
+
     try {
       OPTIMISM.log(`Refreshing expiry for quick link ${nodeId}`);
       const success = await this.model.refreshQuickLinkExpiry(nodeId);
@@ -1027,7 +1026,7 @@ async refreshQuickLinkExpiry(nodeId) {
         OPTIMISM.logError('Cannot toggle card lock: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Toggling lock state for card ${cardId}`);
         const isLocked = await this.model.toggleCardLock(cardId);
@@ -1046,7 +1045,7 @@ async toggleInboxVisibility() {
         OPTIMISM.logError('Cannot toggle inbox: application not initialized');
         return this.model.isInboxVisible;
     }
-    
+
     try {
         OPTIMISM.log('Toggling inbox panel visibility');
         const isVisible = await this.model.toggleInboxVisibility();
@@ -1064,7 +1063,7 @@ async moveToInbox(elementId) {
         OPTIMISM.logError('Cannot move to inbox: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Moving element ${elementId} to inbox`);
         const element = this.model.findElement(elementId);
@@ -1072,21 +1071,21 @@ async moveToInbox(elementId) {
             OPTIMISM.logError(`Element ${elementId} not found`);
             return false;
         }
-        
+
         // Make sure inbox is visible when adding an item
         if (!this.model.isInboxVisible) {
             await this.toggleInboxVisibility();
         }
-        
+
         // Add to inbox
         const inboxCard = await this.model.addToInbox(element);
-        
+
         // Delete from canvas
         await this.deleteElement(elementId);
-        
+
         // Render inbox
         this.view.renderInboxPanel();
-        
+
         return true;
     } catch (error) {
         OPTIMISM.logError('Error moving element to inbox:', error);
@@ -1099,17 +1098,17 @@ async moveFromInboxToCanvas(cardId, x, y) {
         OPTIMISM.logError('Cannot move from inbox: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Moving card ${cardId} from inbox to canvas at position (${x}, ${y})`);
-        
+
         // Find the card in the inbox
         const card = this.model.inboxCards.find(card => card.id === cardId);
         if (!card) {
             OPTIMISM.logError(`Card ${cardId} not found in inbox`);
             return false;
         }
-        
+
         // Create a new element for the canvas
         const newElement = {
             id: crypto.randomUUID(),
@@ -1119,7 +1118,7 @@ async moveFromInboxToCanvas(cardId, x, y) {
             width: card.width || 200,
             height: card.height || 100,
         };
-        
+
         // Copy all necessary properties based on type
         if (card.type === 'text') {
             newElement.text = card.text || '';
@@ -1133,10 +1132,10 @@ async moveFromInboxToCanvas(cardId, x, y) {
             newElement.storageWidth = card.storageWidth;
             newElement.storageHeight = card.storageHeight;
         }
-        
+
         // Create an add element command
         const command = new AddElementCommand(this.model, newElement);
-        
+
         // For image elements, copy the image data
         if (card.type === 'image' && card.imageDataId) {
             try {
@@ -1148,17 +1147,17 @@ async moveFromInboxToCanvas(cardId, x, y) {
                 OPTIMISM.logError(`Error copying image data for inbox card ${cardId}:`, error);
             }
         }
-        
+
         // Execute the command to add the element to the canvas
         await this.model.execute(command);
-        
+
         // Remove from inbox
         await this.model.removeFromInbox(cardId);
-        
+
         // Render workspace and inbox
         this.view.renderWorkspace();
         this.view.renderInboxPanel();
-        
+
         return true;
     } catch (error) {
         OPTIMISM.logError('Error moving card from inbox to canvas:', error);
@@ -1171,29 +1170,29 @@ async updateInboxCard(id, properties) {
         OPTIMISM.logError('Cannot update inbox card: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Updating inbox card ${id} with properties:`, properties);
-        
+
         // Special case for text cards with empty text
         const card = this.model.inboxCards.find(card => card.id === id);
-        if (card && card.type === 'text' && 
-            properties.text !== undefined && 
+        if (card && card.type === 'text' &&
+            properties.text !== undefined &&
             (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
-            
+
             // Delete the card if text is empty
             OPTIMISM.log(`Text is empty, deleting inbox card ${id}`);
             await this.model.removeFromInbox(id);
             this.view.renderInboxPanel();
             return true;
         }
-        
+
         // Update the card
         const result = await this.model.updateInboxCard(id, properties);
-        
+
         // Render inbox panel
         this.view.renderInboxPanel();
-        
+
         return result !== null;
     } catch (error) {
         OPTIMISM.logError('Error updating inbox card:', error);
@@ -1206,19 +1205,19 @@ async addBlankCardToInbox() {
         OPTIMISM.logError('Cannot add blank card: application not initialized');
         return null;
     }
-    
+
     try {
         OPTIMISM.log('Adding blank card to inbox');
         const card = await this.model.addBlankCardToInbox();
-        
+
         // Ensure inbox is visible
         if (!this.model.isInboxVisible) {
             await this.toggleInboxVisibility();
         }
-        
+
         // Render inbox panel
         this.view.renderInboxPanel();
-        
+
         return card;
     } catch (error) {
         OPTIMISM.logError('Error adding blank card to inbox:', error);
@@ -1232,15 +1231,15 @@ async toggleGridVisibility() {
         OPTIMISM.logError('Cannot toggle grid: application not initialized');
         return this.model.isGridVisible;
     }
-    
+
     try {
         OPTIMISM.log('Toggling grid visibility');
         this.model.isGridVisible = !this.model.isGridVisible;
         this.view.updateGridVisibility(this.model.isGridVisible);
-        
+
         // Save state
         await this.model.saveAppState();
-        
+
         OPTIMISM.log(`Grid visibility set to: ${this.model.isGridVisible}`);
         return this.model.isGridVisible;
     } catch (error) {
@@ -1254,54 +1253,26 @@ async setGridLayout(layout) {
         OPTIMISM.logError('Cannot set grid layout: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Setting grid layout to: ${layout}`);
         this.model.gridLayout = layout;
-        
+
         // Render grid with new layout
         if (this.model.isGridVisible) {
             this.view.renderGrid();
         }
-        
+
         // Save state
         await this.model.saveAppState();
-        
+
         // Update UI to show current values
         this.view.updateGridInputValues();
-        
+
         return true;
     } catch (error) {
         OPTIMISM.logError('Error setting grid layout:', error);
         return false;
-    }
-}
-
-// In controller.js - Add a method to toggle split view
-async toggleSplitView() {
-    if (!this.isInitialized) {
-        OPTIMISM.logError('Cannot toggle split view: application not initialized');
-        return this.model.isSplitViewEnabled;
-    }
-    
-    try {
-        OPTIMISM.log('CONTROLLER: toggleSplitView called');
-        OPTIMISM.log(`CONTROLLER: Current state before toggle: ${this.model.isSplitViewEnabled}`);
-        
-        // Explicitly toggle the state
-        const newState = !this.model.isSplitViewEnabled;
-        this.model.isSplitViewEnabled = newState;
-        
-        // Save the state
-        await this.model.saveAppState();
-        
-        OPTIMISM.log(`CONTROLLER: State after toggle: ${this.model.isSplitViewEnabled}`);
-        
-        // No need to update the view here as we're doing it directly from the click handler
-        return this.model.isSplitViewEnabled;
-    } catch (error) {
-        OPTIMISM.logError('Error toggling split view:', error);
-        return this.model.isSplitViewEnabled;
     }
 }
 
@@ -1311,20 +1282,20 @@ async toggleArenaView() {
         OPTIMISM.logError('Cannot toggle Are.na view: application not initialized');
         return this.model.isArenaVisible;
     }
-    
+
     try {
         OPTIMISM.log('Toggling Are.na view');
         const isVisible = await this.model.toggleArenaView();
-        
+
         // Update UI with new state
         this.view.updateArenaViewLayout(isVisible);
-        
+
         // Get direct reference to the toggle button and update its text
         const arenaToggle = document.getElementById('arena-toggle');
         if (arenaToggle) {
             arenaToggle.textContent = isVisible ? 'Hide Are.na' : 'Show Are.na';
         }
-        
+
         OPTIMISM.log(`Are.na view set to ${isVisible}`);
         return isVisible;
     } catch (error) {
@@ -1338,7 +1309,7 @@ async toggleNestingDisabled() {
         OPTIMISM.logError('Cannot toggle nesting disabled: application not initialized');
         return this.model.isNestingDisabled;
     }
-    
+
     try {
         OPTIMISM.log('Toggling nesting disabled state');
         const isDisabled = await this.model.toggleNestingDisabled();
@@ -1357,7 +1328,7 @@ async toggleSettingsVisibility() {
         OPTIMISM.logError('Cannot toggle settings: application not initialized');
         return this.model.isSettingsVisible;
     }
-    
+
     try {
         OPTIMISM.log('Toggling settings panel visibility');
         const isVisible = await this.model.toggleSettingsVisibility();
@@ -1376,7 +1347,7 @@ async togglePanel(panelName) {
         OPTIMISM.logError(`Cannot toggle panel '${panelName}': application not initialized`);
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Toggling panel '${panelName}'`);
         const isVisible = await this.model.togglePanel(panelName);
@@ -1393,11 +1364,11 @@ async toggleCardPriority(cardId) {
         OPTIMISM.logError('Cannot toggle card priority: application not initialized');
         return false;
     }
-    
+
     try {
         OPTIMISM.log(`Toggling priority state for card ${cardId}`);
         const isPriority = await this.model.toggleCardPriority(cardId);
-        
+
         // Update the card's appearance immediately
         const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
         if (container) {
@@ -1411,7 +1382,7 @@ async toggleCardPriority(cardId) {
         } else {
             OPTIMISM.log(`Could not find container for card ${cardId} to update border`);
         }
-        
+
         OPTIMISM.log(`Card priority state set to ${isPriority}`);
         return isPriority;
     } catch (error) {
@@ -1425,7 +1396,7 @@ async togglePrioritiesVisibility() {
         OPTIMISM.logError('Cannot toggle priorities: application not initialized');
         return this.model.isPrioritiesVisible;
     }
-    
+
     try {
         OPTIMISM.log('Toggling priorities panel visibility');
         const isVisible = await this.model.togglePrioritiesVisibility();

@@ -31,50 +31,41 @@ class CanvasView {
         this.arenaResizeDivider = null; // Will be created for resizing
         this.prioritiesPanel = null; // Will be created when needed
     this.prioritiesToggle = null; // Will be created when needed
-        
+
         // Quick links container
         this.quickLinksContainer = null; // Will be created in setupQuickLinks method
-        
+
         this.draggedElement = null;
         this.resizingElement = null;
         this.dragStartX = 0;
         this.dragStartY = 0;
         this.elemOffsetX = 0;
         this.elemOffsetY = 0;
-        
+
         this.initialWidth = 0;
         this.initialHeight = 0;
-    
+
         this.inboxPanel = document.getElementById('inbox-panel');
         this.inboxToggle = document.getElementById('inbox-toggle');
         this.inboxDragTarget = null;
-    
-        this.rightViewport = null; // Will be created when split view is enabled
-        this.rightViewportContent = null;
-    
-        this.resizeDivider = null; 
-            
         // Detect platform
         this.isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    
         const styleElement = document.createElement('style');
         styleElement.textContent = `
             #style-panel, #settings-panel {
                 z-index: 200; /* Higher than any content z-index */
-               
+
             }
-            
+
             /* Make sure text elements don't appear on top of panels */
             .text-element-container {
                 z-index: 100 !important; /* Text elements have z-index 100 */
             }
-            
+
             .image-element-container {
                 z-index: 1; /* Base z-index for images - individual images can have 1-99 */
             }
         `;
-        document.head.appendChild(styleElement);
-    
         const cmdCursorStyle = document.createElement('style');
         cmdCursorStyle.textContent = `
             body.cmd-pressed .element-container:not(.card-locked) {
@@ -88,19 +79,19 @@ class CanvasView {
             }
         `;
         document.head.appendChild(cmdCursorStyle);
-    
+
         // Add custom panel background styles
         const panelStyles = document.createElement('style');
         panelStyles.id = 'panel-background-styles';
         panelStyles.textContent = `
             /* Yellow background for all panels */
-            #style-panel, 
-            #settings-panel, 
-            #inbox-panel, 
+            #style-panel,
+            #settings-panel,
+            #inbox-panel,
             #grid-panel {
                 background-color: #e5e5e5 !important; /* Light yellow background */
             }
-            
+
             /* Also style the modal and confirmation dialogs to match */
             #confirmation-dialog,
             .modal-content {
@@ -108,7 +99,7 @@ class CanvasView {
             }
         `;
         document.head.appendChild(panelStyles);
-        
+
         // NEW: Add panel stacking context styles to ensure proper z-index
         const stackingStyle = document.createElement('style');
         stackingStyle.id = 'panel-stacking-style';
@@ -120,27 +111,25 @@ class CanvasView {
                 top: 41px !important;
                 right: 0 !important;
             }
-            
+
             #settings-panel {
                 z-index: 1000 !important;
             }
-            
+
             #style-panel {
                 z-index: 1000 !important;
             }
-            
+
             #grid-panel {
                 z-index: 1000 !important;
             }
-            
+
             /* Make sure viewport elements never cover panels */
-            #right-viewport, 
             #arena-viewport,
-            #resize-divider,
             #arena-resize-divider {
                 z-index: 150 !important;
             }
-            
+
             /* Ensure dialogs appear above everything */
             #confirmation-dialog,
             #backup-reminder-modal,
@@ -151,8 +140,8 @@ class CanvasView {
         document.head.appendChild(stackingStyle);
     }
 
-    
-    
+
+
     hideLoading() {
         OPTIMISM.log('Application loaded');
         this.loadingOverlay.style.display = 'none';
@@ -160,14 +149,14 @@ class CanvasView {
         this.progressText.style.display = 'none';
         this.progressBar.style.width = '0%';
     }
-    
+
     showLoading(message = 'Loading...') {
         this.loadingOverlay.style.display = 'flex';
         document.getElementById('loading-status').textContent = message;
         this.progressContainer.style.display = 'none';
         this.progressText.style.display = 'none';
     }
-    
+
     showProgress(message, percent) {
         this.loadingOverlay.style.display = 'flex';
         document.getElementById('loading-status').textContent = message;
@@ -176,10 +165,10 @@ class CanvasView {
         this.progressBar.style.width = `${percent}%`;
         this.progressText.textContent = `${percent}%`;
     }
-    
+
     setupEventListeners() {
         OPTIMISM.log('Setting up event listeners');
-        
+
         // Add global modifier key detection
         document.addEventListener('keydown', (e) => {
             // Check if CMD or CTRL key is pressed
@@ -187,42 +176,41 @@ class CanvasView {
                 document.body.classList.add('cmd-pressed');
             }
         });
-        
+
         document.addEventListener('keyup', (e) => {
             // Check if CMD or CTRL key is released
             if (e.key === 'Meta' || e.key === 'Control') {
                 document.body.classList.remove('cmd-pressed');
             }
         });
-        
+
         // Add a blur handler to handle when the window loses focus
         window.addEventListener('blur', () => {
             document.body.classList.remove('cmd-pressed');
         });
-    
+
         window.addEventListener('resize', () => {
             if (this.model.isGridVisible) {
                 this.renderGrid();
             }
         });
-        
+
         // Set up paste handler
         this.setupPasteHandler();
-        
+
         this.setupBackupReminderModal();
         this.setupSettingsPanel();
         this.setupLockImagesToggle(); // Still call this but it won't create the button
         this.setupQuickLinks();
         this.setupQuickLinkDragEvents();
         this.setupInboxPanel(); // Set up the inbox panel
-        this.setupSplitViewToggle();
          // Ensure consistent panel styling
-    this.setupConsistentPanelStyling();
-    this.setupPanelStackingContext();
-    
+     this.setupConsistentPanelStyling();
+     this.setupPanelStackingContext();
+
     // Ensure panels have proper z-indices
     this.ensurePanelZIndices();
-        
+
         // Close style panel when entering inbox link or panel during drag
         this.inboxToggle.addEventListener('mouseenter', (e) => {
             if (this.draggedElement) {
@@ -232,7 +220,7 @@ class CanvasView {
                 this.inboxToggle.classList.add('drag-highlight');
             }
         });
-    
+
         this.inboxPanel.addEventListener('mouseenter', (e) => {
             if (this.draggedElement) {
                 // If we're dragging, ensure the style panel is hidden
@@ -242,111 +230,97 @@ class CanvasView {
                 this.inboxToggle.classList.add('drag-highlight');
             }
         });
-        
-        // Add global style for resize operations
-        const resizeStyle = document.createElement('style');
-        resizeStyle.textContent = `
-            body.resizing-split-view,
-            body.resizing-arena-view {
-                cursor: col-resize !important;
-            }
-            body.resizing-split-view *,
-            body.resizing-arena-view * {
-                cursor: col-resize !important;
-            }
-        `;
-        document.head.appendChild(resizeStyle);
-            
+
         // Workspace double-click to create new elements
         this.workspace.addEventListener('dblclick', (e) => {
             // Ignore if click was on an element or if modifier key is pressed
             if (e.target !== this.workspace || this.isModifierKeyPressed(e)) return;
-            
+
             // Get correct coordinates relative to the workspace
             const rect = this.workspace.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            
+
             this.controller.createElement(x, y);
         });
-        
+
         // Single click on workspace should deselect elements
         this.workspace.addEventListener('click', (e) => {
             if (e.target === this.workspace) {
                 this.deselectAllElements();
             }
         });
-        
+
         // Global keyboard handlers for deletion and navigation
         document.addEventListener('keydown', (e) => {
             // Delete/Backspace to delete selected element
-            if ((e.key === 'Delete' || e.key === 'Backspace') && 
-                this.model.selectedElement && 
+            if ((e.key === 'Delete' || e.key === 'Backspace') &&
+                this.model.selectedElement &&
                 document.activeElement.tagName !== 'TEXTAREA') {
                 this.controller.deleteElement(this.model.selectedElement);
                 e.preventDefault(); // Prevent browser back navigation on backspace
             }
-            
+
             // Up Arrow to navigate back (zoom out) - but not when editing text
-            if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1 && 
+            if (e.key === 'ArrowUp' && this.model.navigationStack.length > 1 &&
                 document.activeElement.tagName !== 'TEXTAREA') {
                 this.controller.navigateBack();
                 e.preventDefault();
             }
-            
+
             // Down Arrow to navigate into selected element (zoom in)
-            if (e.key === 'ArrowDown' && 
-                this.model.selectedElement && 
+            if (e.key === 'ArrowDown' &&
+                this.model.selectedElement &&
                 this.model.hasChildren(this.model.selectedElement)) {
                 this.controller.navigateToElement(this.model.selectedElement);
                 e.preventDefault();
             }
-            
+
             // Undo with Ctrl/Cmd+Z
             if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
                 this.controller.undo();
                 e.preventDefault();
             }
-            
+
             // Redo with Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
             if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
                 ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) {
                 this.controller.redo();
                 e.preventDefault();
             }
-    
+
             // Toggle inbox panel with 'I' key
-            if (e.key.toLowerCase() === 'i' && 
-               document.activeElement.tagName !== 'TEXTAREA' && 
+            if (e.key.toLowerCase() === 'i' &&
+               document.activeElement.tagName !== 'TEXTAREA' &&
                document.activeElement.tagName !== 'INPUT') {
                e.preventDefault();
                this.controller.toggleInboxVisibility();
             }
 
             // Toggle priority with 'P' key when an element is selected
-    if (e.key.toLowerCase() === 'b' && 
-    document.activeElement.tagName !== 'TEXTAREA' && 
+    if (e.key.toLowerCase() === 'b' &&
+    document.activeElement.tagName !== 'TEXTAREA' &&
     document.activeElement.tagName !== 'INPUT') {
     e.preventDefault();
     if (this.model.selectedElement) {
         this.controller.toggleCardPriority(this.model.selectedElement);
     }}
-                
+
            // Style shortcuts (only when an element is selected and not in edit mode)
-if (this.model.selectedElement && 
+if (this.model.selectedElement &&
     document.activeElement.tagName !== 'TEXTAREA') {
-    
+
     const element = this.model.findElement(this.model.selectedElement);
-    
+
     // Only apply styling to text elements
     if (element && element.type === 'text') {
         let styleUpdated = false;
-        
+
         // 0 = reset to default (small text, black, no header, no highlight, no border)
         if (e.key === '0') {
-            this.controller.updateElementStyle(this.model.selectedElement, { 
-                textSize: 'small', 
-                textColor: 'default', 
+            this.controller.updateElementStyle(this.model.selectedElement, {
+                textSize: 'small',
+                textColor: 'default',
                 hasHeader: false,
                 isHighlighted: false,
                 hasBorder: false,
@@ -355,50 +329,50 @@ if (this.model.selectedElement &&
             styleUpdated = true;
             e.preventDefault();
         }
-        
+
         // 1 = toggle through text sizes (small > large > huge)
         else if (e.key === '1') {
             // Get current size
             const currentSize = element.style && element.style.textSize ? element.style.textSize : 'small';
             let nextSize;
-            
+
             // Determine next size
             if (currentSize === 'small') nextSize = 'large';
             else if (currentSize === 'large') nextSize = 'huge';
             else nextSize = 'small'; // huge or any other size goes back to small
-            
+
             this.controller.updateElementStyle(this.model.selectedElement, { textSize: nextSize });
             styleUpdated = true;
             e.preventDefault();
         }
-        
+
         // 2 = cycle through text colors (default -> red -> green -> default)
         else if (e.key === '2') {
             // Get current color
             const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
             let nextColor;
-            
+
             // Determine next color
             if (currentColor === 'default') nextColor = 'red';
             else if (currentColor === 'red') nextColor = 'green';
             else nextColor = 'default'; // green or any other color goes back to default
-            
+
             this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
             styleUpdated = true;
             e.preventDefault();
         }
-        
+
         // 3 = toggle through text alignment (left -> centre -> right -> left)
         else if (e.key === '3') {
             // Get current alignment
             const currentAlign = element.style && element.style.textAlign ? element.style.textAlign : 'left';
             let nextAlign;
-            
+
             // Determine next alignment
             if (currentAlign === 'left') nextAlign = 'centre';
             else if (currentAlign === 'centre') nextAlign = 'right';
             else nextAlign = 'left'; // right or any other alignment goes back to left
-            
+
             this.controller.updateElementStyle(this.model.selectedElement, { textAlign: nextAlign });
             styleUpdated = true;
             e.preventDefault();
@@ -417,7 +391,7 @@ if (this.model.selectedElement &&
             styleUpdated = true;
             e.preventDefault();
         }
-        
+
         // 5 = toggle header
         else if (e.key === '5') {
             // Toggle current header setting
@@ -426,7 +400,7 @@ if (this.model.selectedElement &&
             styleUpdated = true;
             e.preventDefault();
         }
-        
+
         // 6 = toggle highlight
         else if (e.key === '6') {
             // Get the current highlight setting
@@ -435,7 +409,7 @@ if (this.model.selectedElement &&
             styleUpdated = true;
             e.preventDefault();
         }
-        
+
         // 7 = toggle border
         else if (e.key === '7') {
             // Toggle current border setting
@@ -454,7 +428,7 @@ if (this.model.selectedElement &&
                 e.preventDefault();
             }
         }
-        
+
         // 9 = toggle card lock
         else if (e.key === '8') {
             // Toggle current lock setting
@@ -463,7 +437,7 @@ if (this.model.selectedElement &&
             styleUpdated = true;
             e.preventDefault();
         }
-        
+
         // Update style panel if any style changed
         if (styleUpdated) {
             // Get the updated element data after the style changes
@@ -475,29 +449,29 @@ if (this.model.selectedElement &&
     }
 }
         });
-        
+
         // Prevent right-click context menu
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
         });
-        
+
         // Close style panel when clicking outside
         document.addEventListener('click', (e) => {
             // If clicking outside of both the style panel and any element
            // 1. Style panel should still close when clicking on blank canvas
-    if (!this.stylePanel.contains(e.target) && 
-    !e.target.closest('.element-container') && 
+    if (!this.stylePanel.contains(e.target) &&
+    !e.target.closest('.element-container') &&
     this.stylePanel.style.display === 'block') {
     this.stylePanel.style.display = 'none';
 }
 
 // 2. Settings panel should close when clicking on a card (which opens style panel)
 // but NOT when clicking the blank canvas
-if (this.settingsPanel && 
-    this.settingsPanel.style.display === 'block' && 
-    !this.settingsPanel.contains(e.target) && 
+if (this.settingsPanel &&
+    this.settingsPanel.style.display === 'block' &&
+    !this.settingsPanel.contains(e.target) &&
     e.target !== this.settingsToggle) {
-    
+
     // Only close if clicking on a card (will open style panel)
     if (e.target.closest('.element-container')) {
         this.controller.toggleSettingsVisibility();
@@ -508,8 +482,8 @@ if (this.settingsPanel &&
 // 3. Inbox panel should NOT close when clicking on canvas or cards
 // Only remove this code or comment it out:
 /*
-if (!this.inboxPanel.contains(e.target) && 
-    e.target !== this.inboxToggle && 
+if (!this.inboxPanel.contains(e.target) &&
+    e.target !== this.inboxToggle &&
     this.inboxPanel.style.display === 'block') {
     this.controller.toggleInboxVisibility();
 }
@@ -522,7 +496,7 @@ if (this.prioritiesPanel &&
     this.prioritiesPanel.style.display === 'block' &&
     !this.prioritiesPanel.contains(e.target) &&
     e.target !== this.prioritiesToggle) {
-    
+
     this.controller.togglePrioritiesVisibility();
 }
 */
@@ -530,34 +504,34 @@ if (this.prioritiesPanel &&
 // 5. Grid panel can still close when clicking elsewhere
 const gridPanel = document.getElementById('grid-panel');
 const gridToggle = document.getElementById('grid-toggle');
-if (gridPanel && 
-    !gridPanel.contains(e.target) && 
-    e.target !== gridToggle && 
+if (gridPanel &&
+    !gridPanel.contains(e.target) &&
+    e.target !== gridToggle &&
     gridPanel.style.display === 'block') {
     gridPanel.style.display = 'none';
 }
         });
-        
+
         // Setup export/import buttons
         this.setupExportImport();
-        
+
         // Setup drag and drop for images
         this.setupImageDropZone();
-        
+
         // Setup debug panel toggle
         this.setupDebugToggle();
-        
+
         OPTIMISM.log('Event listeners set up successfully');
     }
-    
+
     setupExportImport() {
         OPTIMISM.log('Setting up export/import buttons');
-        
+
         // Export button
         this.exportButton.addEventListener('click', () => {
             this.controller.exportData();
         });
-        
+
         // Export without images button
         const exportNoImagesButton = document.getElementById('export-no-images-button');
         if (exportNoImagesButton) {
@@ -565,46 +539,46 @@ if (gridPanel &&
                 this.controller.exportDataWithoutImages();
             });
         }
-        
+
         // Import button
         this.importButton.addEventListener('click', () => {
             // Show confirmation dialog
             this.confirmationDialog.style.display = 'block';
         });
-        
+
         // Confirmation dialog buttons
         this.cancelImportButton.addEventListener('click', () => {
             this.confirmationDialog.style.display = 'none';
         });
-        
+
         this.confirmImportButton.addEventListener('click', () => {
             this.confirmationDialog.style.display = 'none';
-            
+
             // Create a file input element
             const fileInput = document.createElement('input');
             fileInput.type = 'file';
             fileInput.accept = '.json';
             fileInput.style.display = 'none';
             document.body.appendChild(fileInput);
-            
+
             // Handle file selection
             fileInput.addEventListener('change', (e) => {
                 if (e.target.files.length > 0) {
                     const file = e.target.files[0];
                     this.controller.importData(file);
                 }
-                
+
                 // Remove the input element
                 document.body.removeChild(fileInput);
             });
-            
+
             // Trigger file selection dialog
             fileInput.click();
         });
-        
+
         OPTIMISM.log('Export/import buttons set up successfully');
     }
-    
+
     setupDebugToggle() {
         OPTIMISM.log('Setting up debug toggle');
         this.debugToggle.addEventListener('click', () => {
@@ -612,7 +586,7 @@ if (gridPanel &&
         });
         OPTIMISM.log('Debug toggle set up successfully');
     }
-    
+
     updateDebugPanelVisibility(isVisible) {
         if (isVisible) {
             this.debugPanel.style.display = 'block';
@@ -622,15 +596,15 @@ if (gridPanel &&
             this.debugToggle.textContent = 'Show Debug';
         }
     }
-    
+
     setupImageDropZone() {
         OPTIMISM.log('Setting up image drop zone');
         const dropZoneIndicator = this.dropZoneIndicator;
-        
+
         // Show drop zone when dragging over the document
         document.addEventListener('dragover', (e) => {
             e.preventDefault();
-            
+
             // If we have an Arena image being dragged, show the drop zone
             if (this.arenaImageBeingDragged) {
                 if (this.dropZoneIndicator) {
@@ -638,7 +612,7 @@ if (gridPanel &&
                 }
                 return;
             }
-            
+
             // Don't show drop zone for internal drags
             if (this.draggedElement) {
                 if (this.dropZoneIndicator) {
@@ -646,7 +620,7 @@ if (gridPanel &&
                 }
                 return;
             }
-            
+
             // Don't show for inbox drags
             if (this.inboxDragTarget) {
                 if (this.dropZoneIndicator) {
@@ -654,7 +628,7 @@ if (gridPanel &&
                 }
                 return;
             }
-            
+
             // Don't show for quick links
             if (e.dataTransfer.types.includes('application/quicklink')) {
                 if (this.dropZoneIndicator) {
@@ -662,13 +636,13 @@ if (gridPanel &&
                 }
                 return;
             }
-            
+
             // Show for external files (like images)
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'block';
             }
         });
-        
+
         // Hide drop zone when leaving the document
         document.addEventListener('dragleave', (e) => {
             if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
@@ -677,31 +651,31 @@ if (gridPanel &&
                 }
             }
         });
-        
+
         // In view.js - modify the drop event handler in setupImageDropZone()
 document.addEventListener('drop', async (e) => {
     e.preventDefault();
-    
+
     // Hide the drop zone indicator
     if (this.dropZoneIndicator) {
         this.dropZoneIndicator.style.display = 'none';
     }
-    
+
     // Skip if it's an internal drag operation
     if (this.draggedElement || this.inboxDragTarget) return;
-    
+
     // Get correct coordinates relative to the workspace
     const rect = this.workspace.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     let handled = false;
-    
+
     // Check if we have an arena image being dragged
     if (this.arenaImageBeingDragged) {
         OPTIMISM.log(`Arena image dropped, attempting to add: ${this.arenaImageBeingDragged}`);
         this.showLoading('Adding image from Are.na...');
-        
+
         try {
             // Process and add the image from URL
             await this.controller.addImageFromUrl(this.arenaImageBeingDragged, x, y);
@@ -714,20 +688,20 @@ document.addEventListener('drop', async (e) => {
             this.hideLoading();
             this.arenaImageBeingDragged = null;
         }
-        
+
         // If we've handled the Arena image, don't continue
         if (handled) return;
     }
-    
+
     // First check if we have files (local files)
     if (e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
-        
+
         // Only handle image files
         if (file.type.startsWith('image/')) {
             OPTIMISM.log(`Image file dropped: ${file.name} (${file.type})`);
             this.showLoading();
-            
+
             try {
                 // Process and add the image
                 await this.controller.addImage(file, x, y);
@@ -742,25 +716,25 @@ document.addEventListener('drop', async (e) => {
             }
         }
     }
-    
+
     // If already handled a file, don't continue
     if (handled) return;
-    
+
     // Check all available types in the data transfer
     const types = e.dataTransfer.types;
     OPTIMISM.log("Available drop types: " + types.join(", "));
-    
+
     // Look for HTML content first (most likely to contain image data when dragging from a webpage)
     if (types.includes('text/html')) {
         const html = e.dataTransfer.getData('text/html');
         OPTIMISM.log("Received HTML: " + html.substring(0, 100) + "...");
-        
+
         // Look for image tags in the HTML
         const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
         if (imgMatch && imgMatch[1]) {
             const imgSrc = imgMatch[1];
             OPTIMISM.log(`Found image source in HTML: ${imgSrc}`);
-            
+
             this.showLoading();
             try {
                 await this.controller.addImageFromUrl(imgSrc, x, y);
@@ -774,30 +748,30 @@ document.addEventListener('drop', async (e) => {
                 this.hideLoading();
             }
         }
-        
+
         // Also check for base64 encoded images
         if (!handled) {
             const base64Match = html.match(/src=["']data:image\/([^;]+);base64,([^"']+)["']/i);
             if (base64Match) {
                 const imageType = base64Match[1];
                 const base64Data = base64Match[2];
-                
+
                 OPTIMISM.log(`Base64 image data found of type: ${imageType}`);
                 this.showLoading();
-                
+
                 try {
                     // Convert base64 to blob
                     const byteString = atob(base64Data);
                     const ab = new ArrayBuffer(byteString.length);
                     const ia = new Uint8Array(ab);
-                    
+
                     for (let i = 0; i < byteString.length; i++) {
                         ia[i] = byteString.charCodeAt(i);
                     }
-                    
+
                     const blob = new Blob([ab], { type: `image/${imageType}` });
                     const file = new File([blob], `image.${imageType}`, { type: `image/${imageType}` });
-                    
+
                     // Add the image
                     await this.controller.addImage(file, x, y);
                     OPTIMISM.log('Successfully added base64 image');
@@ -812,26 +786,26 @@ document.addEventListener('drop', async (e) => {
             }
         }
     }
-    
+
     // If not handled yet, check for URL or text containing an image URL
     if (!handled && (types.includes('text/uri-list') || types.includes('text/plain'))) {
         let url = '';
-        
+
         // Try URI list first
         if (types.includes('text/uri-list')) {
             url = e.dataTransfer.getData('text/uri-list');
-        } 
+        }
         // If not available, try plain text
         else {
             url = e.dataTransfer.getData('text/plain');
         }
-        
+
         if (url) {
             OPTIMISM.log(`Found URL: ${url}`);
-            
+
             // Check if URL is for an image file
             const isImageUrl = url.match(/\.(jpe?g|png|gif|bmp|webp|svg)(\?.*)?$/i);
-            
+
             if (isImageUrl) {
                 this.showLoading();
                 try {
@@ -863,40 +837,40 @@ document.addEventListener('drop', async (e) => {
             }
         }
     }
-    
+
     // If we've tried everything and still couldn't process the drop, only then show error
     if (!handled) {
         OPTIMISM.log('Could not process dropped content as an image');
         alert('The dropped content could not be processed as an image.');
     }
 });
-        
+
         OPTIMISM.log('Image drop zone set up successfully');
     }
-    
+
     setupUndoRedoButtons() {
         OPTIMISM.log('Setting up undo/redo buttons');
         this.undoButton.addEventListener('click', () => {
             this.controller.undo();
         });
-        
+
         this.redoButton.addEventListener('click', () => {
             this.controller.redo();
         });
-        
+
         // Initially disable buttons
         this.updateUndoRedoButtons();
         OPTIMISM.log('Undo/redo buttons set up successfully');
     }
-    
+
     updateUndoRedoButtons() {
         this.undoButton.disabled = !this.model.canUndo();
         this.redoButton.disabled = !this.model.canRedo();
     }
-    
+
     setupStylePanel() {
         OPTIMISM.log('Setting up style panel');
-        
+
         // Replace the relevant part in setupStylePanel where we add the Move to Inbox option:
 
 // Add the Move to Inbox option to the style panel
@@ -918,53 +892,53 @@ if (stylePanel) {
                 <a href="#" class="option-value move-to-inbox">Move selected card to Inbox</a>
             </div>
         `;
-        
+
         // Add the option to the panel
         stylePanel.appendChild(moveToInboxOption);
-        
+
         // Add click handler
         const moveToInboxButton = moveToInboxOption.querySelector('.move-to-inbox');
         if (moveToInboxButton) {
             moveToInboxButton.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 OPTIMISM.log(`Moving selected element ${this.model.selectedElement} to inbox via style panel`);
-                
+
                 // Get a reference to the selected element ID before it's moved
                 const selectedId = this.model.selectedElement;
-                
+
                 // Move the element to inbox
                 this.controller.moveToInbox(selectedId);
-                
+
                 // Hide the style panel
                 this.stylePanel.style.display = 'none';
             });
         }
     }
 }
-        
+
         // Get all size option elements
         const sizeOptions = document.querySelectorAll('.option-value[data-size]');
-        
+
         // Add click event listeners to each size option
         sizeOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 // Get the selected size
                 const size = option.dataset.size;
-                
+
                 // Update the element's style
                 this.controller.updateElementStyle(this.model.selectedElement, { textSize: size });
-                
+
                 // Update the UI to show which option is selected
                 sizeOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
@@ -979,16 +953,16 @@ alignOptions.forEach(option => {
     option.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation(); // Prevent closing the panel
-        
+
         // Only apply if an element is selected
         if (!this.model.selectedElement) return;
-        
+
         // Get the selected alignment
         const align = option.dataset.align;
-        
+
         // Update the element's style
         this.controller.updateElementStyle(this.model.selectedElement, { textAlign: align });
-        
+
         // Update the UI to show which option is selected
         alignOptions.forEach(opt => opt.classList.remove('selected'));
         option.classList.add('selected');
@@ -1016,145 +990,145 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
                 option.classList.add('selected');
             });
         });
-        
+
         // Set up color options
         const colorOptions = document.querySelectorAll('.option-value[data-color]');
-        
+
         // Add click event listeners to each color option
         colorOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 // Get the selected color
                 const color = option.dataset.color;
-                
+
                 // Update the element's style
                 this.controller.updateElementStyle(this.model.selectedElement, { textColor: color });
-                
+
                 // Update the UI to show which option is selected
                 colorOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
             });
         });
-        
+
         // Set up header option
         const headerOptions = document.querySelectorAll('.option-value[data-header]');
-        
+
         // Add click event listeners to each header option
         headerOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 // Get the selected header setting
                 const hasHeader = option.dataset.header === 'true';
-                
+
                 // Update the element's style
                 this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: hasHeader });
-                
+
                 // Update the UI to show which option is selected
                 headerOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
             });
         });
-        
+
         // Set up highlight option
         const highlightOptions = document.querySelectorAll('.option-value[data-highlight]');
-        
+
         // Add click event listeners to each highlight option
         highlightOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 // Get the selected highlight setting
                 const isHighlighted = option.dataset.highlight === 'true';
-                
+
                 // Update the element's style
                 this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: isHighlighted });
-                
+
                 // Update the UI to show which option is selected
                 highlightOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
             });
         });
-    
+
         // Set up border option
         const borderOptions = document.querySelectorAll('.option-value[data-border]');
-    
+
         // Add click event listeners to each border option
         borderOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 // Get the selected border setting
                 const hasBorder = option.dataset.border === 'true';
-                
+
                 // Update the element's style
                 this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: hasBorder });
-                
+
                 // Update the UI to show which option is selected
                 borderOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
             });
         });
-        
+
         // Set up card lock option
         const lockOptions = document.querySelectorAll('.option-value[data-lock]');
-    
+
         // Add click event listeners to each lock option
         lockOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 // Get the selected lock setting
                 const isLocked = option.dataset.lock === 'true';
-                
+
                 // Update the element's style
                 this.controller.updateElementStyle(this.model.selectedElement, { isLocked: isLocked });
-                
+
                 // Update the UI to show which option is selected
                 lockOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
             });
         });
-        
+
         // Set up reset style option
         const resetOption = document.querySelector('.option-value.reset-style');
         if (resetOption) {
             resetOption.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
-                
+
                 // Only apply if an element is selected
                 if (!this.model.selectedElement) return;
-                
+
                 // Reset the element's style
-                this.controller.updateElementStyle(this.model.selectedElement, { 
-                    textSize: 'small', 
-                    textColor: 'default', 
+                this.controller.updateElementStyle(this.model.selectedElement, {
+                    textSize: 'small',
+                    textColor: 'default',
                     hasHeader: false,
                     isHighlighted: false
                 });
-                
+
                 // Update the UI to show which options are selected
                 const updatedElement = this.model.findElement(this.model.selectedElement);
                 if (updatedElement) {
@@ -1162,10 +1136,10 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
                 }
             });
         }
-        
+
         OPTIMISM.log('Style panel set up successfully');
     }
-    
+
     setupThemeToggle() {
         OPTIMISM.log('Setting up theme toggle');
         this.themeToggle.addEventListener('click', () => {
@@ -1173,29 +1147,29 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
         });
         OPTIMISM.log('Theme toggle set up successfully');
     }
-    
+
     isModifierKeyPressed(e) {
         return this.isMac ? e.metaKey : e.ctrlKey;
     }
-    
+
     renderWorkspace() {
         OPTIMISM.log('Rendering workspace');
         // Clear workspace
         this.workspace.innerHTML = '';
-        
+
         // Update breadcrumbs
         this.renderBreadcrumbs();
-    
+
         // Update quick links
         this.renderQuickLinks();
 
         this.workspace.style.overflow = 'auto';
-        
+
         // Render elements
         if (this.model.currentNode.elements) {
             const elementsCount = this.model.currentNode.elements.length;
             OPTIMISM.log(`Rendering ${elementsCount} element(s)`);
-            
+
             // Sort elements: 1. First by type (images before text)
             // 2. Then by z-index for images
             const sortedElements = [...this.model.currentNode.elements].sort((a, b) => {
@@ -1207,7 +1181,7 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
                 }
                 return 0;
             });
-            
+
             sortedElements.forEach(element => {
                 try {
                     if (element.type === 'text') {
@@ -1224,7 +1198,7 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
         } else {
             OPTIMISM.log('No elements to render');
         }
-    
+
         // Apply locked state to cards if needed
         this.model.lockedCards.forEach(cardId => {
             const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
@@ -1232,7 +1206,7 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
                 container.classList.add('card-locked');
             }
         });
-    
+
         // Apply priority state to cards if needed - ENSURE THIS RUNS AFTER CARDS ARE CREATED
         if (this.model.priorityCards && this.model.priorityCards.length > 0) {
             OPTIMISM.log(`Applying priority borders to ${this.model.priorityCards.length} cards`);
@@ -1246,25 +1220,25 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
                 }
             });
         }
-    
+
         // Update styles for locked cards
         this.updateLockedCardStyles();
-    
+
         // Apply locked state to images if needed
         if (this.model.imagesLocked) {
             this.updateImagesLockState();
         }
-        
+
         // Re-render the grid if it was visible
         if (this.model.isGridVisible) {
             this.renderGrid();
         }
-        
+
         // Hide style panel when no element is selected
         if (!this.model.selectedElement) {
             this.stylePanel.style.display = 'none';
         }
-    
+
         if (this.model.isSettingsVisible) {
             this.updateSettingsVisibility(true);
         } else if (this.model.isInboxVisible) {
@@ -1272,26 +1246,13 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
         } else if (this.model.isPrioritiesVisible) {
             this.updatePrioritiesVisibility(true);
         }
-        
+
         // Update undo/redo buttons
         this.updateUndoRedoButtons();
-        
+
         // Update page title
         this.updatePageTitle();
-        
-        // If split view is enabled but the preview node ID is null,
-        // update the right viewport to show empty state
-        if (this.model.isSplitViewEnabled && this.rightViewport) {
-            if (!this.model.previewNodeId) {
-                this.updateRightViewport(null);
-            } else if (this.model.previewNodeId === this.model.currentNode.id) {
-                // If the preview is showing the same level as the current node,
-                // clear the preview
-                this.model.previewNodeId = null;
-                this.updateRightViewport(null);
-            }
-        }
-    
+
         // CRITICAL: Preserve panel visibility at the end of rendering
         // This ensures no panel is inadvertently hidden during workspace updates
         setTimeout(() => {
@@ -1310,7 +1271,7 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
         this.workspace.style.overflow = this.model.isArenaVisible ? 'hidden' : 'auto';
         OPTIMISM.log('Workspace rendering complete');
     }
-    
+
     // In view.js, ensure the updatePageTitle method is correctly implemented
 updatePageTitle() {
     if (this.model.navigationStack.length === 1) {
@@ -1320,49 +1281,49 @@ updatePageTitle() {
         // Get the current node title
         const currentNode = this.model.navigationStack[this.model.navigationStack.length - 1];
         let title = currentNode.nodeTitle || 'Untitled';
-        
+
         // Truncate to 20 characters if needed
         if (title.length > 20) {
             title = title.substring(0, 20) + '...';
         }
-        
+
         document.title = title;
     }
 }
-    
+
     renderBreadcrumbs() {
         OPTIMISM.log('Rendering breadcrumbs');
         this.breadcrumbContainer.innerHTML = '';
-        
+
         // Create breadcrumb elements - only show navigable ones
         for (let i = 0; i < this.model.navigationStack.length - 1; i++) {
             const navItem = this.model.navigationStack[i];
-            
+
             // Create breadcrumb item
             const breadcrumb = document.createElement('span');
             breadcrumb.className = 'breadcrumb-item';
             breadcrumb.style.textDecoration = 'underline';
             breadcrumb.style.cursor = 'pointer';
             breadcrumb.dataset.index = i; // Add index attribute for drag and drop
-            
+
             const title = i === 0 ? 'Home' : (navItem.nodeTitle || 'Untitled');
-            breadcrumb.textContent = title.length > 10 ? 
+            breadcrumb.textContent = title.length > 10 ?
                 title.substring(0, 10) + '...' : title;
             breadcrumb.title = title; // Full title on hover
-            
+
             breadcrumb.addEventListener('click', () => {
                 this.controller.navigateToIndex(i);
             });
-            
+
             this.breadcrumbContainer.appendChild(breadcrumb);
-            
+
             // Add separator
             const separator = document.createElement('span');
             separator.className = 'breadcrumb-separator';
             separator.textContent = '➔';
             this.breadcrumbContainer.appendChild(separator);
         }
-        
+
         // Add current (last) item without link styling
         if (this.model.navigationStack.length > 0) {
             const currentItem = this.model.navigationStack[this.model.navigationStack.length - 1];
@@ -1370,41 +1331,41 @@ updatePageTitle() {
             currentBreadcrumb.className = 'breadcrumb-item';
             currentBreadcrumb.style.textDecoration = 'none';
             // We don't need to add dataset.index for the current level since we won't drop onto it
-            
-            const title = this.model.navigationStack.length === 1 ? 
+
+            const title = this.model.navigationStack.length === 1 ?
                 'Home' : (currentItem.nodeTitle || 'Untitled');
-                
-            currentBreadcrumb.textContent = title.length > 10 ? 
+
+            currentBreadcrumb.textContent = title.length > 10 ?
                 title.substring(0, 10) + '...' : title;
             currentBreadcrumb.title = title;
-            
+
             this.breadcrumbContainer.appendChild(currentBreadcrumb);
         }
-        
+
         OPTIMISM.log('Breadcrumbs rendered successfully');
     }
-    
+
     // Format text with header if needed
     formatTextWithHeader(text, hasHeader, isHighlighted = false) {
         if (!text || !hasHeader) return this.convertUrlsToLinks(text || '', isHighlighted);
-        
+
         const lines = text.split('\n');
         if (lines.length === 0) return '';
-        
+
         // Extract first line as header
         const headerLine = lines[0];
         const restOfText = lines.slice(1).join('\n');
-        
+
         let formattedHeader = this.convertUrlsToLinks(headerLine, isHighlighted);
         let formattedText = this.convertUrlsToLinks(restOfText, isHighlighted);
-        
+
         return `<span class="first-line">${formattedHeader}</span>${formattedText}`;
     }
-    
+
     // In view.js, update the convertUrlsToLinks method
 convertUrlsToLinks(text, isHighlighted = false) {
     if (!text) return '';
-    
+
     // Escape HTML characters to prevent XSS
     let safeText = text.replace(/[&<>"']/g, function(match) {
         switch (match) {
@@ -1416,25 +1377,25 @@ convertUrlsToLinks(text, isHighlighted = false) {
             default: return match;
         }
     });
-    
+
     // Replace newlines with <br> tags
     safeText = safeText.replace(/\n/g, '<br>');
-    
+
     // Process the text to find and replace URLs with proper anchor tags
     let result = '';
     let lastIndex = 0;
-    
+
     // Updated regex to handle file URLs with encoded spaces (%20), email addresses, and hash symbols
     const urlRegex = /(\bfile:\/\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=%\\\s]+[a-z0-9\-_~:/[\]@!$&'()*+,;=%\\#]|\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
-    
+
     let match;
     while ((match = urlRegex.exec(safeText)) !== null) {
         // Add text before the URL
         result += safeText.substring(lastIndex, match.index);
-        
+
         // Get the URL
         let url = match[0];
-        
+
         // Different handling for different URL types
         if (url.toLowerCase().startsWith('file:///')) {
             // For file URLs, keep everything including hash
@@ -1444,39 +1405,39 @@ convertUrlsToLinks(text, isHighlighted = false) {
             // For other URLs, remove any trailing punctuation that shouldn't be part of the URL
             url = url.replace(/[.,;:!?)]+$/, '');
         }
-        
+
         // Create the proper href attribute
         let href = url;
         if (url.toLowerCase().startsWith('www.')) {
             href = 'https://' + url;
         }
-        
+
         // Add the anchor tag
         result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-        
+
         // Update lastIndex to end of current match
         lastIndex = match.index + url.length;
-        
+
         // Adjust the regex lastIndex if we modified the URL
         if (url.length !== match[0].length) {
             urlRegex.lastIndex = lastIndex;
         }
     }
-    
+
     // Add any remaining text after the last URL
     result += safeText.substring(lastIndex);
-    
+
     // Apply highlighting if needed
     if (isHighlighted) {
         result = `<mark>${result}</mark>`;
     }
-    
+
     return result;
 }
-    
+
 createTextElementDOM(elementData) {
     OPTIMISM.log(`Creating text element DOM for ${elementData.id}`);
-    
+
     // Create container for the element
     const container = document.createElement('div');
     container.className = 'element-container text-element-container';
@@ -1486,17 +1447,17 @@ createTextElementDOM(elementData) {
     container.style.top = `${elementData.y}px`;
     container.dataset.numX = parseFloat(elementData.x);
     container.dataset.numY = parseFloat(elementData.y);
-    
+
     // Check if this element has children
     const hasChildren = this.model.hasChildren(elementData.id);
-    
+
     // Set dimensions if they exist in the data
     if (elementData.width) {
         container.style.width = `${elementData.width}px`;
     } else {
         container.style.width = `200px`; // Default width
     }
-    
+
     if (elementData.height) {
         container.style.height = `${elementData.height}px`;
     } else {
@@ -1520,22 +1481,22 @@ createTextElementDOM(elementData) {
 if (elementData.autoSize !== undefined) {
     container.dataset.autoSize = elementData.autoSize;
 }
-    
+
     // Store autoSize flag if it exists
     if (elementData.autoSize !== undefined) {
         container.dataset.autoSize = elementData.autoSize;
     }
-    
+
     // Apply border if defined
     if (elementData.style && elementData.style.hasBorder) {
         container.classList.add('has-permanent-border');
     }
-    
+
     // Check if this card is locked
     if (this.model.isCardLocked(elementData.id)) {
         container.classList.add('card-locked');
     }
-    
+
     // Create the text editor (hidden by default)
     const textEditor = document.createElement('textarea');
     textEditor.className = 'text-element';
@@ -1544,19 +1505,19 @@ if (elementData.autoSize !== undefined) {
     }
     textEditor.value = elementData.text || '';
     textEditor.style.display = 'none'; // Hide by default
-    
+
     // Apply highlight directly to textarea background if needed
     if (elementData.style && elementData.style.isHighlighted) {
         textEditor.style.backgroundColor = 'rgb(255, 255, 176)';
     }
-    
+
     // Create the text display (shown by default)
     const textDisplay = document.createElement('div');
     textDisplay.className = 'text-display';
     if (hasChildren) {
         textDisplay.classList.add('has-children');
     }
-    
+
     // Apply header formatting if set
     const hasHeader = elementData.style && elementData.style.hasHeader;
     const isHighlighted = elementData.style && elementData.style.isHighlighted;
@@ -1567,7 +1528,7 @@ if (elementData.autoSize !== undefined) {
     } else {
         textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '', isHighlighted);
     }
-    
+
     // Apply text size if defined
     if (elementData.style && elementData.style.textSize) {
         if (elementData.style.textSize === 'large') {
@@ -1578,7 +1539,7 @@ if (elementData.autoSize !== undefined) {
             textDisplay.classList.add('size-huge');
         }
     }
-    
+
     // Apply text color if defined
     if (elementData.style && elementData.style.textColor) {
         textEditor.classList.add(`color-${elementData.style.textColor}`);
@@ -1600,11 +1561,11 @@ if (elementData.autoSize !== undefined) {
         textEditor.classList.add('is-highlighted');
         textDisplay.classList.add('is-highlighted');
     }
-    
+
     // Create resize handle
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
-    
+
     // Add auto-resizing capability to the text editor
     textEditor.addEventListener('input', () => {
         if (container.dataset.autoSize === 'true') {
@@ -1616,31 +1577,31 @@ if (elementData.autoSize !== undefined) {
         // Stop propagation to prevent the container's mousedown handler from firing
         e.stopPropagation();
     });
-    
+
     textEditor.addEventListener('click', (e) => {
         // Stop propagation to prevent the container's click handler from firing
         e.stopPropagation();
     });
-    
+
     textEditor.addEventListener('blur', () => {
         // Get the original element's text before any changes
         const element = this.model.findElement(elementData.id);
         const originalText = element ? element.text : '';
         const newText = textEditor.value;
-        
+
         // Check if text is now empty (including whitespace-only)
         if (newText.trim() === '') {
             // The text is empty, delete the element
             this.controller.deleteElement(elementData.id);
             return; // Don't continue since the element is deleted
         }
-        
+
         // Only create an undo command if the text actually changed
         if (originalText !== newText) {
             // Get current dimensions for potential size update
             const currentWidth = parseInt(container.style.width);
             const currentHeight = parseInt(container.style.height);
-            
+
             // If auto-sizing was enabled, include dimensions in the update
             if (container.dataset.autoSize === 'true') {
                 this.controller.updateElementWithUndo(elementData.id, {
@@ -1662,23 +1623,23 @@ if (elementData.autoSize !== undefined) {
                 });
             }
         }
-        
+
         // Don't process if element was deleted due to empty text
         if (!this.model.findElement(elementData.id)) {
             return;
         }
-        
+
         // Update display content with converted links and header format if needed
         const updatedElement = this.model.findElement(elementData.id);
         const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
         const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
-        
+
         if (hasHeader) {
             textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
         } else {
             textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
         }
-        
+
         // Toggle visibility
         textEditor.style.display = 'none';
         textDisplay.style.display = 'block';
@@ -1692,7 +1653,7 @@ if (elementData.autoSize !== undefined) {
             return true; // Allow default link behavior
         }
     });
-    
+
     // This is the click handler for text elements:
     container.addEventListener('click', (e) => {
         // If CMD/CTRL is pressed, navigate into the element regardless of lock state
@@ -1701,27 +1662,27 @@ if (elementData.autoSize !== undefined) {
             e.stopPropagation();
             return;
         }
-        
+
         // Don't select if images are locked and this is an image
         if (this.model.imagesLocked && elementData.type === 'image') {
             return;
         }
-        
+
         this.selectElement(container, elementData);
     });
-    
+
     // Handle double-click to edit text
     container.addEventListener('dblclick', (e) => {
         // Don't handle dblclicks on links
         if (e.target.tagName === 'A') return;
-        
+
         // Switch to edit mode
         textDisplay.style.display = 'none';
         textEditor.style.display = 'block';
         textEditor.focus();
         e.stopPropagation(); // Prevent creating a new element
     });
-    
+
     // For both text and image element containers:
     container.addEventListener('mousedown', (e) => {
         // Don't handle if card is locked
@@ -1753,44 +1714,44 @@ if (elementData.autoSize !== undefined) {
         container.classList.add('dragging');
         e.preventDefault(); // Prevent text selection, etc.
     });
-    
+
     resizeHandle.addEventListener('mousedown', (e) => {
         // Don't check image lock status for text elements
         // Text elements should always be resizable regardless of image lock
-        
+
         e.stopPropagation(); // Prevent other mouse handlers
-        
+
         this.selectElement(container, elementData);
         this.resizingElement = container;
-        
+
         // Save initial dimensions
         this.initialWidth = container.offsetWidth;
         this.initialHeight = container.offsetHeight;
-        
+
         // Save initial mouse position
         this.dragStartX = e.clientX;
         this.dragStartY = e.clientY;
-        
+
         e.preventDefault();
     });
-    
+
     // Append all elements to the container
     container.appendChild(textEditor);
     container.appendChild(textDisplay);
     container.appendChild(resizeHandle);
-    
+
     // Add to workspace
     this.workspace.appendChild(container);
-    
+
     // If this is a new element with auto-size enabled and text is blank,
     // we'll let the input handler take care of sizing it
-    
+
     return container;
 }
-    
+
 async createImageElementDOM(elementData) {
     OPTIMISM.log(`Creating image element DOM for ${elementData.id}`);
-    
+
     // Create container for the element
     const container = document.createElement('div');
     container.className = 'element-container image-element-container';
@@ -1800,22 +1761,22 @@ async createImageElementDOM(elementData) {
     container.style.top = `${elementData.y}px`;
     container.dataset.numX = parseFloat(elementData.x);
     container.dataset.numY = parseFloat(elementData.y);
-    
+
     // Check if this element has children
     const hasChildren = this.model.hasChildren(elementData.id);
     if (hasChildren) {
         container.classList.add('has-children');
     }
-    
+
     // Set dimensions if they exist in the data
     if (elementData.width) {
         container.style.width = `${elementData.width}px`;
     }
-    
+
     if (elementData.height) {
         container.style.height = `${elementData.height}px`;
     }
-    
+
     if (elementData.zIndex) {
         // Ensure z-index stays below text elements
         container.style.zIndex = Math.min(parseInt(elementData.zIndex), 99);
@@ -1834,12 +1795,12 @@ async createImageElementDOM(elementData) {
         }
         // 'none' requires no class (defaults to transparent)
     }
-    
+
     // Check if this card is locked - ADD THIS HERE
     if (this.model.isCardLocked(elementData.id)) {
         container.classList.add('card-locked');
     }
-    
+
     // Create the image element
     const imageElement = document.createElement('img');
     // ... rest of the method continues
@@ -1848,7 +1809,7 @@ async createImageElementDOM(elementData) {
     imageElement.style.width = '100%';
     imageElement.style.height = '100%';
     imageElement.style.objectFit = 'contain';
-    
+
     // Load image data
     try {
         OPTIMISM.log(`Loading image data for ${elementData.imageDataId}`);
@@ -1864,11 +1825,11 @@ async createImageElementDOM(elementData) {
         OPTIMISM.logError('Error loading image data:', error);
         imageElement.alt = 'Error loading image';
     }
-    
+
     // Create resize handle
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
-    
+
     // This is the click handler for image elements:
     container.addEventListener('click', (e) => {
         // If CMD/CTRL is pressed, navigate into the element regardless of lock state
@@ -1877,15 +1838,15 @@ async createImageElementDOM(elementData) {
             e.stopPropagation();
             return;
         }
-        
+
         // Don't select if images are locked
         if (this.model.imagesLocked) {
             return;
         }
-        
+
         this.selectElement(container, elementData);
     });
-    
+
     // For both text and image element containers:
     container.addEventListener('mousedown', (e) => {
         // Don't handle if card is locked
@@ -1919,118 +1880,113 @@ async createImageElementDOM(elementData) {
         container.classList.add('dragging');
         e.preventDefault(); // Prevent default image drag behavior
     });
-    
+
     // Updated resize handle event listener
     resizeHandle.addEventListener('mousedown', (e) => {
         // Don't allow resizing for images if images are locked
         // For text elements, always allow resizing regardless of lock state
         if (this.model.imagesLocked && elementData.type === 'image') return;
-        
+
         e.stopPropagation(); // Prevent other mouse handlers
-        
+
         this.selectElement(container, elementData);
         this.resizingElement = container;
-        
+
         // Save initial dimensions
         this.initialWidth = container.offsetWidth;
         this.initialHeight = container.offsetHeight;
-        
+
         // Save initial mouse position
         this.dragStartX = e.clientX;
         this.dragStartY = e.clientY;
-        
+
         e.preventDefault();
     });
-    
+
     // Append all elements to the container
     container.appendChild(imageElement);
     container.appendChild(resizeHandle);
-    
+
     // Add to workspace
     this.workspace.appendChild(container);
     return container;
 }
-    
+
 selectElement(element, elementData, isDragging = false) {
     // Check if this is an image and images are locked
     if (elementData.type === 'image' && this.model.imagesLocked) {
         OPTIMISM.log(`Cannot select locked image ${elementData.id}`);
         return;
     }
-    
+
     OPTIMISM.log(`Selecting element ${elementData.id} of type ${elementData.type}`);
     this.deselectAllElements();
     element.classList.add('selected');
     this.model.selectedElement = element.dataset.id;
-    
+
     if (this.model.isSettingsVisible) {
         this.controller.toggleSettingsVisibility();
     }
-    
+
     // Hide grid panel
     const gridPanel = document.getElementById('grid-panel');
     if (gridPanel) {
         gridPanel.style.display = 'none';
     }
-    
+
     // Only show style panel if we're not dragging
     if (element.dataset.type === 'text' && !isDragging) {
         this.stylePanel.style.display = 'block';
-        
+
         // Update the selected option in the style panel
         this.updateStylePanel(elementData);
     } else {
         this.stylePanel.style.display = 'none';
     }
-    
-    // Update the right viewport if split view is enabled
-    if (this.model.isSplitViewEnabled && !isDragging) {
-        this.updateRightViewport(element.dataset.id);
-    }
 }
-    
+
 updateStylePanel(elementData) {
     // Only update style panel for text elements
     if (elementData.type !== 'text') return;
-    
+
     OPTIMISM.log('Updating style panel');
-    
+
     // Reset all selected options
     document.querySelectorAll('.option-value').forEach(opt => opt.classList.remove('selected'));
-    
+
     // Set the correct text size option as selected
     let selectedSize = 'small'; // Default
     if (elementData.style && elementData.style.textSize) {
         selectedSize = elementData.style.textSize;
     }
-    
+
     const sizeOption = document.querySelector(`.option-value[data-size="${selectedSize}"]`);
     if (sizeOption) {
         sizeOption.classList.add('selected');
     }
-    
+
     // Set the correct text color option as selected
     let selectedColor = 'default'; // Default
     if (elementData.style && elementData.style.textColor) {
         selectedColor = elementData.style.textColor;
     }
-    
+
     const colorOption = document.querySelector(`.option-value[data-color="${selectedColor}"]`);
     if (colorOption) {
         colorOption.classList.add('selected');
     }
-    
+
     // Set the correct text alignment option as selected
     let selectedAlign = 'left'; // Default
     if (elementData.style && elementData.style.textAlign) {
         selectedAlign = elementData.style.textAlign;
     }
-    
+
     const alignOption = document.querySelector(`.option-value[data-align="${selectedAlign}"]`);
     if (alignOption) {
         alignOption.classList.add('selected');
     }
-    
+
     // Set the correct header option as selected
     const hasHeader = elementData.style && elementData.style.hasHeader ? 'true' : 'false';
     const headerOption = document.querySelector(`.option-value[data-header="${hasHeader}"]`);
@@ -2044,14 +2000,14 @@ updateStylePanel(elementData) {
     if (highlightOption) {
         highlightOption.classList.add('selected');
     }
-    
+
     // Set the correct border option as selected
     const hasBorder = elementData.style && elementData.style.hasBorder ? 'true' : 'false';
     const borderOption = document.querySelector(`.option-value[data-border="${hasBorder}"]`);
     if (borderOption) {
         borderOption.classList.add('selected');
     }
-    
+
     // Set the correct lock option as selected
     const isLocked = this.model.isCardLocked(elementData.id) ? 'true' : 'false';
     const lockOption = document.querySelector(`.option-value[data-lock="${isLocked}"]`);
@@ -2072,20 +2028,15 @@ updateStylePanel(elementData) {
         }
 }
 
-    
-    
+
+
     deselectAllElements() {
         document.querySelectorAll('.element-container.selected').forEach(el => {
             el.classList.remove('selected');
         });
         this.model.selectedElement = null;
-        
-        // Update the right viewport if split view is enabled
-        if (this.model.isSplitViewEnabled) {
-            this.updateRightViewport(null);
-        }
     }
-    
+
     // In view.js - full method with drag constraint changes
 setupDragListeners() {
     OPTIMISM.log('Setting up drag listeners');
@@ -2196,8 +2147,9 @@ setupDragListeners() {
 // In view.js -> setupDragListeners -> document.addEventListener('mousemove', ...)
 
 document.addEventListener('mousemove', (e) => {
-    // Handle resizing
-    if (this.resizingElement) {
+
+     // Handle resizing
+     if (this.resizingElement) {
         const elementType = this.resizingElement.dataset.type;
         if (this.model.imagesLocked && elementType === 'image') return;
 
@@ -2251,6 +2203,8 @@ document.addEventListener('mousemove', (e) => {
         this.resizingElement.style.height = `${newHeight}px`;
         return; // Return after handling resize
     }
+
+    // --- Handle DRAGGING ---
 
     // --- Handle DRAGGING ---
     if (!this.draggedElement) return;
@@ -2315,13 +2269,12 @@ document.addEventListener('mousemove', (e) => {
 
     document.addEventListener('mouseup', (e) => {
 
-        
+
         // Handle end of resizing
         if (this.resizingElement) {
             const elementType = this.resizingElement.dataset.type;
             if (this.model.imagesLocked && elementType === 'image') {
-                this.resizingElement = null;
-                return;
+                 this.resizingElement = null;
             }
             const id = this.resizingElement.dataset.id;
             const width = parseFloat(this.resizingElement.style.width);
@@ -2329,7 +2282,6 @@ document.addEventListener('mousemove', (e) => {
             OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
             this.controller.updateElement(id, { width, height });
             this.resizingElement = null;
-            
             return;
         }
 
@@ -2340,7 +2292,6 @@ document.addEventListener('mousemove', (e) => {
              this.model.isCardLocked(this.draggedElement.dataset.id)) {
             this.draggedElement.classList.remove('dragging');
             this.draggedElement = null;
-            document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
             return;
         }
 
@@ -2395,7 +2346,7 @@ document.addEventListener('mousemove', (e) => {
                 const updateProps = { x: newX, y: newY };
                 if (isImage) { updateProps.zIndex = parseInt(this.draggedElement.style.zIndex) || 1; }
                 this.controller.updateElement(draggedId, updateProps);
-               
+
             }
         }
 
@@ -2412,16 +2363,15 @@ document.addEventListener('mousemove', (e) => {
 
     OPTIMISM.log('Drag listeners set up successfully');
 }
-    
-    
+
+
 handleDragOver(e) {
     // Remove previous highlights - remove both highlight classes
     const highlighted = document.querySelectorAll('.drag-highlight, .drag-over');
     highlighted.forEach(el => {
         el.classList.remove('drag-highlight');
-        el.classList.remove('drag-over');
     });
-    
+
     // First check for breadcrumb targets
     const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
     if (breadcrumbTarget) {
@@ -2429,7 +2379,7 @@ handleDragOver(e) {
         breadcrumbTarget.classList.add('drag-highlight');
         return;
     }
-    
+
     // Check if dragging over the quick links area
     if (this.isOverQuickLinksArea(e)) {
         // Highlight the quick links by turning them green
@@ -2448,7 +2398,7 @@ handleDragOver(e) {
         }
         return;
     }
-    
+
     // Then check for element targets if nesting is not disabled
     if (!this.model.isNestingDisabled) {
         const dropTarget = this.findDropTarget(e);
@@ -2457,7 +2407,7 @@ handleDragOver(e) {
         }
     }
 }
-    
+
 findDropTarget(e) {
     const elements = document.elementsFromPoint(e.clientX, e.clientY);
     for (const element of elements) {
@@ -2466,7 +2416,7 @@ findDropTarget(e) {
             if (this.model.imagesLocked && element.dataset.type === 'image') {
                 continue;
             }
-            
+
             // Don't allow dropping onto locked cards
             if (this.model.isCardLocked(element.dataset.id)) {
                 continue;
@@ -2476,13 +2426,13 @@ findDropTarget(e) {
              if (this.model.isNestingDisabled) {
                 continue;
             }
-            
+
             return element;
         }
     }
     return null;
 }
-    
+
     updateTheme(isDarkTheme) {
         OPTIMISM.log(`Updating theme to ${isDarkTheme ? 'dark' : 'light'}`);
         if (isDarkTheme) {
@@ -2495,31 +2445,31 @@ findDropTarget(e) {
     showBackupReminderModal() {
         document.getElementById('backup-reminder-modal').style.display = 'flex';
     }
-    
+
     hideBackupReminderModal() {
         document.getElementById('backup-reminder-modal').style.display = 'none';
     }
-    
+
     setupBackupReminderModal() {
         OPTIMISM.log('Setting up backup reminder modal');
-        
+
         // Get modal elements
         const modal = document.getElementById('backup-reminder-modal');
         const remindLaterButton = document.getElementById('remind-later-button');
         const backupNowButton = document.getElementById('backup-now-button');
-        
+
         // Setup event listeners
         remindLaterButton.addEventListener('click', () => {
             this.hideBackupReminderModal();
             this.model.resetBackupReminder();
         });
-        
+
         backupNowButton.addEventListener('click', () => {
             this.hideBackupReminderModal();
             this.model.resetBackupReminder();
             this.controller.exportData();
         });
-        
+
         OPTIMISM.log('Backup reminder modal set up successfully');
     }
 
@@ -2529,7 +2479,7 @@ findBreadcrumbDropTarget(e) {
     for (let i = 0; i < breadcrumbs.length - 1; i++) { // Skip the last one (current level)
         const breadcrumb = breadcrumbs[i];
         const rect = breadcrumb.getBoundingClientRect();
-        
+
         // Add a bit more tolerance around the element
         const tolerance = 5; // 5px tolerance
         if (e.clientX >= rect.left - tolerance && e.clientX <= rect.right + tolerance &&
@@ -2543,35 +2493,35 @@ findBreadcrumbDropTarget(e) {
 // In view.js, replace the setupSettingsPanel method
 setupSettingsPanel() {
     OPTIMISM.log('Setting up settings panel');
-    
+
     // Toggle settings panel visibility when settings button is clicked
     this.settingsToggle.addEventListener('click', (e) => {
         e.stopPropagation();
         this.controller.toggleSettingsVisibility();
     });
-    
+
     // Create Grid Settings option
     const gridSettingsOption = document.createElement('div');
     gridSettingsOption.className = 'settings-option';
     gridSettingsOption.innerHTML = '<a href="#" class="option-value" id="settings-grid-button">Grid Settings</a>';
-    
+
     // Find the redo button
     const redoButton = document.getElementById('settings-redo-button');
     if (redoButton && redoButton.parentElement) {
         // Insert after redo button
         const nextElement = redoButton.parentElement.nextElementSibling;
-        
+
         // Create "Copy Link" option
         const copyLinkOption = document.createElement('div');
         copyLinkOption.className = 'settings-option';
         copyLinkOption.innerHTML = '<a href="#" class="option-value" id="settings-copy-link-button">Copy Link</a>';
-        
+
         // Create "Lock Images" option
         const lockImagesOption = document.createElement('div');
         lockImagesOption.className = 'settings-option';
-        lockImagesOption.innerHTML = '<a href="#" class="option-value" id="settings-lock-images-button">' + 
+        lockImagesOption.innerHTML = '<a href="#" class="option-value" id="settings-lock-images-button">' +
             (this.model.imagesLocked ? 'Unlock Images' : 'Lock Images') + '</a>';
-        
+
         // Add the new options after redo button
         if (nextElement) {
             this.settingsPanel.insertBefore(lockImagesOption, nextElement);
@@ -2586,7 +2536,7 @@ setupSettingsPanel() {
         // Add the nesting disable option
         const disableNestingOption = document.createElement('div');
         disableNestingOption.className = 'settings-option';
-        disableNestingOption.innerHTML = '<a href="#" class="option-value" id="settings-disable-nesting-button">' + 
+        disableNestingOption.innerHTML = '<a href="#" class="option-value" id="settings-disable-nesting-button">' +
             (this.model.isNestingDisabled ? 'Enable Nesting' : 'Disable Nesting') + '</a>';
 
         // Add the new option after lockImagesOption
@@ -2602,7 +2552,7 @@ setupSettingsPanel() {
             e.stopPropagation();
             this.toggleNestingDisabled();
         });
-        
+
         // Set up event handlers for the new options
         document.getElementById('settings-copy-link-button')?.addEventListener('click', (e) => {
             e.preventDefault();
@@ -2615,7 +2565,7 @@ setupSettingsPanel() {
                     OPTIMISM.logError('Could not copy URL:', err);
                 });
         });
-        
+
         document.getElementById('settings-lock-images-button')?.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -2625,36 +2575,36 @@ setupSettingsPanel() {
         // If we can't find the redo button, just add it to the settings panel
         this.settingsPanel.appendChild(gridSettingsOption);
     }
-    
+
     // Set up event handlers for all settings options
     document.getElementById('settings-undo-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.undo();
     });
-    
+
     document.getElementById('settings-redo-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.redo();
     });
-    
+
     // Add click event for grid settings button
     document.getElementById('settings-grid-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // Show the grid panel
         const gridPanel = document.getElementById('grid-panel');
         if (gridPanel) {
             // Close other panels
             this.stylePanel.style.display = 'none';
             this.settingsPanel.style.display = 'none';
-            
+
             // Toggle grid panel visibility
             const isVisible = gridPanel.style.display === 'block';
             gridPanel.style.display = isVisible ? 'none' : 'block';
-            
+
             // Update selection states if showing
             if (!isVisible) {
                 this.updateGridVisibility(this.model.isGridVisible);
@@ -2662,40 +2612,40 @@ setupSettingsPanel() {
             }
         }
     });
-    
+
     document.getElementById('settings-export-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.exportData();
     });
-    
+
     document.getElementById('settings-export-no-images-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.exportDataWithoutImages();
     });
-    
+
     document.getElementById('settings-import-button')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.confirmationDialog.style.display = 'block';
     });
-    
+
     document.getElementById('settings-debug-toggle')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.toggleDebugPanel();
     });
-    
+
     document.getElementById('settings-theme-toggle')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.controller.toggleTheme();
     });
-    
+
     // Set initial visibility based on model state
     this.updateSettingsVisibility(this.model.isSettingsVisible);
-    
+
     OPTIMISM.log('Settings panel set up successfully');
 }
 
@@ -2704,25 +2654,25 @@ setupSettingsPanel() {
 findHighestImageZIndex() {
     const imageElements = document.querySelectorAll('.image-element-container');
     let maxZIndex = 1; // Default z-index for images
-    
+
     imageElements.forEach(elem => {
         const zIndex = parseInt(elem.style.zIndex) || 1;
         if (zIndex > maxZIndex) {
             maxZIndex = zIndex;
         }
     });
-    
+
     // Cap at 99 to ensure we're always below text elements (which are at 100+)
     return Math.min(maxZIndex, 99);
 }
 
 setupLockImagesToggle() {
     OPTIMISM.log('Setting up lock images toggle');
-    
+
     // Note: We're not creating the button here anymore since it's in the settings panel
     // But we still need to store a reference to the button for updating later
     this.lockImagesButton = document.getElementById('settings-lock-images-button');
-    
+
     OPTIMISM.log('Lock images toggle set up successfully');
 }
 
@@ -2733,7 +2683,7 @@ toggleImagesLocked() {
         if (settingsButton) {
             settingsButton.textContent = isLocked ? "Unlock Images" : "Lock Images";
         }
-        
+
         this.updateImagesLockState();
     });
 }
@@ -2741,14 +2691,14 @@ toggleImagesLocked() {
 updateImagesLockState(isLocked) {
     // Use the provided isLocked value if passed, otherwise use the model's value
     const imagesLocked = isLocked !== undefined ? isLocked : this.model.imagesLocked;
-    
+
     const imageContainers = document.querySelectorAll('.image-element-container');
-    
+
     imageContainers.forEach(container => {
         if (imagesLocked) {
             // Add a class to indicate locked state - we'll use CSS for styling
             container.classList.add('image-locked');
-            
+
             // If an image is currently selected, deselect it
             if (container.classList.contains('selected')) {
                 container.classList.remove('selected');
@@ -2763,7 +2713,7 @@ updateImagesLockState(isLocked) {
             container.classList.remove('image-locked');
         }
     });
-    
+
     // Add CSS to handle pointer events more reliably
     let styleElem = document.getElementById('image-lock-style');
     if (!styleElem) {
@@ -2771,7 +2721,7 @@ updateImagesLockState(isLocked) {
         styleElem.id = 'image-lock-style';
         document.head.appendChild(styleElem);
     }
-    
+
     if (imagesLocked) {
         styleElem.textContent = `
             .image-locked .resize-handle {
@@ -2784,7 +2734,7 @@ updateImagesLockState(isLocked) {
     } else {
         styleElem.textContent = '';
     }
-    
+
     // Update the button text in settings panel
     const settingsButton = document.getElementById('settings-lock-images-button');
     if (settingsButton) {
@@ -2799,14 +2749,14 @@ updateImagesLockState(isLocked) {
 // In view.js - full setupQuickLinks method
 setupQuickLinks() {
     OPTIMISM.log('Setting up quick links container');
-    
+
     // Create the quick links container if it doesn't exist
     if (!this.quickLinksContainer) {
         // Create a fixed-position container for the links
         this.quickLinksContainer = document.createElement('div');
         this.quickLinksContainer.id = 'quick-links-container';
         this.quickLinksContainer.className = 'quick-links-container';
-        
+
         // Style the container for center positioning
         this.quickLinksContainer.style.position = 'absolute';
         this.quickLinksContainer.style.left = '50%';
@@ -2817,10 +2767,10 @@ setupQuickLinks() {
         this.quickLinksContainer.style.height = '100%';
         this.quickLinksContainer.style.top = '0';
         this.quickLinksContainer.style.pointerEvents = 'auto';
-        
+
         // Add it to the title bar
         this.titleBar.appendChild(this.quickLinksContainer);
-        
+
         // Add styles
         // In view.js - update the CSS portion of setupQuickLinks method
 const styleElem = document.createElement('style');
@@ -2838,7 +2788,7 @@ styleElem.textContent = `
         text-overflow: ellipsis;
         white-space: nowrap;
         position: relative; top: 1px;
-       
+
     }
         .quick-link-placeholder {
         color: var(--element-text-color);
@@ -2858,12 +2808,12 @@ styleElem.textContent = `
     .quick-link.drag-highlight,
     .quick-link-placeholder.drag-highlight {
         color: var(--green-text-color) !important;
-       
-       
+
+
     }
     .quick-link.shift-hover {
         color: var(--red-text-color) !important;
-       
+
     }
     .element-container.drag-over {
         border: 1px dashed var(--element-border-color) !important;
@@ -2871,10 +2821,10 @@ styleElem.textContent = `
 `;
 document.head.appendChild(styleElem);
     }
-    
+
     // Render the current quick links
     this.renderQuickLinks();
-    
+
     OPTIMISM.log('Quick links container set up successfully');
 }
 
@@ -2883,15 +2833,15 @@ document.head.appendChild(styleElem);
 // In view.js - update the renderQuickLinks method
 renderQuickLinks() {
     OPTIMISM.log('Rendering quick links');
-    
+
     if (!this.quickLinksContainer) {
         this.setupQuickLinks();
         return;
     }
-    
+
     // Clear existing links
     this.quickLinksContainer.innerHTML = '';
-    
+
     // Check if we have any quick links
     if (this.model.quickLinks.length === 0) {
         // Show placeholder text
@@ -2902,22 +2852,22 @@ renderQuickLinks() {
         placeholderText.style.fontSize = '14px';  // Match other nav links
         placeholderText.style.padding = '4px 8px';
         placeholderText.style.opacity = '0.7';  // Slightly faded
-        
+
         this.quickLinksContainer.appendChild(placeholderText);
         OPTIMISM.log('No quick links, showing placeholder text');
         return;
     }
-    
+
     // Create a flex container for centered alignment
     const linksWrapper = document.createElement('div');
     linksWrapper.style.display = 'flex';
     linksWrapper.style.justifyContent = 'center';
     linksWrapper.style.alignItems = 'center';
     linksWrapper.style.gap = '20px'; // Space between links
-    
+
     // Create a variable to track shift key state
     const shiftKeyState = { pressed: false };
-    
+
     // Add global event listeners for shift key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Shift') {
@@ -2928,7 +2878,7 @@ renderQuickLinks() {
             });
         }
     });
-    
+
     document.addEventListener('keyup', (e) => {
         if (e.key === 'Shift') {
             shiftKeyState.pressed = false;
@@ -2938,25 +2888,25 @@ renderQuickLinks() {
             });
         }
     });
-    
+
     // Render each quick link
     this.model.quickLinks.forEach(link => {
         const quickLink = document.createElement('a');
         quickLink.className = 'quick-link';
         quickLink.dataset.nodeId = link.nodeId;
-        
+
         // Truncate title if needed
         let displayTitle = link.nodeTitle || 'Untitled';
         if (displayTitle.length > 10) {
             displayTitle = displayTitle.substring(0, 10) + '...';
         }
-        
+
         // Add expiry info to title attribute
         const editsUntilExpiry = link.expiresAt - this.model.editCounter;
         quickLink.title = `${link.nodeTitle} (expires in ${editsUntilExpiry} edits) - Shift+click to remove`;
-        
+
         quickLink.textContent = displayTitle;
-        
+
         // Check if we're in the critical last 10 edits
         if (editsUntilExpiry <= 10) {
             // For the last 10 edits, use red text and full opacity
@@ -2968,23 +2918,23 @@ renderQuickLinks() {
             const opacity = Math.max(0.3, remainingLifePercentage);
             quickLink.style.opacity = opacity.toFixed(2);
         }
-        
+
         // Add hover event listeners for shift key state
         quickLink.addEventListener('mouseenter', () => {
             if (shiftKeyState.pressed) {
                 quickLink.classList.add('shift-hover');
             }
         });
-        
+
         quickLink.addEventListener('mouseleave', () => {
             quickLink.classList.remove('shift-hover');
         });
-        
+
         // In view.js - update the click handler in renderQuickLinks method
 quickLink.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Check if shift key is pressed for removal
     if (e.shiftKey) {
       try {
@@ -2995,7 +2945,7 @@ quickLink.addEventListener('click', (e) => {
       }
       return;
     }
-    
+
     // Refresh the expiry of the link when clicked
     try {
       OPTIMISM.log(`Refreshing quick link expiry on click: ${link.nodeId}`);
@@ -3003,7 +2953,7 @@ quickLink.addEventListener('click', (e) => {
     } catch (error) {
       OPTIMISM.logError(`Error refreshing quick link expiry: ${error}`);
     }
-    
+
     // Normal click - navigate to the node
     try {
       OPTIMISM.log(`Navigating to quick link node: ${link.nodeId}`);
@@ -3013,13 +2963,13 @@ quickLink.addEventListener('click', (e) => {
       OPTIMISM.logError(`Error navigating to quick link: ${error}`);
     }
   });
-        
+
         linksWrapper.appendChild(quickLink);
     });
-    
+
     // Add the wrapper to the container
     this.quickLinksContainer.appendChild(linksWrapper);
-    
+
     OPTIMISM.log(`Rendered ${this.model.quickLinks.length} quick links`);
 }
 
@@ -3027,7 +2977,7 @@ quickLink.addEventListener('click', (e) => {
 setupQuickLinkDragEvents() {
     // We no longer need drag and drop for quick links
     // This method is now mostly empty since we're using shift+click instead
-    
+
     // Prevent quick links from being draggable
     document.addEventListener('dragstart', (e) => {
         if (e.target.classList.contains('quick-link')) {
@@ -3035,7 +2985,7 @@ setupQuickLinkDragEvents() {
             e.stopPropagation();
         }
     });
-    
+
     OPTIMISM.log('Quick link drag events set up successfully');
 }
 
@@ -3044,20 +2994,20 @@ isOverQuickLinksArea(e) {
     // Check if the event is over the title bar (where the quick links are)
     const titleBar = document.getElementById('title-bar');
     if (!titleBar) return false;
-    
+
     const rect = titleBar.getBoundingClientRect();
-    
+
     // Check if mouse position is within the title bar bounds
     if (e.clientX >= rect.left && e.clientX <= rect.right &&
         e.clientY >= rect.top && e.clientY <= rect.bottom) {
-        
+
         // Check if it's in the middle third of the title bar (approximate quick links area)
         const leftBound = rect.left + rect.width * 0.3;
         const rightBound = rect.right - rect.width * 0.3;
-        
+
         return e.clientX >= leftBound && e.clientX <= rightBound;
     }
-    
+
     return false;
 }
 
@@ -3065,13 +3015,13 @@ isOverQuickLinksArea(e) {
 updateCardLockState(cardId, isLocked) {
     const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
     if (!container) return;
-    
+
     if (isLocked) {
         container.classList.add('card-locked');
     } else {
         container.classList.remove('card-locked');
     }
-    
+
     // Update style panel if the card is currently selected
     if (this.model.selectedElement === cardId) {
         const lockOption = document.querySelector(`.option-value[data-lock="${isLocked ? 'true' : 'false'}"]`);
@@ -3080,7 +3030,7 @@ updateCardLockState(cardId, isLocked) {
             lockOption.classList.add('selected');
         }
     }
-    
+
     // Add CSS to handle locked cards
     this.updateLockedCardStyles();
 }
@@ -3092,7 +3042,7 @@ updateLockedCardStyles() {
         styleElem.id = 'card-lock-style';
         document.head.appendChild(styleElem);
     }
-    
+
     styleElem.textContent = `
         .card-locked {
             cursor: default !important;
@@ -3123,14 +3073,14 @@ updateLockedCardStyles() {
 
 setupInboxPanel() {
     OPTIMISM.log('Setting up inbox panel');
-    
+
     // Create the inbox toggle button if it doesn't exist
     if (!this.inboxToggle) {
         this.inboxToggle = document.createElement('button');
         this.inboxToggle.id = 'inbox-toggle';
         this.inboxToggle.className = 'nav-link';
         this.inboxToggle.textContent = 'Inbox';
-        
+
         // Insert before the settings toggle
         const rightControls = document.getElementById('right-controls');
         if (rightControls && this.settingsToggle) {
@@ -3139,7 +3089,7 @@ setupInboxPanel() {
             rightControls.appendChild(this.inboxToggle);
         }
     }
-    
+
     // Create the inbox panel if it doesn't exist
     if (!this.inboxPanel) {
         this.inboxPanel = document.createElement('div');
@@ -3150,53 +3100,53 @@ setupInboxPanel() {
             <div class="inbox-container"></div>
         `;
         document.body.appendChild(this.inboxPanel);
-        
+
         }
-    
+
     // Set up click event for toggle
     this.inboxToggle.addEventListener('click', (e) => {
         e.stopPropagation();
         this.controller.toggleInboxVisibility();
     });
-    
+
     // Initial rendering based on current state
     this.updateInboxVisibility(this.model.isInboxVisible);
-    
+
     // Add keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         // Only handle when not in text input
-        if (document.activeElement.tagName !== 'TEXTAREA' && 
+        if (document.activeElement.tagName !== 'TEXTAREA' &&
             document.activeElement.tagName !== 'INPUT') {
-                
+
             // Add blank card with 'A' key
             if (e.key.toLowerCase() === 'a') {
                 e.preventDefault();
                 this.controller.addBlankCardToInbox();
             }
-            
-            
+
+
         }
 
-        if (e.key.toLowerCase() === 'g' && 
-    document.activeElement.tagName !== 'TEXTAREA' && 
+        if (e.key.toLowerCase() === 'g' &&
+    document.activeElement.tagName !== 'TEXTAREA' &&
     document.activeElement.tagName !== 'INPUT') {
     e.preventDefault();
     this.controller.toggleGridVisibility();
 }
 
-if (e.key.toLowerCase() === 'i' && 
-document.activeElement.tagName !== 'TEXTAREA' && 
+if (e.key.toLowerCase() === 'i' &&
+document.activeElement.tagName !== 'TEXTAREA' &&
 document.activeElement.tagName !== 'INPUT') {
 e.preventDefault();
 this.controller.toggleInboxVisibility();
 }
 
     });
-    
+
     // Set up workspace drop handler for inbox cards
     this.workspace.addEventListener('dragover', (e) => {
         e.preventDefault();
-        
+
         // Check if we're dragging an inbox card (by checking the source element)
         const inboxCard = e.target.closest && e.target.closest('.inbox-card');
         if (inboxCard) {
@@ -3206,30 +3156,30 @@ this.controller.toggleInboxVisibility();
             }
         }
     });
-    
+
     this.workspace.addEventListener('drop', (e) => {
         // If we're dragging from inbox, handle the drop
         if (this.inboxDragTarget) {
             e.preventDefault();
             e.stopPropagation();
-            
+
             // Get the card ID from the dataTransfer object
             const cardId = e.dataTransfer.getData('text/plain');
-            
+
             if (cardId) {
                 // Get the position relative to the workspace
                 const rect = this.workspace.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
-                
+
                 OPTIMISM.log(`Dropping inbox card ${cardId} onto workspace at (${x}, ${y})`);
-                
+
                 // Move the card from the inbox to the canvas
                 this.controller.moveFromInboxToCanvas(cardId, x, y);
             }
         }
     });
-    
+
     OPTIMISM.log('Inbox panel set up successfully');
 }
 
@@ -3239,27 +3189,27 @@ updateInboxVisibility(isVisible) {
         this.setupInboxPanel();
         return;
     }
-    
+
     if (isVisible) {
         // Close other LEFT-SIDE panels only
         if (this.prioritiesPanel) {
             this.prioritiesPanel.style.display = 'none';
         }
-        
+
         // Don't close right-side panels
         // this.stylePanel.style.display = 'none';
         // this.settingsPanel.style.display = 'none';
-        
+
         // CRITICAL: Apply direct forceful styling to ensure inbox appears above everything
-        this.inboxPanel.style.display = 'block'; 
+        this.inboxPanel.style.display = 'block';
         this.inboxPanel.style.zIndex = '1000'; // Use a very high z-index
         this.inboxPanel.style.position = 'fixed';
         this.inboxPanel.style.top = '41px';
         this.inboxPanel.style.left = '0'; // Now on the left
         this.inboxPanel.style.right = 'auto';
-        
+
         this.inboxPanel.style.width = 'var(--panel-width)';
-        
+
         // Render content
         this.renderInboxPanel();
     } else {
@@ -3272,12 +3222,12 @@ renderInboxPanel() {
         this.setupInboxPanel();
         return;
     }
-    
+
     const container = this.inboxPanel.querySelector('.inbox-container');
     if (!container) return;
-    
+
     container.innerHTML = '';
-    
+
     if (this.model.inboxCards.length === 0) {
         const hint = document.createElement('div');
         hint.className = 'inbox-hint';
@@ -3285,14 +3235,14 @@ renderInboxPanel() {
         container.appendChild(hint);
         return;
     }
-    
+
     // Render each inbox card
     this.model.inboxCards.forEach(card => {
         const cardElement = document.createElement('div');
         cardElement.className = 'inbox-card';
         cardElement.dataset.id = card.id;
         cardElement.dataset.type = card.type;
-        
+
         if (card.type === 'text') {
             // Special handling for the first card if it's empty (new blank card)
             if (card.id === this.model.inboxCards[0].id && (!card.text || card.text.trim() === '')) {
@@ -3300,15 +3250,15 @@ renderInboxPanel() {
                 const textarea = document.createElement('textarea');
                 textarea.className = 'inbox-card-edit';
                 textarea.placeholder = 'Type here...';
-                
+
                 // Handle blur event to save content
                 textarea.addEventListener('blur', () => {
                     const text = textarea.value;
                     this.controller.updateInboxCard(card.id, { text });
                 });
-                
+
                 cardElement.appendChild(textarea);
-                
+
                 // Focus the textarea after rendering
                 setTimeout(() => {
                     textarea.focus();
@@ -3318,7 +3268,7 @@ renderInboxPanel() {
                 const content = document.createElement('div');
                 content.className = 'inbox-card-content';
                 // Truncate text even more for the display
-                const truncatedText = card.text ? 
+                const truncatedText = card.text ?
                     (card.text.length > 100 ? card.text.substring(0, 100) + '...' : card.text) : '';
                 content.textContent = truncatedText;
                 cardElement.appendChild(content);
@@ -3327,7 +3277,7 @@ renderInboxPanel() {
             // Image card
             const img = document.createElement('img');
             img.className = 'inbox-card-image';
-            
+
             // Load image data
             this.model.getImageData(card.imageDataId)
                 .then(imageData => {
@@ -3341,41 +3291,41 @@ renderInboxPanel() {
                     OPTIMISM.logError(`Error loading image for inbox card ${card.id}:`, error);
                     img.alt = 'Error loading image';
                 });
-            
+
             cardElement.appendChild(img);
         }
-        
+
         // Make card draggable
         cardElement.draggable = true;
-        
+
         // Add drag event handlers
         cardElement.addEventListener('dragstart', (e) => {
             OPTIMISM.log(`Starting drag of inbox card ${card.id}`);
-            
+
             // Store the card ID in the dataTransfer object
             e.dataTransfer.setData('text/plain', card.id);
-            
+
             // Set drag effect
             e.dataTransfer.effectAllowed = 'move';
-            
+
             // Add visual indicator
             cardElement.classList.add('dragging');
-            
+
             // Store reference to dragged element
             this.inboxDragTarget = cardElement;
-            
+
             // Hide drop zone indicator
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'none';
             }
         });
-        
+
         cardElement.addEventListener('dragend', (e) => {
             OPTIMISM.log(`Ending drag of inbox card ${card.id}`);
             cardElement.classList.remove('dragging');
             this.inboxDragTarget = null;
         });
-        
+
         // Double-click to edit text cards
         if (card.type === 'text') {
             cardElement.addEventListener('dblclick', (e) => {
@@ -3384,30 +3334,30 @@ renderInboxPanel() {
                 const textarea = document.createElement('textarea');
                 textarea.className = 'inbox-card-edit';
                 textarea.value = card.text || '';
-                
+
                 // Handle blur event to save content
                 textarea.addEventListener('blur', () => {
                     const text = textarea.value;
                     this.controller.updateInboxCard(card.id, { text });
                 });
-                
+
                 cardElement.appendChild(textarea);
                 textarea.focus();
             });
         }
-        
+
         container.appendChild(cardElement);
     });
 }
 
 setupInboxDragEvents() {
     OPTIMISM.log('Setting up inbox drag events');
-    
+
     // Set up workspace drop handler for inbox cards
     this.workspace.addEventListener('dragover', (e) => {
         e.preventDefault();
-        
-        // Check if we're dragging an inbox card
+
+        // Check if we're dragging an inbox card (by checking the source element)
         const inboxCard = e.target.closest && e.target.closest('.inbox-card');
         if (inboxCard) {
             // Hide the image drop zone
@@ -3416,10 +3366,10 @@ setupInboxDragEvents() {
             }
         }
     });
-    
+
     this.workspace.addEventListener('drop', (e) => {
         e.preventDefault();
-        
+
         // Get the inbox card element that was dragged (if any)
         const inboxCard = e.target.closest && e.target.closest('.inbox-card');
         if (inboxCard) {
@@ -3429,13 +3379,13 @@ setupInboxDragEvents() {
                 const rect = this.workspace.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
-                
+
                 OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
                 this.controller.moveFromInboxToCanvas(cardId, x, y);
             }
         }
     });
-    
+
     OPTIMISM.log('Inbox drag events setup complete');
 }
 
@@ -3443,35 +3393,35 @@ setupInboxDragEvents() {
 
 setupGridPanel() {
     OPTIMISM.log('Setting up grid panel');
-    
+
     // We'll remove the grid toggle button from the nav bar
     // and add it to settings panel instead
-    
+
     // Set up grid on/off options
     const gridOptions = document.querySelectorAll('.option-value[data-grid]');
     gridOptions.forEach(option => {
         option.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
+
             const isVisible = option.dataset.grid === 'on';
             if (isVisible !== this.model.isGridVisible) {
                 this.controller.toggleGridVisibility();
             }
-            
+
             // Update selected option
             gridOptions.forEach(opt => opt.classList.remove('selected'));
             option.classList.add('selected');
         });
     });
-    
+
     // Set up the row and column input controls
     this.setupGridInputControls();
-    
+
     // Set initial selection states
     this.updateGridVisibility(this.model.isGridVisible);
     this.updateGridInputValues();
-    
+
     OPTIMISM.log('Grid panel setup complete');
 }
 
@@ -3481,19 +3431,19 @@ updateGridVisibility(isVisible) {
     const gridOptions = document.querySelectorAll('.option-value[data-grid]');
     gridOptions.forEach(option => {
         option.classList.remove('selected');
-        if ((option.dataset.grid === 'on' && isVisible) || 
+        if ((option.dataset.grid === 'on' && isVisible) ||
             (option.dataset.grid === 'off' && !isVisible)) {
             option.classList.add('selected');
         }
     });
-    
+
     // Show or hide the grid
     if (isVisible) {
         this.renderGrid();
     } else {
         this.clearGrid();
     }
-    
+
     // Note: We no longer toggle panel visibility here
     // Panel visibility is controlled separately in toggleGridPanel
 }
@@ -3510,13 +3460,13 @@ updateGridLayoutSelection(layout) {
 
 renderGrid() {
     OPTIMISM.log(`Rendering grid with layout: ${this.model.gridLayout}`);
-    
+
     // Clear any existing grid
     this.clearGrid();
-    
+
     // If grid is not visible, don't render
     if (!this.model.isGridVisible) return;
-    
+
     // Create grid container if it doesn't exist
     let gridContainer = document.getElementById('grid-container');
     if (!gridContainer) {
@@ -3531,14 +3481,14 @@ renderGrid() {
         gridContainer.style.pointerEvents = 'none';
         this.workspace.appendChild(gridContainer);
     }
-    
+
     // Get workspace dimensions
     const workspaceWidth = this.workspace.clientWidth;
     const workspaceHeight = this.workspace.clientHeight;
-    
+
     // Parse layout pattern (rows x columns)
     const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
-    
+
     // Create vertical grid lines (for columns)
     if (columns > 1) {
         for (let i = 1; i < columns; i++) {
@@ -3549,7 +3499,7 @@ renderGrid() {
             gridContainer.appendChild(vertLine);
         }
     }
-    
+
     // Create horizontal grid lines (for rows)
     if (rows > 1) {
         for (let i = 1; i < rows; i++) {
@@ -3560,7 +3510,7 @@ renderGrid() {
             gridContainer.appendChild(horzLine);
         }
     }
-    
+
     OPTIMISM.log('Grid rendered successfully');
 }
 
@@ -3574,20 +3524,20 @@ clearGrid() {
 
 toggleGridPanel() {
     OPTIMISM.log('Toggling grid panel visibility');
-    
+
     const gridPanel = document.getElementById('grid-panel');
     if (gridPanel) {
         const isVisible = gridPanel.style.display === 'block';
-        
+
         // Toggle visibility
         gridPanel.style.display = isVisible ? 'none' : 'block';
-        
+
         // If opening the panel, refresh selection states
         if (!isVisible) {
             // Close other RIGHT-SIDE panels only
             this.stylePanel.style.display = 'none';
             this.settingsPanel.style.display = 'none';
-            
+
             // Don't close left-side panels
             // if (this.inboxPanel) {
             //     this.inboxPanel.style.display = 'none';
@@ -3595,12 +3545,12 @@ toggleGridPanel() {
             // if (this.prioritiesPanel) {
             //     this.prioritiesPanel.style.display = 'none';
             // }
-            
+
             // Update selection states to reflect current settings
             this.updateGridVisibility(this.model.isGridVisible);
             this.updateGridLayoutSelection(this.model.gridLayout);
         }
-        
+
         OPTIMISM.log(`Grid panel visibility set to: ${!isVisible}`);
     }
 }
@@ -3612,23 +3562,23 @@ setupGridInputControls() {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
+
             // Determine if we're changing rows or columns (index 0 = rows, index 1 = columns)
             const isRows = index === 0;
-            
+
             // Get current layout
             const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
-            
+
             // Calculate new values with minimum of 1
             let newRows = rows;
             let newColumns = columns;
-            
+
             if (isRows) {
                 newRows = Math.max(1, rows - 1);
             } else {
                 newColumns = Math.max(1, columns - 1);
             }
-            
+
             // Set new layout if changed
             if (newRows !== rows || newColumns !== columns) {
                 const newLayout = `${newRows}x${newColumns}`;
@@ -3636,30 +3586,30 @@ setupGridInputControls() {
             }
         });
     });
-    
+
     // Get all increase buttons for rows and columns
     const increaseButtons = document.querySelectorAll('.grid-btn-increase');
     increaseButtons.forEach((btn, index) => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
+
             // Determine if we're changing rows or columns (index 0 = rows, index 1 = columns)
             const isRows = index === 0;
-            
+
             // Get current layout
             const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
-            
+
             // Calculate new values with maximums (5 for rows, 10 for columns)
             let newRows = rows;
             let newColumns = columns;
-            
+
             if (isRows) {
                 newRows = Math.min(40, rows + 1);
             } else {
                 newColumns = Math.min(60, columns + 1);
             }
-            
+
             // Set new layout if changed
             if (newRows !== rows || newColumns !== columns) {
                 const newLayout = `${newRows}x${newColumns}`;
@@ -3672,11 +3622,11 @@ setupGridInputControls() {
 updateGridInputValues() {
     // Get the current grid layout
     const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
-    
+
     // Update the display values
     const rowsValue = document.getElementById('grid-rows-value');
     const columnsValue = document.getElementById('grid-columns-value');
-    
+
     if (rowsValue) rowsValue.textContent = rows;
     if (columnsValue) columnsValue.textContent = columns;
 }
@@ -3695,13 +3645,13 @@ updateSplitViewLayout(isEnabled) {
         this.rightViewport.remove();
         this.rightViewport = null;
         if (this.resizeDivider) { this.resizeDivider.remove(); this.resizeDivider = null; }
-    
+
         // CHANGE: Restore original workspace positioning and width
         this.workspace.style.left = 'var(--panel-width)';
         this.workspace.style.width = 'calc(100vw - 2 * var(--panel-width))';
         this.workspace.style.position = 'absolute'; // Ensure it's absolute
         this.workspace.style.overflow = 'auto'; // ADDED: Restore overflow to 'auto'
-    
+
         this.renderWorkspace();
         if (this.model.isInboxVisible) { setTimeout(() => { this.updateInboxVisibility(true); }, 10); }
         OPTIMISM.log('VIEW: Split view removed successfully');
@@ -3799,10 +3749,10 @@ updateSplitViewLayout(isEnabled) {
 // Update this method to ensure the shadow is always present
 updateRightViewport(selectedElementId) {
     if (!this.rightViewport || !this.model.isSplitViewEnabled) return;
-    
+
     // Clear previous content
     this.rightViewportContent.innerHTML = '';
-    
+
     // If no element is selected or the selected element is the same as the current node,
     // show placeholder
     if (!selectedElementId || selectedElementId === this.model.currentNode.parentId) {
@@ -3813,12 +3763,12 @@ updateRightViewport(selectedElementId) {
         this.rightViewportContent.style.opacity = '0.5';
         this.rightViewportContent.textContent = 'Select a card to view contents';
         this.model.previewNodeId = null;
-        
+
         // Ensure shadow is visible even with placeholder content
         this.addShadowToRightViewport();
         return;
     }
-    
+
     // Check if the element has children
     if (!this.model.hasChildren(selectedElementId)) {
         this.rightViewportContent.style.display = 'flex';
@@ -3828,33 +3778,33 @@ updateRightViewport(selectedElementId) {
         this.rightViewportContent.style.opacity = '0.5';
         this.rightViewportContent.textContent = 'This card has no content';
         this.model.previewNodeId = null;
-        
+
         // Ensure shadow is visible even with placeholder content
         this.addShadowToRightViewport();
         return;
     }
-    
+
     // Get the child node data
     const childNode = this.model.currentNode.children[selectedElementId];
     if (!childNode) {
         this.rightViewportContent.textContent = 'Could not load content';
         this.model.previewNodeId = null;
-        
+
         // Ensure shadow is visible even with error message
         this.addShadowToRightViewport();
         return;
     }
-    
+
     // Store the preview node ID for later navigation
     this.model.previewNodeId = selectedElementId;
-    
+
     // Reset content area styling
     this.rightViewportContent.style.display = 'block';
     this.rightViewportContent.style.justifyContent = 'normal';
     this.rightViewportContent.style.alignItems = 'normal';
     this.rightViewportContent.style.color = 'var(--element-text-color)';
     this.rightViewportContent.style.opacity = '1';
-    
+
     // Render the child elements in the right viewport
     this.renderPreviewContent(childNode);
 }
@@ -3865,14 +3815,14 @@ renderPreviewContent(node) {
         this.addShadowToRightViewport(); // Ensure shadow is visible
         return;
     }
-    
+
     // Clear the content area
     this.rightViewportContent.innerHTML = '';
     this.rightViewportContent.style.display = 'block';
     this.rightViewportContent.style.textAlign = 'left';
     this.rightViewportContent.style.position = 'relative';
     this.rightViewportContent.style.overflow = 'hidden';
-    
+
     // Create a solid background first
     const background = document.createElement('div');
     background.style.position = 'absolute';
@@ -3883,14 +3833,14 @@ renderPreviewContent(node) {
     background.style.backgroundColor = 'var(--bg-color)';
     background.style.zIndex = '0';
     this.rightViewportContent.appendChild(background);
-    
+
     // Create a container for the elements
     const elementsContainer = document.createElement('div');
     elementsContainer.style.position = 'relative';
     elementsContainer.style.width = '100%';
     elementsContainer.style.height = '100%';
     elementsContainer.style.zIndex = '1';
-    
+
     // Sort elements: images before text
     const sortedElements = [...node.elements].sort((a, b) => {
         if (a.type === 'image' && b.type === 'text') return -1;
@@ -3900,7 +3850,7 @@ renderPreviewContent(node) {
         }
         return 0;
     });
-    
+
     // Create a preview version of each element
     sortedElements.forEach(element => {
         try {
@@ -3913,20 +3863,20 @@ renderPreviewContent(node) {
             container.style.top = `${element.y}px`;
             container.style.width = `${element.width || 200}px`;
             container.style.height = `${element.height || 100}px`;
-            
+
             // Make elements clickable but without drag capability
             container.style.pointerEvents = 'auto';
             container.style.cursor = 'pointer';
-            
+
             // Add click handler for navigation
             container.addEventListener('click', (e) => {
                 e.stopPropagation(); // Prevent triggering the viewport click
-                
+
                 // If we have a preview node, navigate to it (one level down)
                 if (this.model.previewNodeId) {
                     // Navigate to the current preview node (parent of this element)
                     this.controller.navigateToElement(this.model.previewNodeId);
-                    
+
                     // After navigating, select this element to preview its contents (if it has any)
                     if (this.model.hasChildren(element.id)) {
                         // Find the element in the left viewport
@@ -3944,15 +3894,15 @@ renderPreviewContent(node) {
                     }
                 }
             });
-            
+
             // Add visual indicator for cards with children
             if (this.model.hasChildren(element.id)) {
                 container.classList.add('has-children');
-                
+
                 // For all elements with children, apply the underline style directly
                 container.style.textDecoration = 'underline';
             }
-            
+
             if (element.type === 'text') {
                 // Create text content
                 const textDisplay = document.createElement('div');
@@ -3965,7 +3915,7 @@ renderPreviewContent(node) {
                 textDisplay.style.color = 'var(--element-text-color)';
                 textDisplay.style.fontSize = '14px'; // Default size
                 textDisplay.style.backgroundColor = 'transparent';
-                
+
                 // Apply text styling
                 if (element.style) {
                     // Text size
@@ -3975,14 +3925,14 @@ renderPreviewContent(node) {
                         textDisplay.style.fontSize = '36px';
                         textDisplay.style.fontWeight = 'bold';
                     }
-                    
+
                     // Text color
                     if (element.style.textColor === 'red') {
                         textDisplay.style.color = 'var(--red-text-color)';
                     } else if (element.style.textColor === 'green') {
                         textDisplay.style.color = 'var(--green-text-color)';
                     }
-                    
+
                     // Header formatting
                     if (element.style.hasHeader) {
                         textDisplay.innerHTML = this.formatTextWithHeader(element.text || '', true);
@@ -3990,12 +3940,12 @@ renderPreviewContent(node) {
                     } else {
                         textDisplay.innerHTML = this.convertUrlsToLinks(element.text || '');
                     }
-                    
+
                     // Highlight
                     if (element.style.isHighlighted) {
                         textDisplay.classList.add('is-highlighted');
                     }
-                    
+
                     // Border
                     if (element.style.hasBorder) {
                         container.style.border = '1px solid var(--element-border-color)';
@@ -4003,13 +3953,13 @@ renderPreviewContent(node) {
                 } else {
                     textDisplay.innerHTML = this.convertUrlsToLinks(element.text || '');
                 }
-                
+
                 // If this element has children, also apply underline to the text display
                 if (this.model.hasChildren(element.id)) {
                     textDisplay.classList.add('has-children');
                     textDisplay.style.textDecoration = 'underline';
                 }
-                
+
                 container.appendChild(textDisplay);
             } else if (element.type === 'image') {
                 // Create image preview
@@ -4018,7 +3968,7 @@ renderPreviewContent(node) {
                 image.style.width = '100%';
                 image.style.height = '100%';
                 image.style.objectFit = 'contain';
-                
+
                 // Load image data
                 this.model.getImageData(element.imageDataId)
                     .then(imageData => {
@@ -4032,109 +3982,57 @@ renderPreviewContent(node) {
                         OPTIMISM.logError(`Error loading preview image: ${error}`);
                         image.alt = 'Error loading image';
                     });
-                
+
                 container.appendChild(image);
             }
-            
+
             elementsContainer.appendChild(container);
         } catch (error) {
             OPTIMISM.logError(`Error rendering preview element: ${error}`);
         }
     });
-    
+
     this.rightViewportContent.appendChild(elementsContainer);
-    
+
     // Apply global styles to ensure consistent styling for nested content
     this.updateRightPaneNestedItemStyles();
-    
+
     // Use our helper method to ensure the shadow is always present
     this.addShadowToRightViewport();
-}
-
-// Add a new method to set up the split view toggle
-setupSplitViewToggle() {
-    OPTIMISM.log('Setting up split view toggle');
-    
-    // First, remove any existing split view toggle buttons to avoid duplicates
-    const existingButton = document.getElementById('split-view-toggle');
-    if (existingButton) {
-        existingButton.remove();
-    }
-    
-    // Create a new toggle button
-    const splitViewToggle = document.createElement('button');
-    splitViewToggle.id = 'split-view-toggle';
-    splitViewToggle.className = 'nav-link';
-    splitViewToggle.textContent = this.model.isSplitViewEnabled ? 'Hide Split View' : 'Show Split View';
-    
-    // Add click event handler
-    splitViewToggle.addEventListener('click', () => {
-        OPTIMISM.log('Split view toggle button clicked');
-        
-        // Toggle the state directly for immediate visual feedback
-        const newState = !this.model.isSplitViewEnabled;
-        
-        // Update button text immediately
-        splitViewToggle.textContent = newState ? 'Hide Split View' : 'Show Split View';
-        
-        // Update the view
-        this.updateSplitViewLayout(newState);
-        
-        // Update the model via the controller
-        this.controller.toggleSplitView();
-    });
-    
-    // Add the button to the right controls section
-    const rightControls = document.getElementById('right-controls');
-    if (rightControls) {
-        // Add before the inbox toggle
-        if (this.inboxToggle) {
-            rightControls.insertBefore(splitViewToggle, this.inboxToggle);
-        } else {
-            rightControls.appendChild(splitViewToggle);
-        }
-    }
-    
-    // Create split view if it's enabled
-    if (this.model.isSplitViewEnabled) {
-        this.updateSplitViewLayout(true);
-    }
-    
-    OPTIMISM.log('Split view toggle set up successfully');
 }
 
 // Add a method to ensure panels have the proper z-index
 ensurePanelZIndices() {
     // Make sure all panels have a z-index higher than the right viewport and Arena
     const panelZIndex = 250; // Higher than right viewport's 150 and Arena's 150
-    
+
     // Style panel
     if (this.stylePanel) {
         this.stylePanel.style.zIndex = panelZIndex;
     }
-    
+
     // Settings panel
     if (this.settingsPanel) {
         this.settingsPanel.style.zIndex = panelZIndex;
     }
-    
+
     // Inbox panel
     if (this.inboxPanel) {
         this.inboxPanel.style.zIndex = panelZIndex;
     }
-    
+
     // Grid panel
     const gridPanel = document.getElementById('grid-panel');
     if (gridPanel) {
         gridPanel.style.zIndex = panelZIndex;
     }
-    
+
     // Confirmation dialog
     const confirmationDialog = document.getElementById('confirmation-dialog');
     if (confirmationDialog) {
         confirmationDialog.style.zIndex = panelZIndex + 100; // Even higher
     }
-    
+
     // Backup reminder modal
     const backupReminderModal = document.getElementById('backup-reminder-modal');
     if (backupReminderModal) {
@@ -4208,40 +4106,6 @@ setupResizeDivider() {
     });
 }
 
-// Add this new method to the CanvasView class
-updateRightPaneNestedItemStyles() {
-    // Remove any existing style
-    const existingStyle = document.getElementById('right-pane-nested-styles');
-    if (existingStyle) {
-        existingStyle.remove();
-    }
-    
-    // Create new style element
-    const styleElement = document.createElement('style');
-    styleElement.id = 'right-pane-nested-styles';
-    styleElement.textContent = `
-        /* Ensure all elements with nested content have underline */
-        .preview-element-container.has-children {
-            text-decoration: underline !important;
-        }
-        
-        /* Ensure text displays with nested content have underline */
-        .preview-text-display.has-children {
-            text-decoration: underline !important;
-        }
-        
-        /* Ensure links in text with nested content maintain underline */
-        .preview-text-display.has-children a {
-            text-decoration: underline !important;
-        }
-    `;
-    
-    // Add to document head
-    document.head.appendChild(styleElement);
-    
-    OPTIMISM.log('Updated right pane nested item styles');
-}
-
 autoSizeElement(container, textarea) {
     // First, create a hidden div to measure text dimensions
     let measurer = document.getElementById('text-size-measurer');
@@ -4258,99 +4122,63 @@ autoSizeElement(container, textarea) {
         measurer.style.overflow = 'hidden';
         document.body.appendChild(measurer);
     }
-    
+
     // Copy styling from the textarea to the measurer
     const computedStyle = window.getComputedStyle(textarea);
-    
+
     measurer.style.fontFamily = computedStyle.fontFamily;
     measurer.style.fontSize = computedStyle.fontSize;
     measurer.style.fontWeight = computedStyle.fontWeight;
     measurer.style.lineHeight = computedStyle.lineHeight;
     measurer.style.letterSpacing = computedStyle.letterSpacing;
-    
+
     // Calculate maximum width (30% of window width)
     const maxWidth = Math.floor(window.innerWidth * 0.3);
-    
+
     // First calculate width with no constraints to see minimum needed width
     measurer.style.maxWidth = 'none';
     measurer.style.width = 'auto';
-    
+
     // Set the measurer's content to the textarea's content, replacing line breaks with <br>
     // We need to use innerHTML to properly handle line breaks
     measurer.innerHTML = textarea.value.replace(/\n/g, '<br>');
-    
+
     // Get the width the text would naturally take (up to max width)
     let naturalWidth = Math.min(measurer.scrollWidth + 20, maxWidth); // Add 20px padding
-    
+
     // Also calculate height when constrained to this width
     measurer.style.width = `${naturalWidth}px`;
     let contentHeight = measurer.scrollHeight + 20; // Add 20px padding
-    
+
     // Ensure minimum sizes
     naturalWidth = Math.max(naturalWidth, 30);
     contentHeight = Math.max(contentHeight, 30);
-    
+
     // Set the container dimensions
     container.style.width = `${naturalWidth}px`;
     container.style.height = `${contentHeight}px`;
-    
+
     // Clear the measurer for next use
     measurer.innerHTML = '';
-    
+
     OPTIMISM.log(`Auto-sized element to: ${naturalWidth}x${contentHeight}`);
 }
 
 // Add this new method to the CanvasView class
-updateRightPaneNestedItemStyles() {
-    // Remove any existing style
-    const existingStyle = document.getElementById('right-pane-nested-styles');
-    if (existingStyle) {
-        existingStyle.remove();
-    }
-    
-    // Create new style element
-    const styleElement = document.createElement('style');
-    styleElement.id = 'right-pane-nested-styles';
-    styleElement.textContent = `
-        /* Ensure all elements with nested content have underline */
-        .preview-element-container.has-children {
-            text-decoration: underline !important;
-        }
-        
-        /* Ensure text displays with nested content have underline */
-        .preview-text-display.has-children {
-            text-decoration: underline !important;
-        }
-        
-        /* Ensure links in text with nested content maintain underline */
-        .preview-text-display.has-children a {
-            text-decoration: underline !important;
-        }
-    `;
-    
-    // Add to document head
-    document.head.appendChild(styleElement);
-    
-    OPTIMISM.log('Updated right pane nested item styles');
-}
-
-
-
-// Add this new method to the CanvasView class
 setupArenaToggle() {
     OPTIMISM.log('Setting up Are.na toggle');
-    
+
     // Create the toggle button
     const arenaToggle = document.createElement('button');
     arenaToggle.id = 'arena-toggle';
     arenaToggle.className = 'nav-link';
     arenaToggle.textContent = this.model.isArenaVisible ? 'Hide Are.na' : 'Show Are.na';
-    
+
     // Add click event listener
     arenaToggle.addEventListener('click', () => {
         this.controller.toggleArenaView();
     });
-    
+
     // Add button to the right controls section
     const rightControls = document.getElementById('right-controls');
     if (rightControls) {
@@ -4364,35 +4192,35 @@ setupArenaToggle() {
             rightControls.appendChild(arenaToggle);
         }
     }
-    
+
     // Add message event listener to handle image transfers from the iframe
     window.addEventListener('message', async (event) => {
         // Only process messages with our specific type
         if (event.data && event.data.type === 'arenaImageTransfer') {
             OPTIMISM.log('Received image data from Arena iframe');
-            
+
             // Get image data
             const imageData = event.data.imageData;
-            
+
             if (!imageData) {
                 OPTIMISM.logError('No image data received from Arena iframe');
                 return;
             }
-            
+
             try {
                 // Convert data URL to file
                 const res = await fetch(imageData);
                 const blob = await res.blob();
                 const file = new File([blob], 'arena-image.png', { type: 'image/png' });
-                
+
                 // Calculate position in the center of the viewport
                 const rect = this.workspace.getBoundingClientRect();
                 const x = rect.width / 2;
                 const y = rect.height / 2;
-                
+
                 OPTIMISM.log(`Adding Arena image at position (${x}, ${y})`);
                 this.showLoading('Adding image from Are.na...');
-                
+
                 // Add the image to the canvas
                 await this.controller.addImage(file, x, y);
                 OPTIMISM.log('Successfully added Arena image to canvas');
@@ -4403,25 +4231,25 @@ setupArenaToggle() {
                 this.hideLoading();
             }
         }
-        
+
         // Keep the existing message handling for drag events
         else if (event.data && event.data.type === 'arenaImageDragStart') {
             // Store the image URL for later use when dropped
             this.arenaImageBeingDragged = event.data.imageUrl;
-            
+
             // Show the drop zone indicator
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'block';
             }
-            
+
             OPTIMISM.log(`Arena image drag started: ${this.arenaImageBeingDragged}`);
         } else if (event.data && event.data.type === 'arenaImageDragEnd') {
             OPTIMISM.log('Arena image drag ended');
-            
+
             // Don't clear the image URL immediately - wait a moment to allow for the drop
             setTimeout(() => {
                 this.arenaImageBeingDragged = null;
-                
+
                 // Hide the drop zone indicator
                 if (this.dropZoneIndicator) {
                     this.dropZoneIndicator.style.display = 'none';
@@ -4429,12 +4257,12 @@ setupArenaToggle() {
             }, 100);
         }
     });
-    
+
     // Create Arena viewport if it's enabled
     if (this.model.isArenaVisible) {
         this.updateArenaViewLayout(true);
     }
-    
+
     OPTIMISM.log('Are.na toggle set up successfully');
 }
 
@@ -4448,9 +4276,8 @@ updateArenaViewLayout(isEnabled) {
         this.arenaViewport = null;
 
         // Remove the resize divider if it exists
-        if (this.arenaResizeDivider) { 
-            this.arenaResizeDivider.remove(); 
-            this.arenaResizeDivider = null; 
+        if (this.arenaResizeDivider) {
+            this.arenaResizeDivider.remove();
         }
 
         // Restore original workspace positioning, width, AND overflow
@@ -4459,17 +4286,14 @@ updateArenaViewLayout(isEnabled) {
         this.workspace.style.position = 'absolute';
         this.workspace.style.overflow = 'auto';
         this.workspace.style.overflowY = 'auto';
-        this.workspace.style.overflowX = 'hidden';
 
-        this.renderWorkspace();
-        
         // Make sure we enforce scrollbar visibility after render
         setTimeout(() => {
             this.workspace.style.overflow = 'auto';
             this.workspace.style.overflowY = 'auto';
             this.workspace.style.overflowX = 'hidden';
         }, 50);
-        
+
         return;
     }
 
@@ -4487,13 +4311,12 @@ updateArenaViewLayout(isEnabled) {
         this.workspace.style.position = 'absolute';
         this.workspace.style.overflow = 'auto';
         this.workspace.style.overflowY = 'auto';
-        this.workspace.style.overflowX = 'hidden';
 
         // Create the Arena viewport container
         this.arenaViewport = document.createElement('div');
         this.arenaViewport.id = 'arena-viewport';
         this.arenaViewport.className = 'viewport';
-        
+
         // Position and style the viewport
         this.arenaViewport.style.position = 'fixed';
         this.arenaViewport.style.top = '41px';
@@ -4504,18 +4327,18 @@ updateArenaViewLayout(isEnabled) {
         this.arenaViewport.style.overflow = 'hidden';
         this.arenaViewport.style.backgroundColor = 'var(--canvas-bg-color)';
         this.arenaViewport.style.zIndex = '150';
-        
+
         // Create and add the iframe
         const arenaIframe = document.createElement('iframe');
         arenaIframe.id = 'arena-iframe';
         arenaIframe.src = './arena/index.html';
-        
+
         // Set iframe styles
         arenaIframe.style.width = '100%';
         arenaIframe.style.height = '100%';
         arenaIframe.style.border = 'none';
         arenaIframe.style.display = 'block';
-        
+
         // Set iframe attributes
         arenaIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; camera; microphone; payment; geolocation');
         arenaIframe.setAttribute('allowfullscreen', 'true');
@@ -4524,7 +4347,7 @@ updateArenaViewLayout(isEnabled) {
         arenaIframe.setAttribute('referrerpolicy', 'origin');
         arenaIframe.setAttribute('importance', 'high');
         arenaIframe.setAttribute('crossorigin', 'anonymous');
-        
+
         // Add iframe to viewport
         this.arenaViewport.appendChild(arenaIframe);
 
@@ -4533,16 +4356,13 @@ updateArenaViewLayout(isEnabled) {
 
         this.setupArenaCookieHandling();
         this.ensurePanelZIndices();
-        
+
         // Make sure we enforce scrollbar visibility after render
         setTimeout(() => {
             this.workspace.style.overflow = 'auto';
             this.workspace.style.overflowY = 'auto';
-            this.workspace.style.overflowX = 'hidden';
         }, 50);
-        
-        this.renderWorkspace();
-        
+
         OPTIMISM.log(`Arena viewport created with iframe path: ${arenaIframe.src}`);
     }
 
@@ -4559,9 +4379,9 @@ updateArenaViewLayout(isEnabled) {
 setupArenaResizeDivider() {
     // This method is intentionally empty - we've removed the resize functionality for the Arena iframe
     OPTIMISM.log('Arena resize functionality disabled');
-    
-  
-    
+
+
+
 }
 
 setupArenaCookieHandling() {
@@ -4570,7 +4390,7 @@ setupArenaCookieHandling() {
         if (event.data && event.data.type === 'arenaImageDragStart') {
             // Store the image URL for later use when dropped
             this.arenaImageBeingDragged = event.data.imageUrl;
-            
+
             // Show the drop zone indicator
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'block';
@@ -4578,14 +4398,14 @@ setupArenaCookieHandling() {
         } else if (event.data && event.data.type === 'arenaImageDragEnd') {
             // Clear the stored image URL
             this.arenaImageBeingDragged = null;
-            
+
             // Hide the drop zone indicator
             if (this.dropZoneIndicator) {
                 this.dropZoneIndicator.style.display = 'none';
             }
         }
     });
-    
+
     // Check if third-party cookies are enabled
     this.checkThirdPartyCookies();
 }
@@ -4593,7 +4413,7 @@ setupArenaCookieHandling() {
 // Add a method to check if third-party cookies are enabled
 checkThirdPartyCookies() {
     if (!this.arenaViewport) return;
-    
+
     try {
         const iframe = document.getElementById('arena-iframe');
         if (iframe) {
@@ -4602,7 +4422,7 @@ checkThirdPartyCookies() {
                 type: 'cookie-test',
                 value: 'optimism-cookie-test'
             }, '*');
-            
+
             OPTIMISM.log('Sent cookie test message to Are.na iframe');
         }
     } catch (error) {
@@ -4612,36 +4432,36 @@ checkThirdPartyCookies() {
 
 setupPasteHandler() {
     OPTIMISM.log('Setting up paste handler');
-    
+
     // In view.js - modify the paste handler in setupPasteHandler()
 document.addEventListener('paste', async (e) => {
     // Don't handle paste when focus is in a text field
-    if (document.activeElement.tagName === 'TEXTAREA' || 
+    if (document.activeElement.tagName === 'TEXTAREA' ||
         document.activeElement.tagName === 'INPUT') {
         return;
     }
-    
+
     e.preventDefault();
-    
+
     // Get clipboard data
     const clipboardData = e.clipboardData || window.clipboardData;
-    
+
     if (!clipboardData) {
         OPTIMISM.logError('Clipboard data not available');
         return;
     }
-    
+
     // Calculate position at the center of the viewport
     const rect = this.workspace.getBoundingClientRect();
     const x = rect.width / 2;
     const y = rect.height / 2;
-    
+
     OPTIMISM.log(`Processing paste at center position (${x}, ${y})`);
-    
+
     // Check for images in the clipboard
     const items = clipboardData.items;
     let imageHandled = false;
-    
+
     if (items) {
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
@@ -4650,7 +4470,7 @@ document.addEventListener('paste', async (e) => {
                 if (file) {
                     OPTIMISM.log(`Found image in clipboard: ${file.name || 'unnamed'} (${file.type})`);
                     this.showLoading('Adding pasted image...');
-                    
+
                     try {
                         // Add the image using the existing method
                         await this.controller.addImage(file, x, y);
@@ -4668,13 +4488,13 @@ document.addEventListener('paste', async (e) => {
             }
         }
     }
-    
+
     // If no image was found, try getting text
     if (!imageHandled) {
         let text = clipboardData.getData('text/plain');
         if (text && text.trim() !== '') {
             OPTIMISM.log(`Found text in clipboard (${text.length} characters)`);
-            
+
             try {
                 // Create a new text element
                 const element = {
@@ -4692,21 +4512,21 @@ document.addEventListener('paste', async (e) => {
                     },
                     autoSize: true // Flag to indicate this element should auto-size
                 };
-                
+
                 // Create an add element command
                 const command = new AddElementCommand(this.model, element);
-                
+
                 // Execute the command
                 const { result, showBackupReminder } = await this.model.execute(command);
-                
+
                 // Create and render the element
                 const elemDOM = this.createTextElementDOM(element);
-                
+
                 // Auto-size to fit content
                 const textarea = elemDOM.querySelector('.text-element');
                 if (textarea && elemDOM.dataset.autoSize === 'true') {
                     this.autoSizeElement(elemDOM, textarea);
-                    
+
                     // Update the element dimensions in the model
                     this.controller.updateElement(element.id, {
                         width: parseInt(elemDOM.style.width),
@@ -4714,12 +4534,12 @@ document.addEventListener('paste', async (e) => {
                         autoSize: false // Turn off auto-size after initial sizing
                     });
                 }
-                
+
                 // Show backup reminder if needed
                 if (showBackupReminder) {
                     this.showBackupReminderModal();
                 }
-                
+
                 OPTIMISM.log('Successfully added pasted text to canvas');
             } catch (error) {
                 OPTIMISM.logError('Error adding pasted text:', error);
@@ -4730,7 +4550,7 @@ document.addEventListener('paste', async (e) => {
         }
     }
 });
-    
+
     OPTIMISM.log('Paste handler set up successfully');
 }
 
@@ -4761,7 +4581,7 @@ updateSettingsVisibility(isVisible) {
         if (gridPanel) {
             gridPanel.style.display = 'none';
         }
-        
+
         // Don't close left-side panels
         // if (this.inboxPanel) {
         //     this.inboxPanel.style.display = 'none';
@@ -4769,10 +4589,10 @@ updateSettingsVisibility(isVisible) {
         // if (this.prioritiesPanel) {
         //     this.prioritiesPanel.style.display = 'none';
         // }
-        
+
         // Show settings panel
         this.settingsPanel.style.display = 'block';
-        
+
         // Ensure settings panel is on top of split view or Arena
         this.settingsPanel.style.zIndex = '250';
     } else {
@@ -4785,7 +4605,7 @@ updatePanelVisibility(panelName, isVisible) {
     // Determine which side the panel belongs to
     const isLeftPanel = panelName === 'inbox' || panelName === 'priorities';
     const isRightPanel = panelName === 'settings' || panelName === 'style' || panelName === 'grid';
-    
+
     // Only hide panels on the same side
     if (isVisible) {
         if (isLeftPanel) {
@@ -4801,7 +4621,7 @@ updatePanelVisibility(panelName, isVisible) {
             document.getElementById('grid-panel').style.display = 'none';
         }
     }
-    
+
     // Show the requested panel
     switch(panelName) {
         case 'settings':
@@ -4843,7 +4663,7 @@ setupConsistentPanelStyling() {
         this.prioritiesPanel,
         document.getElementById('grid-panel')
     ];
-    
+
     panels.forEach(panel => {
         if (panel) {
             // Ensure proper positioning
@@ -4855,7 +4675,7 @@ setupConsistentPanelStyling() {
             panel.style.zIndex = '250'; // Above split view/Arena
             panel.style.boxSizing = 'border-box';
             panel.style.overflow = 'auto';
-            
+
             // Consistent background and styling
             panel.style.backgroundColor = 'var(--bg-color)';
             panel.style.padding = '20px';
@@ -4877,29 +4697,27 @@ setupPanelStackingContext() {
             top: 41px !important;
             right: 0 !important;
         }
-        
+
         #settings-panel {
             z-index: 1000 !important;
         }
-        
+
         #style-panel {
             z-index: 1000 !important;
         }
-        
+
         #grid-panel {
             z-index: 1000 !important;
         }
-        
+
         /* Make sure viewport elements never cover panels */
-        #right-viewport, 
         #arena-viewport,
-        #resize-divider,
         #arena-resize-divider {
             z-index: 150 !important;
         }
     `;
     document.head.appendChild(stackingStyle);
-    
+
     OPTIMISM.log('Panel stacking context styles applied');
 }
 
@@ -5026,27 +4844,27 @@ updatePrioritiesVisibility(isVisible) {
         this.setupPrioritiesPanel();
         return;
     }
-    
+
     if (isVisible) {
         // Close other LEFT-SIDE panels only
         if (this.inboxPanel) {
             this.inboxPanel.style.display = 'none';
         }
-        
+
         // Don't close right-side panels
         // this.stylePanel.style.display = 'none';
         // this.settingsPanel.style.display = 'none';
-        
+
         // CRITICAL: Apply direct forceful styling to ensure priorities panel appears above everything
-        this.prioritiesPanel.style.display = 'block'; 
+        this.prioritiesPanel.style.display = 'block';
         this.prioritiesPanel.style.zIndex = '1000'; // Use a very high z-index
         this.prioritiesPanel.style.position = 'fixed';
         this.prioritiesPanel.style.top = '41px';
         this.prioritiesPanel.style.left = '0'; // Now on the left
         this.prioritiesPanel.style.right = 'auto';
-        
+
         this.prioritiesPanel.style.width = 'var(--panel-width)';
-        
+
         // Render content
         this.renderPrioritiesPanel();
     } else {
@@ -5060,12 +4878,12 @@ renderPrioritiesPanel() {
         this.setupPrioritiesPanel();
         return;
     }
-    
+
     const container = this.prioritiesPanel.querySelector('.priorities-container');
     if (!container) return;
-    
+
     container.innerHTML = '';
-    
+
     if (this.model.priorityCards.length === 0) {
         const hint = document.createElement('div');
         hint.className = 'priority-hint';
@@ -5073,24 +4891,24 @@ renderPrioritiesPanel() {
         container.appendChild(hint);
         return;
     }
-    
+
     // Render each priority card
     for (const cardId of this.model.priorityCards) {
         // Find the card in the canvas data structure
         const element = this.findElementById(cardId);
         if (!element) continue; // Skip if element not found
-        
+
         const cardElement = document.createElement('div');
         cardElement.className = 'priority-card';
         cardElement.dataset.id = cardId;
         cardElement.dataset.type = element.type;
-        
+
         if (element.type === 'text') {
             // Text card
             const content = document.createElement('div');
             content.className = 'priority-card-content';
             // Truncate text for the display
-            const truncatedText = element.text ? 
+            const truncatedText = element.text ?
                 (element.text.length > 100 ? element.text.substring(0, 100) + '...' : element.text) : '';
             content.textContent = truncatedText;
             cardElement.appendChild(content);
@@ -5098,7 +4916,7 @@ renderPrioritiesPanel() {
             // Image card
             const img = document.createElement('img');
             img.className = 'priority-card-image';
-            
+
             // Load image data
             this.model.getImageData(element.imageDataId)
                 .then(imageData => {
@@ -5112,15 +4930,15 @@ renderPrioritiesPanel() {
                     OPTIMISM.logError(`Error loading image for priority card ${cardId}:`, error);
                     img.alt = 'Error loading image';
                 });
-            
+
             cardElement.appendChild(img);
         }
-        
+
         // Add click event to navigate to card
         cardElement.addEventListener('click', () => {
             this.navigateToCardElement(cardId);
         });
-        
+
         container.appendChild(cardElement);
     }
 }
@@ -5130,7 +4948,7 @@ findElementById(elementId) {
     // First check if the element is in the current node
     const elementInCurrent = this.model.findElement(elementId);
     if (elementInCurrent) return elementInCurrent;
-    
+
     // If not in current node, search through the entire structure
     return this.findElementInNode(this.model.data, elementId);
 }
@@ -5142,7 +4960,7 @@ findElementInNode(node, elementId) {
         const element = node.elements.find(el => el.id === elementId);
         if (element) return element;
     }
-    
+
     // Check in children nodes
     if (node.children) {
         for (const childId in node.children) {
@@ -5151,7 +4969,7 @@ findElementInNode(node, elementId) {
             if (foundElement) return foundElement;
         }
     }
-    
+
     return null;
 }
 
@@ -5159,14 +4977,14 @@ findElementInNode(node, elementId) {
 navigateToCardElement(elementId) {
     // Close the priorities panel first
     this.updatePrioritiesVisibility(false);
-    
+
     // Find the path to the element
     const path = this.findPathToElement(elementId);
     if (!path) {
         OPTIMISM.logError(`Could not find path to element ${elementId}`);
         return;
     }
-    
+
     // First navigate to the parent node
     if (path.parentNodeId) {
         this.controller.navigateToNode(path.parentNodeId).then(success => {
@@ -5188,7 +5006,7 @@ findPathToElement(elementId) {
     if (element) {
         return { parentNodeId: this.model.currentNode.id };
     }
-    
+
     // Otherwise, need to find it recursively
     return this.findPathInNode(this.model.data, elementId, null);
 }
@@ -5202,7 +5020,7 @@ findPathInNode(node, elementId, parentId) {
             return { parentNodeId: node.id };
         }
     }
-    
+
     // Check in children nodes
     if (node.children) {
         for (const childId in node.children) {
@@ -5211,7 +5029,7 @@ findPathInNode(node, elementId, parentId) {
             if (foundPath) return foundPath;
         }
     }
-    
+
     return null;
 }
 
@@ -5228,9 +5046,9 @@ updateSpacerPosition() {
         newSpacer.style.visibility = 'hidden';
         newSpacer.style.pointerEvents = 'none';
         this.workspace.appendChild(newSpacer);
-        
+
         OPTIMISM.log('Created missing content spacer element');
-        
+
         // Use the newly created spacer
         return this.updateSpacerPosition();
     }
@@ -5265,7 +5083,7 @@ hideLeftPanels() {
     // Store current state in model for future reference if needed
     const prioritiesWasVisible = this.model.isPrioritiesVisible;
     const inboxWasVisible = this.model.isInboxVisible;
-    
+
     // Hide Priorities panel if it's visible
     if (this.model.isPrioritiesVisible) {
         if (this.prioritiesPanel) {
@@ -5274,7 +5092,7 @@ hideLeftPanels() {
             OPTIMISM.log('Priorities panel hidden when opening Are.na');
         }
     }
-    
+
     // Hide Inbox panel if it's visible
     if (this.model.isInboxVisible) {
         if (this.inboxPanel) {
@@ -5283,7 +5101,7 @@ hideLeftPanels() {
             OPTIMISM.log('Inbox panel hidden when opening Are.na');
         }
     }
-    
+
     // Save the new state
     this.model.saveAppState().then(() => {
         OPTIMISM.log('Saved app state after hiding left panels');
@@ -5292,6 +5110,6 @@ hideLeftPanels() {
     });
 }
 
-    
-    
+
+
 }
