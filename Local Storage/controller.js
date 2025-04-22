@@ -17,7 +17,7 @@ async initialize() {
         // Initialize export/import manager
         this.exportImportManager = new ExportImportManager(this.model, this.view);
         
-        this.view.renderWorkspace();
+        
         this.view.setupEventListeners();
         this.view.setupDragListeners();
         this.view.setupStylePanel();

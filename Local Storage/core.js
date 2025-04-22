@@ -155,20 +155,20 @@ const OPTIMISM = {
 // Update the init function in core.js
 init: function() {
     OPTIMISM.log('Application starting...');
-    
+
     // Setup global error handlers
     window.addEventListener('error', (event) => {
         OPTIMISM.logError('Uncaught error:', event.error);
     });
-    
+
     window.addEventListener('unhandledrejection', (event) => {
         OPTIMISM.logError('Unhandled promise rejection:', event.reason);
     });
-    
+
     // Store the initial hash for later navigation
     const initialHash = window.location.hash;
     OPTIMISM.log(`Initial URL hash: ${initialHash}`);
-    
+
     // Check for IndexedDB support
     if (!window.indexedDB) {
         OPTIMISM.logError('IndexedDB not supported', new Error('Browser does not support IndexedDB'));
@@ -182,81 +182,129 @@ init: function() {
         document.getElementById('loading-status').textContent = 'Initialization timed out. Please reset database and reload.';
         document.getElementById('reset-db-button').style.display = 'block';
         document.getElementById('reset-db-button').addEventListener('click', OPTIMISM.resetDatabase);
-    }, 10000);
-    
+    }, 10000); // 10 seconds timeout
+
+    // -------- START OF THE REQUESTED CODE BLOCK --------
     try {
         OPTIMISM.model = new CanvasModel();
         OPTIMISM.view = new CanvasView(OPTIMISM.model, null);
         OPTIMISM.controller = new CanvasController(OPTIMISM.model, OPTIMISM.view);
-        
+
         OPTIMISM.view.controller = OPTIMISM.controller;
-        
-        // Initialize application
+
+        // Initialize application BUT DO NOT RENDER YET
         OPTIMISM.controller.initialize().then(() => {
-            clearTimeout(initTimeout);
-            
-            // Handle browser back/forward buttons
+            clearTimeout(initTimeout); // Clear the safety timeout
+
+            // Handle browser back/forward buttons (popstate)
             window.addEventListener('popstate', (event) => {
                 OPTIMISM.log('Popstate event triggered', event.state);
-                let nodeId = 'root';
-                
+                let nodeId = 'root'; // Default to root
+
                 if (event.state && event.state.nodeId) {
                     nodeId = event.state.nodeId;
+                    OPTIMISM.log(`Navigating via popstate to node: ${nodeId}`);
                 } else if (window.location.hash && window.location.hash !== '#') {
                     // If no state but we have a hash, try to navigate by hash
+                    OPTIMISM.log(`Popstate: Navigating via hash: ${window.location.hash}`);
                     OPTIMISM.model.navigateToNodeByHash(window.location.hash)
                         .then(success => {
                             if (success) {
+                                OPTIMISM.log(`Popstate: Successfully navigated via hash.`);
+                                // Render AFTER popstate hash navigation is complete
                                 OPTIMISM.view.renderWorkspace();
+                            } else {
+                                OPTIMISM.logError(`Popstate: Failed to navigate via hash.`);
+                                // Optionally navigate to root if hash fails
+                                OPTIMISM.model.navigateToNode('root').then(() => OPTIMISM.view.renderWorkspace());
                             }
+                        }).catch(error => {
+                            OPTIMISM.logError('Error handling popstate hash navigation:', error);
+                            OPTIMISM.model.navigateToNode('root').then(() => OPTIMISM.view.renderWorkspace());
                         });
                     return; // Skip the rest as we're handling via hash
+                } else {
+                    OPTIMISM.log(`Popstate: No state or hash, navigating to root.`);
                 }
-                
+
+                // Navigate using nodeId determined from state or default (root)
                 OPTIMISM.model.navigateToNode(nodeId)
                     .then(success => {
                         if (success) {
+                            OPTIMISM.log(`Popstate: Successfully navigated to node ${nodeId}.`);
+                            // Render AFTER popstate state navigation is complete
                             OPTIMISM.view.renderWorkspace();
+                        } else {
+                             OPTIMISM.logError(`Popstate: Failed to navigate to node ${nodeId}, attempting root.`);
+                             OPTIMISM.model.navigateToNode('root').then(() => OPTIMISM.view.renderWorkspace());
                         }
                     })
                     .catch(error => {
                         OPTIMISM.logError('Error handling popstate event:', error);
+                        OPTIMISM.model.navigateToNode('root').then(() => OPTIMISM.view.renderWorkspace());
                     });
             });
-            
-            // After initialization, check URL hash for direct linking
+
+            // --- Handle Initial Load/Hash ---
+            let navigationPromise;
             if (initialHash && initialHash !== '#') {
-                OPTIMISM.log(`Navigating to initial hash: ${initialHash}`);
-                OPTIMISM.model.navigateToNodeByHash(initialHash)
-                    .then(success => {
-                        if (success) {
-                            OPTIMISM.log('Successfully navigated to node from URL hash');
-                            OPTIMISM.view.renderWorkspace();
-                        } else {
-                            OPTIMISM.logError('Failed to navigate to node from URL hash');
-                        }
-                    })
-                    .catch(error => {
-                        OPTIMISM.logError('Error navigating to node from URL hash:', error);
-                    });
+                OPTIMISM.log(`Attempting to navigate to initial hash: ${initialHash}`);
+                // Try navigating to the node specified in the hash
+                navigationPromise = OPTIMISM.model.navigateToNodeByHash(initialHash);
             } else {
-                // If we don't have a hash, let's set the initial state for the root
-                window.history.replaceState({ nodeId: 'root' }, '', '#');
+                // If no hash, ensure root state is set in history and resolve immediately
+                OPTIMISM.log('No initial hash, starting at root.');
+                // Ensure the history state matches the model state (root)
+                if (!window.history.state || window.history.state.nodeId !== 'root') {
+                     window.history.replaceState({ nodeId: 'root' }, '', '#');
+                     OPTIMISM.log('Replaced history state for root.');
+                }
+                navigationPromise = Promise.resolve(true); // Indicate success (already at root)
             }
-        }).catch(error => {
+
+            // After attempting initial navigation (or confirming root)...
+            navigationPromise.then(success => {
+                if (success) {
+                    OPTIMISM.log('Initial navigation state determined successfully.');
+                } else {
+                    OPTIMISM.logError('Failed to navigate to initial state from hash, rendering root.');
+                    // Force navigation back to root if hash navigation failed unexpectedly
+                    return OPTIMISM.model.navigateToNode('root'); // Chain the promise
+                }
+            }).catch(error => {
+                OPTIMISM.logError('Error navigating to initial state from hash:', error);
+                // Force navigation back to root on error
+                return OPTIMISM.model.navigateToNode('root'); // Chain the promise
+            }).finally(() => {
+                 // *** ALWAYS render the workspace AFTER initial state is set ***
+                 OPTIMISM.log('Performing initial workspace render.');
+                 OPTIMISM.view.renderWorkspace();
+                 OPTIMISM.log('Initial workspace render complete.');
+            });
+            // --- End Initial Load/Hash Handling ---
+
+        }).catch(error => { // Catch errors from controller.initialize()
             clearTimeout(initTimeout);
-            OPTIMISM.logError('Error during initialization:', error);
+            OPTIMISM.logError('Error during controller initialization:', error);
+            // Handle fatal initialization error
+             document.getElementById('loading-overlay').style.display = 'none'; // Hide loading
+             alert('Error initializing application core components. Please refresh and try again.');
+             document.getElementById('reset-db-button').style.display = 'block';
+             document.getElementById('reset-db-button').addEventListener('click', OPTIMISM.resetDatabase);
         });
-        
-    } catch (error) {
+
+    } catch (error) { // Catch errors from creating model/view/controller
         clearTimeout(initTimeout);
         OPTIMISM.logError('Fatal error starting application:', error);
-        alert('Error initializing application. Please refresh and try again.');
+        alert('Error creating application components. Please refresh and try again.');
         document.getElementById('loading-overlay').style.display = 'none';
         document.getElementById('reset-db-button').style.display = 'block';
         document.getElementById('reset-db-button').addEventListener('click', OPTIMISM.resetDatabase);
     }
-}
+    // -------- END OF THE REQUESTED CODE BLOCK --------
+} // End of OPTIMISM.init
+// ... (rest of OPTIMISM object if any) ...
+
 };
 
 // Memory store for fallback when IndexedDB fails
