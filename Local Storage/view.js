@@ -4257,35 +4257,7 @@ updateRightPaneNestedItemStyles() {
     OPTIMISM.log('Updated right pane nested item styles');
 }
 
-// Add this new helper method to the CanvasView class
-// In view.js
-addShadowToArenaViewport() { // Renamed from addShadowToRightViewport
-    if (!this.arenaViewport) return;
 
-    // Remove any existing shadow
-    const existingShadow = document.getElementById('arena-viewport-shadow'); // Use new ID
-    if (existingShadow) {
-        existingShadow.remove();
-    }
-
-    // Create a new shadow overlay
-    const shadowOverlay = document.createElement('div');
-    shadowOverlay.id = 'arena-viewport-shadow'; // Use new ID
-    shadowOverlay.style.position = 'absolute';
-    shadowOverlay.style.top = '0';
-    shadowOverlay.style.left = '0'; // Shadow on the left edge
-    shadowOverlay.style.bottom = '0';
-    shadowOverlay.style.width = '15px';
-    shadowOverlay.style.pointerEvents = 'none';
-    shadowOverlay.style.zIndex = '5'; // Above iframe, below content if any
-    shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
-    shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
-
-    // Add the shadow overlay directly to the Arena viewport
-    this.arenaViewport.appendChild(shadowOverlay);
-
-    OPTIMISM.log('Added shadow to Are.na viewport'); // Update log message
-}
 
 // Add this new method to the CanvasView class
 setupArenaToggle() {
@@ -4458,7 +4430,7 @@ updateArenaViewLayout(isEnabled) {
         this.arenaViewport.appendChild(arenaIframe);
 
         // Add shadow effect on the left edge
-        this.addShadowToArenaViewport();
+        
 
         // Add the Arena viewport to the document
         document.body.appendChild(this.arenaViewport);
@@ -4476,34 +4448,7 @@ updateArenaViewLayout(isEnabled) {
     }
 }
 
-// Add a helper method to add shadow to the Arena viewport
-addShadowToArenaViewport() {
-    if (!this.arenaViewport) return;
-    
-    // Remove any existing shadow
-    const existingShadow = document.getElementById('arena-viewport-shadow');
-    if (existingShadow) {
-        existingShadow.remove();
-    }
-    
-    // Create a new shadow overlay
-    const shadowOverlay = document.createElement('div');
-    shadowOverlay.id = 'arena-viewport-shadow';
-    shadowOverlay.style.position = 'absolute';
-    shadowOverlay.style.top = '0';
-    shadowOverlay.style.left = '0';
-    shadowOverlay.style.bottom = '0';
-    shadowOverlay.style.width = '15px';
-    shadowOverlay.style.pointerEvents = 'none';
-    shadowOverlay.style.zIndex = '5';
-    shadowOverlay.style.boxShadow = 'inset 10px 0 8px -8px rgba(0,0,0,0.3)';
-    shadowOverlay.style.background = 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%)';
-    
-    // Add the shadow overlay directly to the Arena viewport
-    this.arenaViewport.appendChild(shadowOverlay);
-    
-    OPTIMISM.log('Added shadow to Are.na viewport');
-}
+
 
 // Add a method to set up the resize functionality for the Are.na panel
 setupArenaResizeDivider() {
