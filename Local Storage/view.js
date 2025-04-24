@@ -2263,145 +2263,192 @@ document.addEventListener('mousemove', (e) => {
     this.handleDragOver(e);
 });
 
-    document.addEventListener('mouseup', (e) => {
+    // In view.js -> setupDragListeners -> document.addEventListener('mouseup', ...)
 
-
-        // Handle end of resizing
-        if (this.resizingElement) {
-            const elementType = this.resizingElement.dataset.type;
-            if (this.model.imagesLocked && elementType === 'image') {
-                 this.resizingElement = null;
-            }
+document.addEventListener('mouseup', (e) => {
+    // Handle end of resizing
+    if (this.resizingElement) {
+        const elementType = this.resizingElement.dataset.type;
+        // Prevent resize finalization if images locked and it's an image
+        if (!(this.model.imagesLocked && elementType === 'image')) {
             const id = this.resizingElement.dataset.id;
             const width = parseFloat(this.resizingElement.style.width);
             const height = parseFloat(this.resizingElement.style.height);
             OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
             this.controller.updateElement(id, { width, height });
-            this.resizingElement = null;
-            return;
-        }
-
-        // Handle end of dragging
-        if (!this.draggedElement) return;
-
-        if ((this.model.imagesLocked && this.draggedElement.dataset.type === 'image') ||
-             this.model.isCardLocked(this.draggedElement.dataset.id)) {
-            this.draggedElement.classList.remove('dragging');
-            this.draggedElement = null;
-            return;
-        }
-
-        const draggedId = this.draggedElement.dataset.id;
-        const isImage = this.draggedElement.dataset.type === 'image';
-        if (isImage) {
-            const newZIndex = this.findHighestImageZIndex() + 1;
-            const cappedZIndex = Math.min(newZIndex, 99);
-            this.draggedElement.style.zIndex = cappedZIndex;
-        }
-
-        const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
-        const quickLinksTarget = this.isOverQuickLinksArea(e);
-
-        if (breadcrumbTarget) {
-            const navIndex = parseInt(breadcrumbTarget.dataset.index);
-            OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
-            this.deselectAllElements();
-            this.controller.moveElementToBreadcrumb(draggedId, navIndex);
-        } else if (quickLinksTarget) {
-             const element = this.model.findElement(draggedId);
-             if (element) {
-                 let title = "Untitled";
-                 if (element.type === 'text' && element.text) { title = element.text.substring(0, 60); }
-                 else if (element.type === 'image') { title = "Image"; }
-                 OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
-                 this.controller.addQuickLink(draggedId, title);
-                 // Snap back
-                 if (this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
-                     this.draggedElement.style.left = this.draggedElement.dataset.originalLeft;
-                     this.draggedElement.style.top = this.draggedElement.dataset.originalTop;
-                 }
-             }
         } else {
-            const dropTarget = !this.model.isNestingDisabled ? this.findDropTarget(e) : null;
-            if (dropTarget && dropTarget !== this.draggedElement) {
-                const targetId = dropTarget.dataset.id;
-                OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
-                this.deselectAllElements();
-                this.controller.moveElement(draggedId, targetId);
-                // Reset drag state here as moveElement handles rendering
-                this.draggedElement.classList.remove('dragging');
-                this.draggedElement = null;
-                document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
-                navControls.classList.remove('nav-drag-highlight');
-                return; // Exit early
-            } else {
-                // Not dropped on any target, just update position
-                const newX = parseFloat(this.draggedElement.style.left);
-                const newY = parseFloat(this.draggedElement.style.top);
-                OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-                const updateProps = { x: newX, y: newY };
-                if (isImage) { updateProps.zIndex = parseInt(this.draggedElement.style.zIndex) || 1; }
-                this.controller.updateElement(draggedId, updateProps);
-
-            }
+             OPTIMISM.log(`Resize cancelled for locked image ${this.resizingElement.dataset.id}`);
+             // Optionally revert size here if needed, though updateElement won't be called
         }
+        this.resizingElement = null; // Always reset resizing state
+        return; // Exit after handling resize
+    }
 
-        // Reset drag state and highlights
-    this.draggedElement.classList.remove('dragging');
-    this.draggedElement = null;
-    document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => el.classList.remove('drag-over', 'drag-highlight'));
-    navControls.classList.remove('nav-drag-highlight');
+    // Handle end of dragging
+    if (!this.draggedElement) return; // Exit if not dragging
 
-    // Always update spacer position after drag operations
-    this.updateSpacerPosition();
-
+    // --- START: Moved Highlight Cleanup ---
+    // Clear visual drop indicators *immediately* upon mouseup, before any drop logic
+    document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => {
+        el.classList.remove('drag-over');
+        el.classList.remove('drag-highlight');
     });
+    const navControls = document.getElementById('nav-controls'); // Ensure navControls is accessible here
+    if (navControls) { // Add check in case it doesn't exist
+         navControls.classList.remove('nav-drag-highlight');
+    }
+    // --- END: Moved Highlight Cleanup ---
+
+    // Get dragged element info
+    const draggedId = this.draggedElement.dataset.id;
+    const isImage = this.draggedElement.dataset.type === 'image';
+
+    // Check locks *after* clearing highlights but before processing drop
+    if ((this.model.imagesLocked && isImage) ||
+         this.model.isCardLocked(draggedId)) {
+        // If locked, just reset dragging state and exit
+        this.draggedElement.classList.remove('dragging');
+        this.draggedElement = null;
+        OPTIMISM.log(`Drag cancelled for locked element ${draggedId}`);
+        return;
+    }
+
+    // Update z-index for dropped images
+    if (isImage) {
+        const newZIndex = this.findHighestImageZIndex() + 1;
+        const cappedZIndex = Math.min(newZIndex, 99);
+        this.draggedElement.style.zIndex = cappedZIndex;
+         // Note: updateElement below will save this zIndex if not dropped on target
+    }
+
+    // Determine drop target
+    const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
+    const quickLinksTarget = this.isOverQuickLinksArea(e);
+
+    let droppedOnTarget = false; // Flag to check if dropped on a specific target
+
+    if (breadcrumbTarget) {
+        droppedOnTarget = true;
+        const navIndex = parseInt(breadcrumbTarget.dataset.index);
+        OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
+        this.deselectAllElements(); // Deselect before moving
+        this.controller.moveElementToBreadcrumb(draggedId, navIndex);
+        // Controller action handles re-render
+    } else if (quickLinksTarget) {
+        droppedOnTarget = true;
+         const element = this.model.findElement(draggedId);
+         if (element) {
+             let title = "Untitled";
+             if (element.type === 'text' && element.text) { title = element.text.substring(0, 60); }
+             else if (element.type === 'image') { title = "Image"; }
+             OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
+             this.controller.addQuickLink(draggedId, title);
+             // Snap back dragged element visually (model state is handled)
+             if (this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
+                 this.draggedElement.style.left = this.draggedElement.dataset.originalLeft;
+                 this.draggedElement.style.top = this.draggedElement.dataset.originalTop;
+             }
+         }
+    } else {
+        // Check for dropping onto another element (nesting)
+        const dropTarget = !this.model.isNestingDisabled ? this.findDropTarget(e) : null;
+        if (dropTarget && dropTarget !== this.draggedElement) {
+            droppedOnTarget = true;
+            const targetId = dropTarget.dataset.id;
+            OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
+            this.deselectAllElements(); // Deselect before moving
+            this.controller.moveElement(draggedId, targetId);
+            // Controller action handles re-render
+        }
+    }
+
+    // If not dropped on any specific target, just update its position
+    if (!droppedOnTarget) {
+        const newX = parseFloat(this.draggedElement.style.left);
+        const newY = parseFloat(this.draggedElement.style.top);
+        OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
+        const updateProps = { x: newX, y: newY };
+        // Include zIndex update for images moved freely
+        if (isImage) {
+            updateProps.zIndex = parseInt(this.draggedElement.style.zIndex) || 1;
+        }
+        this.controller.updateElement(draggedId, updateProps);
+        // Controller action might handle re-render depending on implementation
+    }
+
+    // --- Final Drag State Reset ---
+    // Reset the dragging class and the state variable
+    // Check if draggedElement still exists (it might be null if moveElement caused immediate re-render)
+    if (this.draggedElement) {
+        this.draggedElement.classList.remove('dragging');
+    }
+    this.draggedElement = null; // Reset state variable *last*
+    // --- End Final Drag State Reset ---
+
+    // Always update spacer position after any mouseup that involved dragging
+    this.updateSpacerPosition();
+});
 
     OPTIMISM.log('Drag listeners set up successfully');
 }
 
 
-handleDragOver(e) {
-    // Remove previous highlights - remove both highlight classes
-    const highlighted = document.querySelectorAll('.drag-highlight, .drag-over');
-    highlighted.forEach(el => {
-        el.classList.remove('drag-highlight');
-    });
+// In view.js
 
-    // First check for breadcrumb targets
+handleDragOver(e) {
+    // --- START: Unconditional Cleanup ---
+    // Clear ALL potential highlight classes from ALL relevant elements on every mouse move.
+    // This is the most crucial part to fix the lingering border.
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.drag-highlight').forEach(el => el.classList.remove('drag-highlight'));
+    const navControls = document.getElementById('nav-controls');
+    if (navControls) navControls.classList.remove('nav-drag-highlight'); // Example if you use this class
+
+    // Clear quick link placeholder highlight specifically
+    const quickLinkPlaceholder = this.quickLinksContainer?.querySelector('.quick-link-placeholder');
+    if (quickLinkPlaceholder) quickLinkPlaceholder.classList.remove('drag-highlight');
+    // Clear all quick link highlights specifically
+     this.quickLinksContainer?.querySelectorAll('.quick-link').forEach(link => link.classList.remove('drag-highlight'));
+     // Clear breadcrumb highlights specifically
+     this.breadcrumbContainer?.querySelectorAll('.breadcrumb-item').forEach(item => item.classList.remove('drag-highlight'));
+
+    // --- END: Unconditional Cleanup ---
+
+
+    // --- START: Add Highlight ONLY if Target Found ---
+
+    // 1. Check for Breadcrumb Targets
     const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
     if (breadcrumbTarget) {
-        // Add green text highlight class
         breadcrumbTarget.classList.add('drag-highlight');
-        return;
+        return; // Target found, exit
     }
 
-    // Check if dragging over the quick links area
+    // 2. Check for Quick Links Area Target
     if (this.isOverQuickLinksArea(e)) {
-        // Highlight the quick links by turning them green
         if (this.quickLinksContainer) {
-            // Highlight placeholder if no links
-            const placeholder = this.quickLinksContainer.querySelector('.quick-link-placeholder');
-            if (placeholder) {
-                placeholder.classList.add('drag-highlight');
+            if (quickLinkPlaceholder) {
+                quickLinkPlaceholder.classList.add('drag-highlight');
             } else {
-                // Highlight all quick links
-                const quickLinks = this.quickLinksContainer.querySelectorAll('.quick-link');
-                quickLinks.forEach(link => {
+                this.quickLinksContainer.querySelectorAll('.quick-link').forEach(link => {
                     link.classList.add('drag-highlight');
                 });
             }
         }
-        return;
+        return; // Target found, exit
     }
 
-    // Then check for element targets if nesting is not disabled
+    // 3. Check for Element Target (Nesting)
     if (!this.model.isNestingDisabled) {
         const dropTarget = this.findDropTarget(e);
         if (dropTarget && dropTarget !== this.draggedElement) {
-            dropTarget.classList.add('drag-over');  // Keep original style for elements
+            dropTarget.classList.add('drag-over'); // Apply dashed border
+            // No return needed here, as this is the last check
         }
+        // If no valid dropTarget element is found, no 'drag-over' class is added.
     }
+
+    // --- END: Add Highlight ONLY if Target Found ---
 }
 
 findDropTarget(e) {
