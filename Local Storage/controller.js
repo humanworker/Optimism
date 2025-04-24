@@ -1086,7 +1086,7 @@ async moveToInbox(elementId) {
              OPTIMISM.logError(`Move to inbox command failed for element ${elementId}`);
              return false;
         }
-
+        this.view.renderWorkspace();
         // Render inbox
         this.view.renderInboxPanel();
 
