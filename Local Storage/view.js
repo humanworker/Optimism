@@ -298,157 +298,153 @@ class CanvasView {
             }
 
             // Toggle priority with 'P' key when an element is selected
-    if (e.key.toLowerCase() === 'b' &&
-    document.activeElement.tagName !== 'TEXTAREA' &&
-    document.activeElement.tagName !== 'INPUT') {
-    e.preventDefault();
-    if (this.model.selectedElement) {
-        this.controller.toggleCardPriority(this.model.selectedElement);
-    }}
+            if (e.key.toLowerCase() === 'b' &&
+                document.activeElement.tagName !== 'TEXTAREA' &&
+                document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                if (this.model.selectedElement) {
+                    this.controller.toggleCardPriority(this.model.selectedElement);
+                }
+            }
 
            // Style shortcuts (only when an element is selected and not in edit mode)
-if (this.model.selectedElement &&
-    document.activeElement.tagName !== 'TEXTAREA') {
+            if (this.model.selectedElement && document.activeElement.tagName !== 'TEXTAREA') {
+                const element = this.model.findElement(this.model.selectedElement);
+                let styleUpdated = false; // Keep track if any style was updated
 
-    const element = this.model.findElement(this.model.selectedElement);
+                // Text-specific styles (0, 1, 2, 3, 5, 6)
+                if (element && element.type === 'text') {
 
-    // Only apply styling to text elements
-    if (element && element.type === 'text') {
-        let styleUpdated = false;
+                    // 0 = reset to default (small text, black, no header, no highlight, no border)
+                    if (e.key === '0') {
+                        this.controller.updateElementStyle(this.model.selectedElement, {
+                            textSize: 'small',
+                            textColor: 'default',
+                            hasHeader: false,
+                            isHighlighted: false,
+                            hasBorder: false,
+                            textAlign: 'left' // Add default alignment to reset
+                        });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
 
-        // 0 = reset to default (small text, black, no header, no highlight, no border)
-        if (e.key === '0') {
-            this.controller.updateElementStyle(this.model.selectedElement, {
-                textSize: 'small',
-                textColor: 'default',
-                hasHeader: false,
-                isHighlighted: false,
-                hasBorder: false,
-                textAlign: 'left' // Add default alignment to reset
-            });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+                    // 1 = toggle through text sizes (small > large > huge)
+                    else if (e.key === '1') {
+                        // Get current size
+                        const currentSize = element.style && element.style.textSize ? element.style.textSize : 'small';
+                        let nextSize;
 
-        // 1 = toggle through text sizes (small > large > huge)
-        else if (e.key === '1') {
-            // Get current size
-            const currentSize = element.style && element.style.textSize ? element.style.textSize : 'small';
-            let nextSize;
+                        // Determine next size
+                        if (currentSize === 'small') nextSize = 'large';
+                        else if (currentSize === 'large') nextSize = 'huge';
+                        else nextSize = 'small'; // huge or any other size goes back to small
 
-            // Determine next size
-            if (currentSize === 'small') nextSize = 'large';
-            else if (currentSize === 'large') nextSize = 'huge';
-            else nextSize = 'small'; // huge or any other size goes back to small
+                        this.controller.updateElementStyle(this.model.selectedElement, { textSize: nextSize });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
 
-            this.controller.updateElementStyle(this.model.selectedElement, { textSize: nextSize });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+                    // 2 = cycle through text colors (default -> red -> green -> default)
+                    else if (e.key === '2') {
+                        // Get current color
+                        const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
+                        let nextColor;
 
-        // 2 = cycle through text colors (default -> red -> green -> default)
-        else if (e.key === '2') {
-            // Get current color
-            const currentColor = element.style && element.style.textColor ? element.style.textColor : 'default';
-            let nextColor;
+                        // Determine next color
+                        if (currentColor === 'default') nextColor = 'red';
+                        else if (currentColor === 'red') nextColor = 'green';
+                        else nextColor = 'default'; // green or any other color goes back to default
 
-            // Determine next color
-            if (currentColor === 'default') nextColor = 'red';
-            else if (currentColor === 'red') nextColor = 'green';
-            else nextColor = 'default'; // green or any other color goes back to default
+                        this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
 
-            this.controller.updateElementStyle(this.model.selectedElement, { textColor: nextColor });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+                    // 3 = toggle through text alignment (left -> centre -> right -> left)
+                    else if (e.key === '3') {
+                        // Get current alignment
+                        const currentAlign = element.style && element.style.textAlign ? element.style.textAlign : 'left';
+                        let nextAlign;
 
-        // 3 = toggle through text alignment (left -> centre -> right -> left)
-        else if (e.key === '3') {
-            // Get current alignment
-            const currentAlign = element.style && element.style.textAlign ? element.style.textAlign : 'left';
-            let nextAlign;
+                        // Determine next alignment
+                        if (currentAlign === 'left') nextAlign = 'centre';
+                        else if (currentAlign === 'centre') nextAlign = 'right';
+                        else nextAlign = 'left'; // right or any other alignment goes back to left
 
-            // Determine next alignment
-            if (currentAlign === 'left') nextAlign = 'centre';
-            else if (currentAlign === 'centre') nextAlign = 'right';
-            else nextAlign = 'left'; // right or any other alignment goes back to left
+                        this.controller.updateElementStyle(this.model.selectedElement, { textAlign: nextAlign });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
 
-            this.controller.updateElementStyle(this.model.selectedElement, { textAlign: nextAlign });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+                    // 5 = toggle header
+                    else if (e.key === '5') {
+                        // Toggle current header setting
+                        const hasHeader = element.style && element.style.hasHeader ? true : false;
+                        this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
 
-        // 4 = cycle through background colors (None -> Yellow -> Red -> None) (NEW)
-        if (e.key === '4') {
-            const currentBgColor = element.style && element.style.cardBgColor ? element.style.cardBgColor : 'none';
-            let nextBgColor;
+                    // 6 = toggle highlight
+                    else if (e.key === '6') {
+                        // Get the current highlight setting
+                        const isHighlighted = element.style && element.style.isHighlighted ? true : false;
+                        this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
+                        styleUpdated = true;
+                        e.preventDefault();
+                    }
+                } // End of text-specific styles
 
-            if (currentBgColor === 'none') nextBgColor = 'yellow';
-            else if (currentBgColor === 'yellow') nextBgColor = 'red';
-            else nextBgColor = 'none'; // red or any other goes back to none
+                // Container / Generic Styles (4, 7, 8) - Apply outside the text check
+                if (e.key === '4') {
+                    const currentBgColor = element && element.style && element.style.cardBgColor ? element.style.cardBgColor : 'none';
+                    const nextBgColor = (currentBgColor === 'none') ? 'yellow' : (currentBgColor === 'yellow') ? 'red' : 'none';
+                    this.controller.updateElementStyle(this.model.selectedElement, { cardBgColor: nextBgColor });
+                    styleUpdated = true;
+                    e.preventDefault();
+                }
 
-            this.controller.updateElementStyle(this.model.selectedElement, { cardBgColor: nextBgColor });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+                // 7 = toggle border
+                else if (e.key === '7') {
+                    // Toggle current border setting
+                    const hasBorder = element && element.style && element.style.hasBorder ? true : false;
+                    this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: !hasBorder });
+                    styleUpdated = true;
+                    e.preventDefault();
+                }
 
-        // 5 = toggle header
-        else if (e.key === '5') {
-            // Toggle current header setting
-            const hasHeader = element.style && element.style.hasHeader ? true : false;
-            this.controller.updateElementStyle(this.model.selectedElement, { hasHeader: !hasHeader });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+                // 9 = move to inbox (ACTION, not style)
+                else if (e.key === '9') {
+                    if (this.model.selectedElement) {
+                        this.controller.moveToInbox(this.model.selectedElement);
+                        this.stylePanel.style.display = 'none'; // Hide style panel after moving
+                        e.preventDefault();
+                    }
+                    // No style panel update needed for this action
+                }
 
-        // 6 = toggle highlight
-        else if (e.key === '6') {
-            // Get the current highlight setting
-            const isHighlighted = element.style && element.style.isHighlighted ? true : false;
-            this.controller.updateElementStyle(this.model.selectedElement, { isHighlighted: !isHighlighted });
-            styleUpdated = true;
-            e.preventDefault();
-        }
+                // 8 = toggle card lock
+                else if (e.key === '8') {
+                    // Toggle current lock setting
+                    const isLocked = this.model.isCardLocked(this.model.selectedElement);
+                    this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
+                    styleUpdated = true;
+                    e.preventDefault();
+                }
 
-        // 7 = toggle border
-        else if (e.key === '7') {
-            // Toggle current border setting
-            const hasBorder = element.style && element.style.hasBorder ? true : false;
-            this.controller.updateElementStyle(this.model.selectedElement, { hasBorder: !hasBorder });
-            styleUpdated = true;
-            e.preventDefault();
-        }
-
-        // 8 = move to inbox
-        else if (e.key === '9') {
-            // Only if an element is selected
-            if (this.model.selectedElement) {
-                this.controller.moveToInbox(this.model.selectedElement);
-                this.stylePanel.style.display = 'none'; // Hide style panel after moving
-                e.preventDefault();
-            }
-        }
-
-        // 9 = toggle card lock
-        else if (e.key === '8') {
-            // Toggle current lock setting
-            const isLocked = this.model.isCardLocked(this.model.selectedElement);
-            this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
-            styleUpdated = true;
-            e.preventDefault();
-        }
-
-        // Update style panel if any style changed
-        if (styleUpdated) {
-            // Get the updated element data after the style changes
-            const updatedElement = this.model.findElement(this.model.selectedElement);
-            if (updatedElement) {
-                this.updateStylePanel(updatedElement);
-            }
-        }
-    }
-}
-        });
+                // Update style panel if any style changed (only if the panel is relevant, e.g., for text)
+                if (styleUpdated) {
+                    const updatedElement = this.model.findElement(this.model.selectedElement);
+                    if (updatedElement) {
+                        // Update style panel only if it's currently visible and the element is text
+                        if (this.stylePanel.style.display === 'block' && updatedElement.type === 'text') {
+                            this.updateStylePanel(updatedElement);
+                        }
+                    }
+                }
+            } // End of selected element check
+        }); // End of keydown listener
 
         // Prevent right-click context menu
         document.addEventListener('contextmenu', (e) => {
@@ -459,57 +455,57 @@ if (this.model.selectedElement &&
         document.addEventListener('click', (e) => {
             // If clicking outside of both the style panel and any element
            // 1. Style panel should still close when clicking on blank canvas
-    if (!this.stylePanel.contains(e.target) &&
-    !e.target.closest('.element-container') &&
-    this.stylePanel.style.display === 'block') {
-    this.stylePanel.style.display = 'none';
-}
+            if (!this.stylePanel.contains(e.target) &&
+                !e.target.closest('.element-container') &&
+                this.stylePanel.style.display === 'block') {
+                this.stylePanel.style.display = 'none';
+            }
 
-// 2. Settings panel should close when clicking on a card (which opens style panel)
-// but NOT when clicking the blank canvas
-if (this.settingsPanel &&
-    this.settingsPanel.style.display === 'block' &&
-    !this.settingsPanel.contains(e.target) &&
-    e.target !== this.settingsToggle) {
+            // 2. Settings panel should close when clicking on a card (which opens style panel)
+            // but NOT when clicking the blank canvas
+            if (this.settingsPanel &&
+                this.settingsPanel.style.display === 'block' &&
+                !this.settingsPanel.contains(e.target) &&
+                e.target !== this.settingsToggle) {
 
-    // Only close if clicking on a card (will open style panel)
-    if (e.target.closest('.element-container')) {
-        this.controller.toggleSettingsVisibility();
-    }
-    // Don't close when clicking elsewhere
-}
+                // Only close if clicking on a card (will open style panel)
+                if (e.target.closest('.element-container')) {
+                    this.controller.toggleSettingsVisibility();
+                }
+                // Don't close when clicking elsewhere
+            }
 
-// 3. Inbox panel should NOT close when clicking on canvas or cards
-// Only remove this code or comment it out:
-/*
-if (!this.inboxPanel.contains(e.target) &&
-    e.target !== this.inboxToggle &&
-    this.inboxPanel.style.display === 'block') {
-    this.controller.toggleInboxVisibility();
-}
-*/
+            // 3. Inbox panel should NOT close when clicking on canvas or cards
+            // Only remove this code or comment it out:
+            /*
+            if (!this.inboxPanel.contains(e.target) &&
+                e.target !== this.inboxToggle &&
+                this.inboxPanel.style.display === 'block') {
+                this.controller.toggleInboxVisibility();
+            }
+            */
 
-// 4. Priority panel should NOT close when clicking on canvas or cards
-// Look for and comment out or remove:
-/*
-if (this.prioritiesPanel &&
-    this.prioritiesPanel.style.display === 'block' &&
-    !this.prioritiesPanel.contains(e.target) &&
-    e.target !== this.prioritiesToggle) {
+            // 4. Priority panel should NOT close when clicking on canvas or cards
+            // Look for and comment out or remove:
+            /*
+            if (this.prioritiesPanel &&
+                this.prioritiesPanel.style.display === 'block' &&
+                !this.prioritiesPanel.contains(e.target) &&
+                e.target !== this.prioritiesToggle) {
 
-    this.controller.togglePrioritiesVisibility();
-}
-*/
+                this.controller.togglePrioritiesVisibility();
+            }
+            */
 
-// 5. Grid panel can still close when clicking elsewhere
-const gridPanel = document.getElementById('grid-panel');
-const gridToggle = document.getElementById('grid-toggle');
-if (gridPanel &&
-    !gridPanel.contains(e.target) &&
-    e.target !== gridToggle &&
-    gridPanel.style.display === 'block') {
-    gridPanel.style.display = 'none';
-}
+            // 5. Grid panel can still close when clicking elsewhere
+            const gridPanel = document.getElementById('grid-panel');
+            const gridToggle = document.getElementById('grid-toggle');
+            if (gridPanel &&
+                !gridPanel.contains(e.target) &&
+                e.target !== gridToggle &&
+                gridPanel.style.display === 'block') {
+                gridPanel.style.display = 'none';
+            }
         });
 
         // Setup export/import buttons
@@ -903,7 +899,7 @@ if (stylePanel) {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent closing the panel
 
-                // Only apply if an element is selected
+                // Only apply if an element is selected (text or image)
                 if (!this.model.selectedElement) return;
 
                 OPTIMISM.log(`Moving selected element ${this.model.selectedElement} to inbox via style panel`);
@@ -2010,7 +2006,7 @@ updateStylePanel(elementData) {
 
     // Set the correct lock option as selected
     const isLocked = this.model.isCardLocked(elementData.id) ? 'true' : 'false';
-    const lockOption = document.querySelector(`.option-value[data-lock="${isLocked}"]`);
+    const lockOption = document.querySelector(`.option-value[data-lock="${isLocked ? 'true' : 'false'}"]`);
     if (lockOption) {
         lockOption.classList.add('selected');
     }
@@ -2188,7 +2184,7 @@ document.addEventListener('mousemove', (e) => {
                 const lineX = parseInt(closestLine.style.left);
                 if (Math.abs(rightEdge - lineX) < 10) { newWidth = lineX - elementLeft; }
             }
-            
+
             // Add horizontal snapping for bottom edge during resize
             const horzLines = Array.from(document.querySelectorAll('.grid-line-horizontal'));
             if (horzLines.length > 0) {
@@ -3242,6 +3238,7 @@ renderInboxPanel() {
         cardElement.className = 'inbox-card';
         cardElement.dataset.id = card.id;
         cardElement.dataset.type = card.type;
+        cardElement.style.backgroundColor = 'var(--canvas-bg-color)'; // Match workspace bg
 
         if (card.type === 'text') {
             // Special handling for the first card if it's empty (new blank card)
@@ -3279,7 +3276,22 @@ renderInboxPanel() {
             img.className = 'inbox-card-image';
 
             // Load image data
-            this.model.getImageData(card.imageDataId)
+            // Ensure this runs asynchronously without blocking the rest of the render
+            (async () => {
+                try {
+                    const imageData = await this.model.getImageData(card.imageDataId);
+                    if (imageData) {
+                        img.src = imageData;
+                    } else {
+                        img.alt = 'Image not found';
+                        OPTIMISM.logError(`Image data not found for inbox card ${card.id}`);
+                    }
+                } catch (error) {
+                    OPTIMISM.logError(`Error loading image for inbox card ${card.id}:`, error);
+                    img.alt = 'Error loading image';
+                }
+            })(); // Immediately invoke the async function
+            /* Old synchronous way:
                 .then(imageData => {
                     if (imageData) {
                         img.src = imageData;
@@ -3291,6 +3303,7 @@ renderInboxPanel() {
                     OPTIMISM.logError(`Error loading image for inbox card ${card.id}:`, error);
                     img.alt = 'Error loading image';
                 });
+            */
 
             cardElement.appendChild(img);
         }

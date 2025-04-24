@@ -715,6 +715,8 @@ class AddElementCommand extends Command {
         this.isImage = element.type === 'image';
         this.imageData = null; // Will store image data if needed
     }
+
+    
     
     async execute() {
         // If this is an image, save the image data first
@@ -735,6 +737,78 @@ class AddElementCommand extends Command {
     // Set image data for later saving
     setImageData(imageData) {
         this.imageData = imageData;
+    }
+}
+
+// Add this new command class in core.js
+
+class MoveToInboxCommand extends Command {
+    constructor(model, elementId) {
+        super(model);
+        this.elementId = elementId;
+        const element = model.findElement(elementId);
+        if (element) {
+            this.element = {...element}; // Store a copy of the original element
+        } else {
+            OPTIMISM.log(`Element ${elementId} not found for MoveToInboxCommand`);
+            this.element = null;
+        }
+        this.nodeId = model.currentNode.id; // Node where the element originated
+        this.inboxCard = null; // Will store the created inbox card info
+    }
+
+    async execute() {
+        if (!this.element) return false;
+
+        // Add to inbox (this creates the inboxCard)
+        this.inboxCard = await this.model.addToInbox(this.element);
+        if (!this.inboxCard) {
+            OPTIMISM.logError(`Failed to add element ${this.elementId} to inbox`);
+            return false;
+        }
+
+        // --- Directly remove the element from the current node ---
+        // This bypasses the standard deleteElement and its image deletion queue
+        const index = this.model.currentNode.elements.findIndex(el => el.id === this.elementId);
+        if (index !== -1) {
+            this.model.currentNode.elements.splice(index, 1);
+            await this.model.saveData(); // Save the change to the current node
+            OPTIMISM.log(`Directly removed element ${this.elementId} from node ${this.nodeId} for move to inbox`);
+            return true;
+        } else {
+            OPTIMISM.logError(`Element ${this.elementId} not found in node ${this.nodeId} during move to inbox execute`);
+            // Attempt to remove from inbox as a rollback
+            await this.model.removeFromInbox(this.inboxCard.id);
+            this.inboxCard = null;
+            return false;
+        }
+        // ---------------------------------------------------------
+    }
+
+    async undo() {
+        if (!this.element || !this.inboxCard) return;
+
+        // Remove from inbox
+        const removed = await this.model.removeFromInbox(this.inboxCard.id);
+        if (!removed) {
+             OPTIMISM.logError(`Failed to remove card ${this.inboxCard.id} from inbox during undo`);
+             // Continue anyway to try restoring to canvas
+        }
+
+        // Add the original element back to the original node's elements array
+        if (!this.model.currentNode.elements) {
+            this.model.currentNode.elements = [];
+        }
+        // Ensure we are on the correct node before adding back - might need navigation if undo happens later
+        // For simplicity now, assume we are on the correct node or model handles it internally
+        if (this.model.currentNode.id === this.nodeId) {
+             this.model.currentNode.elements.push(this.element);
+             await this.model.saveData(); // Save the change
+             OPTIMISM.log(`Restored element ${this.elementId} to node ${this.nodeId} during move to inbox undo`);
+        } else {
+             OPTIMISM.logError(`Cannot restore element ${this.elementId} - current node is ${this.model.currentNode.id}, expected ${this.nodeId}`);
+             // Potentially find the original node and add it back - more complex
+        }
     }
 }
 
