@@ -30,67 +30,67 @@ class CanvasModel {
         // Debug panel visibility state
         this.isDebugVisible = false;
         this.inboxCards = []; // Array to store inbox cards
-this.isInboxVisible = false; // Track inbox panel visibility
-this.isSettingsVisible = false; // Add this line
-this.isGridVisible = false;
-this.gridLayout = '1x2'; // Default layout
-this.isArenaVisible = false; // Track are.na panel visibility
-this.priorityCards = []; // Array to store IDs of priority cards
-    this.isPrioritiesVisible = false; // Track priorities panel visibility
+        this.isInboxVisible = false; // Track inbox panel visibility
+        this.isSettingsVisible = false; // Add this line
+        this.isGridVisible = false;
+        this.gridLayout = '1x2'; // Default layout
+        this.isArenaVisible = false; // Track are.na panel visibility
+        this.priorityCards = []; // Array to store IDs of priority cards
+        this.isPrioritiesVisible = false; // Track priorities panel visibility
 
-// Panel management
-this.panels = {
-    settings: false,
-    inbox: false,
-    grid: false,
-    arena: false
-    // Add future panels here
-};
+        // Panel management
+        this.panels = {
+            settings: false,
+            inbox: false,
+            grid: false,
+            arena: false
+            // Add future panels here
+        };
     }
 
     // In model.js, update the initialize method
-async initialize() {
-    try {
-        OPTIMISM.log('Initializing database...');
-        await this.db.open();
+    async initialize() {
+        try {
+            OPTIMISM.log('Initializing database...');
+            await this.db.open();
 
-        OPTIMISM.log('Loading data...');
-        await this.loadData();
+            OPTIMISM.log('Loading data...');
+            await this.loadData();
 
-        OPTIMISM.log('Loading theme...');
-        await this.loadTheme();
+            OPTIMISM.log('Loading theme...');
+            await this.loadTheme();
 
-        // Add logging for initial edit counter state
-        OPTIMISM.log(`Current edit counter: #${this.editCounter}`);
-        const editsUntilBackup = this.backupReminderThreshold - (this.editCounter - this.lastBackupReminder);
-        OPTIMISM.log(`Backup reminder will appear in ${editsUntilBackup} edits`);
+            // Add logging for initial edit counter state
+            OPTIMISM.log(`Current edit counter: #${this.editCounter}`);
+            const editsUntilBackup = this.backupReminderThreshold - (this.editCounter - this.lastBackupReminder);
+            OPTIMISM.log(`Backup reminder will appear in ${editsUntilBackup} edits`);
 
-        if (this.deletedImageQueue.length > 0) {
-            const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
-            const editsUntilDeletion = nextDeletion - this.editCounter;
-            OPTIMISM.log(`${this.deletedImageQueue.length} images in deletion queue (next in ${editsUntilDeletion} edits)`);
+            if (this.deletedImageQueue.length > 0) {
+                const nextDeletion = this.deletedImageQueue[0].deleteAtCounter;
+                const editsUntilDeletion = nextDeletion - this.editCounter;
+                OPTIMISM.log(`${this.deletedImageQueue.length} images in deletion queue (next in ${editsUntilDeletion} edits)`);
+            }
+
+            OPTIMISM.log('Model initialization complete');
+            return true;
+        } catch (error) {
+            OPTIMISM.logError('Failed to initialize model:', error);
+
+            // Fallback to memory-only mode
+            OPTIMISM.log('Falling back to memory-only mode');
+            this.data = {
+                id: 'root',
+                title: 'Home',
+                elements: [],
+                children: {}
+            };
+            this.navigationStack[0].node = this.data;
+            this.currentNode = this.data;
+
+            OPTIMISM.showMemoryMode();
+            return true; // Still return true to let the app load
         }
-
-        OPTIMISM.log('Model initialization complete');
-        return true;
-    } catch (error) {
-        OPTIMISM.logError('Failed to initialize model:', error);
-
-        // Fallback to memory-only mode
-        OPTIMISM.log('Falling back to memory-only mode');
-        this.data = {
-            id: 'root',
-            title: 'Home',
-            elements: [],
-            children: {}
-        };
-        this.navigationStack[0].node = this.data;
-        this.currentNode = this.data;
-
-        OPTIMISM.showMemoryMode();
-        return true; // Still return true to let the app load
     }
-}
 
 
     async loadData() {
@@ -160,43 +160,43 @@ async initialize() {
                     }
 
                     // In the loadData method, inside the check for appState
-if (appState.isNestingDisabled !== undefined) {
-    this.isNestingDisabled = appState.isNestingDisabled;
-    OPTIMISM.log(`Loaded nesting disabled state: ${this.isNestingDisabled}`);
-}
+                    if (appState.isNestingDisabled !== undefined) {
+                        this.isNestingDisabled = appState.isNestingDisabled;
+                        OPTIMISM.log(`Loaded nesting disabled state: ${this.isNestingDisabled}`);
+                    }
 
                     // Load Are.na panel state
-                if (appState.isArenaVisible !== undefined) {
-                    this.isArenaVisible = appState.isArenaVisible;
-                    OPTIMISM.log(`Loaded Are.na panel state: ${this.isArenaVisible}`);
-                }
+                    if (appState.isArenaVisible !== undefined) {
+                        this.isArenaVisible = appState.isArenaVisible;
+                        OPTIMISM.log(`Loaded Are.na panel state: ${this.isArenaVisible}`);
+                    }
 
                     // Load locked cards
-if (appState.lockedCards !== undefined) {
-    this.lockedCards = appState.lockedCards;
-    OPTIMISM.log(`Loaded ${this.lockedCards.length} locked cards`);
-}
+                    if (appState.lockedCards !== undefined) {
+                        this.lockedCards = appState.lockedCards;
+                        OPTIMISM.log(`Loaded ${this.lockedCards.length} locked cards`);
+                    }
 
-if (appState.inboxCards !== undefined) {
-    this.inboxCards = appState.inboxCards;
-    OPTIMISM.log(`Loaded ${this.inboxCards.length} inbox cards`);
-}
+                    if (appState.inboxCards !== undefined) {
+                        this.inboxCards = appState.inboxCards;
+                        OPTIMISM.log(`Loaded ${this.inboxCards.length} inbox cards`);
+                    }
 
-if (appState.isInboxVisible !== undefined) {
-    this.isInboxVisible = appState.isInboxVisible;
-    OPTIMISM.log(`Loaded inbox visibility state: ${this.isInboxVisible}`);
-}
+                    if (appState.isInboxVisible !== undefined) {
+                        this.isInboxVisible = appState.isInboxVisible;
+                        OPTIMISM.log(`Loaded inbox visibility state: ${this.isInboxVisible}`);
+                    }
 
-// Add to the existing loadData method in model.js, in the section where it loads appState
-if (appState.isGridVisible !== undefined) {
-    this.isGridVisible = appState.isGridVisible;
-    OPTIMISM.log(`Loaded grid visibility state: ${this.isGridVisible}`);
-}
+                    // Add to the existing loadData method in model.js, in the section where it loads appState
+                    if (appState.isGridVisible !== undefined) {
+                        this.isGridVisible = appState.isGridVisible;
+                        OPTIMISM.log(`Loaded grid visibility state: ${this.isGridVisible}`);
+                    }
 
-if (appState.gridLayout !== undefined) {
-    this.gridLayout = appState.gridLayout;
-    OPTIMISM.log(`Loaded grid layout: ${this.gridLayout}`);
-}
+                    if (appState.gridLayout !== undefined) {
+                        this.gridLayout = appState.gridLayout;
+                        OPTIMISM.log(`Loaded grid layout: ${this.gridLayout}`);
+                    }
 
                 }
             } catch (error) {
@@ -243,6 +243,44 @@ if (appState.gridLayout !== undefined) {
         }
     }
 
+    // --- NEW HELPER: Recursively find the path to an element ---
+    findPathToElementRecursive(currentNode, targetElementId, currentPath) {
+        // Check elements in the current node
+        if (currentNode.elements) {
+            const elementIndex = currentNode.elements.findIndex(el => el.id === targetElementId);
+            if (elementIndex !== -1) {
+                // Found the element! Return the path to its parent node.
+                return true;
+            }
+        }
+
+        // Check children nodes
+        if (currentNode.children) {
+            for (const childId in currentNode.children) {
+                currentPath.push(childId); // Add child to path tentatively
+                if (this.findPathToElementRecursive(currentNode.children[childId], targetElementId, currentPath)) {
+                    // Found it down this branch
+                    return true;
+                }
+                currentPath.pop(); // Backtrack if not found in this branch
+            }
+        }
+
+        // Not found in this subtree
+        return false;
+    }
+
+    // --- NEW HELPER: Get the full path to an element's parent ---
+    findNavigationPathToParent(targetElementId) {
+        const path = ['root']; // Start with root
+        if (this.findPathToElementRecursive(this.data, targetElementId, path)) {
+            return path; // Returns the path ending with the PARENT node ID
+        }
+        return null; // Element not found anywhere
+    }
+    // --- END NEW HELPERS ---
+
+
     // Save image data
     async saveImageData(imageId, imageData) {
         try {
@@ -264,8 +302,8 @@ if (appState.gridLayout !== undefined) {
         }
     }
 
-   // Delete image data
-   async deleteImageData(imageId) {
+    // Delete image data
+    async deleteImageData(imageId) {
         try {
             await this.db.deleteImage(imageId);
         } catch (error) {
@@ -281,103 +319,103 @@ if (appState.gridLayout !== undefined) {
     }
 
     // In model.js, add a log to the execute method
-async execute(command) {
-    try {
-        OPTIMISM.log(`Executing ${command.constructor.name}`);
-        // Execute the command and save its result
-        const result = await command.execute();
+    async execute(command) {
+        try {
+            OPTIMISM.log(`Executing ${command.constructor.name}`);
+            // Execute the command and save its result
+            const result = await command.execute();
 
-        // Add to undo stack
-        this.undoStack.push(command);
-
-        // Clear redo stack when a new action is performed
-        this.redoStack = [];
-
-        // Limit undo stack size
-        if (this.undoStack.length > this.maxHistorySize) {
-            this.undoStack.shift(); // Remove oldest command
-        }
-
-        // Increment edit counter and check if backup reminder is needed
-        const showBackupReminder = this.incrementEditCounter();
-
-        return { result, showBackupReminder };
-    } catch (error) {
-        OPTIMISM.logError('Error executing command:', error);
-        throw error;
-    }
-}
-
-async undo() {
-    if (this.undoStack.length === 0) return false;
-
-    try {
-        OPTIMISM.log('Undoing last two actions (if available)');
-
-        // Create a counter to track how many actions we've undone
-        let actionsUndone = 0;
-        const maxActionsToUndo = 2;
-
-        // Keep undoing until we reach our limit or run out of actions
-        while (actionsUndone < maxActionsToUndo && this.undoStack.length > 0) {
-            // Get the last command from the undo stack
-            const command = this.undoStack.pop();
-
-            // Execute the undo action
-            await command.undo();
-
-            // Add to redo stack
-            this.redoStack.push(command);
-
-            // Limit redo stack size
-            if (this.redoStack.length > this.maxHistorySize) {
-                this.redoStack.shift(); // Remove oldest command
-            }
-
-            // Increment our counter
-            actionsUndone++;
-        }
-
-        OPTIMISM.log(`Undid ${actionsUndone} action(s)`);
-        return true;
-    } catch (error) {
-        OPTIMISM.logError('Error during undo:', error);
-        return false;
-    }
-}
-
-async redo() {
-    if (this.redoStack.length === 0) return false;
-
-    try {
-        OPTIMISM.log('Redoing last two actions (if available)');
-
-        // Create a counter to track how many actions we've redone
-        let actionsRedone = 0;
-        const maxActionsToRedo = 2;
-
-        // Keep redoing until we reach our limit or run out of actions
-        while (actionsRedone < maxActionsToRedo && this.redoStack.length > 0) {
-            // Get the last command from the redo stack
-            const command = this.redoStack.pop();
-
-            // Execute the command again
-            await command.execute();
-
-            // Add back to undo stack
+            // Add to undo stack
             this.undoStack.push(command);
 
-            // Increment our counter
-            actionsRedone++;
-        }
+            // Clear redo stack when a new action is performed
+            this.redoStack = [];
 
-        OPTIMISM.log(`Redid ${actionsRedone} action(s)`);
-        return true;
-    } catch (error) {
-        OPTIMISM.logError('Error during redo:', error);
-        return false;
+            // Limit undo stack size
+            if (this.undoStack.length > this.maxHistorySize) {
+                this.undoStack.shift(); // Remove oldest command
+            }
+
+            // Increment edit counter and check if backup reminder is needed
+            const showBackupReminder = this.incrementEditCounter();
+
+            return { result, showBackupReminder };
+        } catch (error) {
+            OPTIMISM.logError('Error executing command:', error);
+            throw error;
+        }
     }
-}
+
+    async undo() {
+        if (this.undoStack.length === 0) return false;
+
+        try {
+            OPTIMISM.log('Undoing last two actions (if available)');
+
+            // Create a counter to track how many actions we've undone
+            let actionsUndone = 0;
+            const maxActionsToUndo = 2;
+
+            // Keep undoing until we reach our limit or run out of actions
+            while (actionsUndone < maxActionsToUndo && this.undoStack.length > 0) {
+                // Get the last command from the undo stack
+                const command = this.undoStack.pop();
+
+                // Execute the undo action
+                await command.undo();
+
+                // Add to redo stack
+                this.redoStack.push(command);
+
+                // Limit redo stack size
+                if (this.redoStack.length > this.maxHistorySize) {
+                    this.redoStack.shift(); // Remove oldest command
+                }
+
+                // Increment our counter
+                actionsUndone++;
+            }
+
+            OPTIMISM.log(`Undid ${actionsUndone} action(s)`);
+            return true;
+        } catch (error) {
+            OPTIMISM.logError('Error during undo:', error);
+            return false;
+        }
+    }
+
+    async redo() {
+        if (this.redoStack.length === 0) return false;
+
+        try {
+            OPTIMISM.log('Redoing last two actions (if available)');
+
+            // Create a counter to track how many actions we've redone
+            let actionsRedone = 0;
+            const maxActionsToRedo = 2;
+
+            // Keep redoing until we reach our limit or run out of actions
+            while (actionsRedone < maxActionsToRedo && this.redoStack.length > 0) {
+                // Get the last command from the redo stack
+                const command = this.redoStack.pop();
+
+                // Execute the command again
+                await command.execute();
+
+                // Add back to undo stack
+                this.undoStack.push(command);
+
+                // Increment our counter
+                actionsRedone++;
+            }
+
+            OPTIMISM.log(`Redid ${actionsRedone} action(s)`);
+            return true;
+        } catch (error) {
+            OPTIMISM.logError('Error during redo:', error);
+            return false;
+        }
+    }
 
     canUndo() {
         return this.undoStack.length > 0;
@@ -446,8 +484,8 @@ async redo() {
     hasChildren(elementId) {
         if (!this.currentNode.children) return false;
         return !!this.currentNode.children[elementId] &&
-              (this.currentNode.children[elementId].elements?.length > 0 ||
-               Object.keys(this.currentNode.children[elementId].children || {}).length > 0);
+            (this.currentNode.children[elementId].elements?.length > 0 ||
+                Object.keys(this.currentNode.children[elementId].children || {}).length > 0);
     }
 
     async navigateToElement(elementId) {
@@ -457,101 +495,230 @@ async redo() {
             this.currentNode.children = {};
         }
 
-    // Create a child node if it doesn't exist
-    if (!this.currentNode.children[elementId]) {
-        let nodeTitle = "Untitled";
+        // Create a child node if it doesn't exist
+        if (!this.currentNode.children[elementId]) {
+            let nodeTitle = "Untitled";
 
-        if (element.type === 'text') {
-            nodeTitle = element.text ?
-                (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) :
-                "Untitled";
-        } else if (element.type === 'image') {
-            nodeTitle = "Image";
-        }
+            if (element.type === 'text') {
+                nodeTitle = element.text ?
+                    (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) :
+                    "Untitled";
+            } else if (element.type === 'image') {
+                nodeTitle = "Image";
+            }
 
-        this.currentNode.children[elementId] = {
-            id: elementId,
-            parentId: this.currentNode.id,
-            title: nodeTitle,
-            elements: [],
-            children: {}
-        };
-    } else {
-        // If the node exists but we're updating a text element, update the title
-        if (element.type === 'text') {
-            const nodeTitle = element.text ?
-                (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) :
-                "Untitled";
-            this.currentNode.children[elementId].title = nodeTitle;
-        }
-    }
-
-    // Add to navigation stack
-    this.navigationStack.push({
-        nodeId: elementId,
-        nodeTitle: this.currentNode.children[elementId].title,
-        node: this.currentNode.children[elementId]
-    });
-
-    // Update current node
-    this.currentNode = this.currentNode.children[elementId];
-
-    // Clear selected element when navigating
-    this.selectedElement = null;
-
-    // Update URL hash
-    this.updateUrlHash();
-
-    // Update browser history
-    window.history.pushState({ nodeId: elementId }, '', this.generateUrlHash(elementId));
-
-    await this.saveData();
-    return true;
-}
-
-async navigateBack() {
-    if (this.navigationStack.length <= 1) return false;
-
-    // Get the current node ID before navigation
-    const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
-    const currentNode = this.currentNode; // Store reference to current node before popping
-
-    // Remove the current level
-    this.navigationStack.pop();
-
-    // Set current node to the previous level
-    this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
-
-    // Check if the node we just left has no children anymore
-    const isEmpty = this.checkIfNodeIsEmpty(currentNodeId);
-
-    // Clear selected element when navigating
-    this.selectedElement = null;
-
-    // Update URL hash
-    this.updateUrlHash();
-
-    // Update browser history
-    const newNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
-    window.history.pushState({ nodeId: newNodeId }, '', this.generateUrlHash(newNodeId));
-
-    // Update hasChildren status for the card we just came out of
-    if (this.currentNode.elements) {
-        const parentElement = this.currentNode.elements.find(el => el.id === currentNodeId);
-        if (parentElement) {
-            // Update the display to not show it as having children if empty
-            if (isEmpty) {
-                // Queue any images in this empty node for deletion before it's effectively removed
-                this.queueImagesForDeletion(currentNode);
-
-                // Just save the data here, the view will handle removing underline
-                await this.saveData();
+            this.currentNode.children[elementId] = {
+                id: elementId,
+                parentId: this.currentNode.id,
+                title: nodeTitle,
+                elements: [],
+                children: {}
+            };
+        } else {
+            // If the node exists but we're updating a text element, update the title
+            if (element.type === 'text') {
+                const nodeTitle = element.text ?
+                    (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) :
+                    "Untitled";
+                this.currentNode.children[elementId].title = nodeTitle;
             }
         }
+
+        // Add to navigation stack
+        this.navigationStack.push({
+            nodeId: elementId,
+            nodeTitle: this.currentNode.children[elementId].title,
+            node: this.currentNode.children[elementId]
+        });
+
+        // Update current node
+        this.currentNode = this.currentNode.children[elementId];
+
+        // Clear selected element when navigating
+        this.selectedElement = null;
+
+        // Update URL hash
+        this.updateUrlHash();
+
+        // Update browser history
+        window.history.pushState({ nodeId: elementId }, '', this.generateUrlHash(elementId));
+
+        await this.saveData();
+        return true;
     }
 
-    return true;
-}
+    // --- NEW METHOD: Navigate directly into an element ---
+    async navigateToElementDirectly(elementId) {
+        OPTIMISM.log(`Attempting direct navigation into element: ${elementId}`);
+
+        // 1. Find the path to the PARENT node containing the element
+        const parentPathIds = this.findNavigationPathToParent(elementId);
+        if (!parentPathIds) {
+            OPTIMISM.logError(`Could not find path to parent of element ${elementId}`);
+            return false;
+        }
+        OPTIMISM.log(`Found parent path: ${parentPathIds.join(' -> ')}`);
+
+       // 2. Construct the new navigation stack up to the PARENT
+       const newNavStack = [];
+       let currentNodeData = this.data; // Start with root data object
+
+       for (let i = 0; i < parentPathIds.length; i++) {
+           const nodeId = parentPathIds[i]; // The ID for the node at this level
+
+           if (!currentNodeData) {
+               // This should ideally not happen if path finding starts from root
+               OPTIMISM.logError(`Error building nav stack: currentNodeData became null before processing ${nodeId}`);
+               return false;
+           }
+
+           // Add the data for the current node level to the stack
+           newNavStack.push({
+               nodeId: nodeId,
+               nodeTitle: nodeId === 'root' ? 'Home' : (currentNodeData.title || 'Untitled'),
+               node: currentNodeData // Add the actual node object
+           });
+
+           // If this isn't the last ID in the path, prepare for the next iteration
+           // by finding the next node's data object within the current node's children.
+           if (i < parentPathIds.length - 1) {
+               const nextNodeId = parentPathIds[i + 1];
+
+               // Check if the current node *has* children and if the *next* ID exists within them
+               if (currentNodeData.children && currentNodeData.children[nextNodeId]) {
+                   // Successfully found the next node's data, update for the next loop iteration
+                   currentNodeData = currentNodeData.children[nextNodeId];
+               } else {
+                   // *** This is where the error occurs for nested items ***
+                   OPTIMISM.logError(`Error building nav stack: Node data missing for child ${nextNodeId} within parent ${nodeId}`);
+                   // Add more detailed logging:
+                   console.error(`Parent Node (ID: ${nodeId}) Data:`, JSON.stringify(newNavStack[newNavStack.length-1].node, null, 2));
+                   console.error(`Expected Child ID: ${nextNodeId}`);
+                   console.error(`Available Children Keys:`, currentNodeData.children ? Object.keys(currentNodeData.children) : 'None');
+                   return false; // Stop the navigation process
+               }
+           }
+       }
+
+       // 3. Get the parent node (which is the last node processed in the loop)
+       //    Check if newNavStack is not empty before accessing the last element
+       if (newNavStack.length === 0) {
+            OPTIMISM.logError("Navigation stack is empty after processing path.");
+            return false;
+       }
+       const parentNode = newNavStack[newNavStack.length - 1].node;
+        if (!parentNode || !parentNode.elements) {
+            OPTIMISM.logError(`Parent node or its elements not found for ${elementId}`);
+            return false;
+        }
+        const element = parentNode.elements.find(el => el.id === elementId);
+        if (!element) {
+            OPTIMISM.logError(`Element ${elementId} not found within its determined parent node`);
+            return false;
+        }
+
+        // 4. Ensure the child node (inside the element) exists or create it
+        if (!parentNode.children) {
+            parentNode.children = {};
+        }
+        let childNode = parentNode.children[elementId];
+        if (!childNode) {
+            OPTIMISM.log(`Child node for ${elementId} does not exist, creating...`);
+            let nodeTitle = "Untitled";
+            if (element.type === 'text') {
+                nodeTitle = element.text ? (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : "Untitled";
+            } else if (element.type === 'image') {
+                nodeTitle = "Image";
+            }
+            childNode = {
+                id: elementId, // Child node ID is the same as the element ID
+                parentId: parentNode.id,
+                title: nodeTitle,
+                elements: [],
+                children: {}
+            };
+            parentNode.children[elementId] = childNode;
+             await this.saveData(); // Save immediately after creating the node
+             OPTIMISM.log(`Created and saved new child node for ${elementId}`);
+        } else {
+             // Ensure title is up-to-date if element is text
+             if (element.type === 'text') {
+                 const expectedTitle = element.text ? (element.text.trim() === "" ? "Untitled" : element.text.substring(0, 60)) : "Untitled";
+                 if (childNode.title !== expectedTitle) {
+                     childNode.title = expectedTitle;
+                     await this.saveData();
+                     OPTIMISM.log(`Updated title for existing child node ${elementId}`);
+                 }
+             }
+        }
+
+        // 5. Add the final step (the element itself) to the navigation stack
+        newNavStack.push({
+            nodeId: elementId,
+            nodeTitle: childNode.title,
+            node: childNode
+        });
+
+        // 6. Update the model state
+        this.navigationStack = newNavStack;
+        this.currentNode = childNode;
+        this.selectedElement = null; // Clear selection
+
+        // 7. Update URL and History
+        const finalNodeId = elementId;
+        const hash = this.generateUrlHash(finalNodeId);
+        window.history.pushState({ nodeId: finalNodeId }, '', hash);
+        OPTIMISM.log(`Direct navigation successful. New stack depth: ${this.navigationStack.length}. Current node: ${this.currentNode.id}`);
+
+        // 8. Data was potentially saved when creating/updating node, ensure it's saved if not already.
+        // (saveData() was called above if node needed creation/update)
+
+        return true; // Indicate success
+    }
+
+    async navigateBack() {
+        if (this.navigationStack.length <= 1) return false;
+
+        // Get the current node ID before navigation
+        const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+        const currentNode = this.currentNode; // Store reference to current node before popping
+
+        // Remove the current level
+        this.navigationStack.pop();
+
+        // Set current node to the previous level
+        this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
+
+        // Check if the node we just left has no children anymore
+        const isEmpty = this.checkIfNodeIsEmpty(currentNodeId);
+
+        // Clear selected element when navigating
+        this.selectedElement = null;
+
+        // Update URL hash
+        this.updateUrlHash();
+
+        // Update browser history
+        const newNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+        window.history.pushState({ nodeId: newNodeId }, '', this.generateUrlHash(newNodeId));
+
+        // Update hasChildren status for the card we just came out of
+        if (this.currentNode.elements) {
+            const parentElement = this.currentNode.elements.find(el => el.id === currentNodeId);
+            if (parentElement) {
+                // Update the display to not show it as having children if empty
+                if (isEmpty) {
+                    // Queue any images in this empty node for deletion before it's effectively removed
+                    this.queueImagesForDeletion(currentNode);
+
+                    // Just save the data here, the view will handle removing underline
+                    await this.saveData();
+                }
+            }
+        }
+
+        return true;
+    }
 
     checkIfNodeIsEmpty(nodeId) {
         // Find the node in the current level's children
@@ -567,24 +734,24 @@ async navigateBack() {
     }
 
     // Modify the navigateToIndex method to update URL
-async navigateToIndex(index) {
-    if (index >= this.navigationStack.length || index < 0) return false;
+    async navigateToIndex(index) {
+        if (index >= this.navigationStack.length || index < 0) return false;
 
-    // Keep only up to the specified index
-    this.navigationStack = this.navigationStack.slice(0, index + 1);
+        // Keep only up to the specified index
+        this.navigationStack = this.navigationStack.slice(0, index + 1);
 
-    // Set current node
-    this.currentNode = this.navigationStack[index].node;
+        // Set current node
+        this.currentNode = this.navigationStack[index].node;
 
-    // Clear selected element when navigating
-    this.selectedElement = null;
+        // Clear selected element when navigating
+        this.selectedElement = null;
 
-    // Update browser history
-    const nodeId = this.navigationStack[index].nodeId;
-    window.history.pushState({ nodeId: nodeId }, '', this.generateUrlHash(nodeId));
+        // Update browser history
+        const nodeId = this.navigationStack[index].nodeId;
+        window.history.pushState({ nodeId: nodeId }, '', this.generateUrlHash(nodeId));
 
-    return true;
-}
+        return true;
+    }
 
     async moveElement(elementId, targetElementId) {
         try {
@@ -623,7 +790,7 @@ async navigateToIndex(index) {
             }
 
             // Add source element to target's elements
-            const newElement = {...sourceElement};
+            const newElement = { ...sourceElement };
             newElement.id = crypto.randomUUID();
 
             // For image elements, we need to handle the image data separately
@@ -681,7 +848,7 @@ async navigateToIndex(index) {
             }
 
             // Create a copy of the element for the target node
-            const newElement = {...sourceElement};
+            const newElement = { ...sourceElement };
             newElement.id = crypto.randomUUID();
 
             // For image elements, we need to handle the image data separately
@@ -715,30 +882,63 @@ async navigateToIndex(index) {
         }
     }
 
-   // Modify the navigateToNode method to update URL
-async navigateToNode(nodeId) {
-    // Handle case where we're navigating to root
-    if (nodeId === 'root') {
-        // Reset to just the root node
-        this.navigationStack = [this.navigationStack[0]];
-        this.currentNode = this.navigationStack[0].node;
-        this.selectedElement = null;
+    // Modify the navigateToNode method to update URL
+    async navigateToNode(nodeId) {
+        // Handle case where we're navigating to root
+        if (nodeId === 'root') {
+            // Reset to just the root node
+            this.navigationStack = [this.navigationStack[0]];
+            this.currentNode = this.navigationStack[0].node;
+            this.selectedElement = null;
 
-        // Update URL hash
-        this.updateUrlHash();
+            // Update URL hash
+            this.updateUrlHash();
 
-        // Update browser history
-        window.history.pushState({ nodeId: 'root' }, '', '#');
+            // Update browser history
+            window.history.pushState({ nodeId: 'root' }, '', '#');
 
-        return true;
-    }
+            return true;
+        }
 
-    // Search through the navigation stack
-    for (let i = 0; i < this.navigationStack.length; i++) {
-        if (this.navigationStack[i].nodeId === nodeId) {
-            // Truncate the stack to this point
-            this.navigationStack = this.navigationStack.slice(0, i + 1);
-            this.currentNode = this.navigationStack[i].node;
+        // Search through the navigation stack
+        for (let i = 0; i < this.navigationStack.length; i++) {
+            if (this.navigationStack[i].nodeId === nodeId) {
+                // Truncate the stack to this point
+                this.navigationStack = this.navigationStack.slice(0, i + 1);
+                this.currentNode = this.navigationStack[i].node;
+                this.selectedElement = null;
+
+                // Update URL hash
+                this.updateUrlHash();
+
+                // Update browser history
+                window.history.pushState({ nodeId: nodeId }, '', this.generateUrlHash(nodeId));
+
+                return true;
+            }
+        }
+
+        // If not found in the stack, we need to build the path to this node
+        const path = this.buildPathToNode(nodeId);
+        if (path && path.length > 0) {
+            // Start with root
+            this.navigationStack = [this.navigationStack[0]];
+            this.currentNode = this.navigationStack[0].node;
+
+            // Navigate through the path
+            for (const id of path) {
+                const node = this.findNodeById(id);
+                if (!node) return false;
+
+                this.navigationStack.push({
+                    nodeId: id,
+                    nodeTitle: node.title || 'Untitled',
+                    node: node
+                });
+            }
+
+            // Set current node to the last one in the path
+            this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
             this.selectedElement = null;
 
             // Update URL hash
@@ -749,43 +949,10 @@ async navigateToNode(nodeId) {
 
             return true;
         }
+
+        OPTIMISM.logError(`Node ${nodeId} not found in navigation stack`);
+        return false;
     }
-
-    // If not found in the stack, we need to build the path to this node
-    const path = this.buildPathToNode(nodeId);
-    if (path && path.length > 0) {
-        // Start with root
-        this.navigationStack = [this.navigationStack[0]];
-        this.currentNode = this.navigationStack[0].node;
-
-        // Navigate through the path
-        for (const id of path) {
-            const node = this.findNodeById(id);
-            if (!node) return false;
-
-            this.navigationStack.push({
-                nodeId: id,
-                nodeTitle: node.title || 'Untitled',
-                node: node
-            });
-        }
-
-        // Set current node to the last one in the path
-        this.currentNode = this.navigationStack[this.navigationStack.length - 1].node;
-        this.selectedElement = null;
-
-        // Update URL hash
-        this.updateUrlHash();
-
-        // Update browser history
-        window.history.pushState({ nodeId: nodeId }, '', this.generateUrlHash(nodeId));
-
-        return true;
-    }
-
-    OPTIMISM.logError(`Node ${nodeId} not found in navigation stack`);
-    return false;
-}
 
     async toggleTheme() {
         this.isDarkTheme = !this.isDarkTheme;
@@ -830,11 +997,11 @@ async navigateToNode(nodeId) {
     }
 
     // In model.js, modify the resetBackupReminder method
-resetBackupReminder() {
-    this.lastBackupReminder = this.editCounter;
-    OPTIMISM.log(`Reset backup reminder (next at edit #${this.editCounter + this.backupReminderThreshold})`);
-    this.saveAppState();
-}
+    resetBackupReminder() {
+        this.lastBackupReminder = this.editCounter;
+        OPTIMISM.log(`Reset backup reminder (next at edit #${this.editCounter + this.backupReminderThreshold})`);
+        this.saveAppState();
+    }
 
     // In model.js, modify the cleanupDeletedImages method
     async cleanupDeletedImages() {
@@ -896,646 +1063,646 @@ resetBackupReminder() {
                 isArenaVisible: this.isArenaVisible,
                 gridLayout: this.gridLayout,
                 priorityCards: this.priorityCards,
-            isPrioritiesVisible: this.isPrioritiesVisible
+                isPrioritiesVisible: this.isPrioritiesVisible
             };
 
             OPTIMISM.log(`Saving app state (edit counter: ${this.editCounter}, last backup: ${this.lastBackupReminder}, images locked: ${this.imagesLocked}, quick links: ${this.quickLinks.length}, locked cards: ${this.lockedCards.length}, grid: ${this.isGridVisible ? 'on' : 'off'}, layout: ${this.gridLayout}, arena: ${this.isArenaVisible ? 'on' : 'off'}, nesting disabled: ${this.isNestingDisabled ? 'yes' : 'no'}, settings: ${this.isSettingsVisible ? 'visible' : 'hidden'}, inbox: ${this.isInboxVisible ? 'visible' : 'hidden'})`);
-             await this.db.put('canvasData', appState);
+            await this.db.put('canvasData', appState);
         } catch (error) {
             OPTIMISM.logError('Error saving app state:', error);
         }
     }
 
-// Add this method to the CanvasModel class in model.js
-findAllImageElementsInNode(node) {
-    if (!node) return [];
+    // Add this method to the CanvasModel class in model.js
+    findAllImageElementsInNode(node) {
+        if (!node) return [];
 
-    let imageElements = [];
+        let imageElements = [];
 
-    // Check elements in this node
-    if (node.elements && node.elements.length > 0) {
-        // Add all image elements from this node
-        const nodeImages = node.elements.filter(element => element.type === 'image');
-        imageElements = imageElements.concat(nodeImages);
+        // Check elements in this node
+        if (node.elements && node.elements.length > 0) {
+            // Add all image elements from this node
+            const nodeImages = node.elements.filter(element => element.type === 'image');
+            imageElements = imageElements.concat(nodeImages);
+        }
+
+        // Recursively check all children nodes
+        if (node.children && Object.keys(node.children).length > 0) {
+            for (const childId in node.children) {
+                const childNode = node.children[childId];
+                const childImages = this.findAllImageElementsInNode(childNode);
+                imageElements = imageElements.concat(childImages);
+            }
+        }
+
+        return imageElements;
     }
 
-    // Recursively check all children nodes
-    if (node.children && Object.keys(node.children).length > 0) {
-        for (const childId in node.children) {
-            const childNode = node.children[childId];
-            const childImages = this.findAllImageElementsInNode(childNode);
-            imageElements = imageElements.concat(childImages);
+    // Also add this method to recursively queue images for deletion
+    queueImagesForDeletion(node) {
+        const images = this.findAllImageElementsInNode(node);
+        if (images.length > 0) {
+            OPTIMISM.log(`Found ${images.length} images to queue for deletion`);
+
+            // Add each image to the deletion queue
+            for (const image of images) {
+                const deleteAtCounter = this.editCounter + 10;
+                this.deletedImageQueue.push({
+                    imageId: image.imageDataId,
+                    deleteAtCounter: deleteAtCounter
+                });
+                OPTIMISM.log(`Added image ${image.imageDataId} to deletion queue (will delete after edit #${deleteAtCounter})`);
+            }
+
+            // Always save the app state whenever the queue is modified
+            this.saveAppState();
         }
     }
 
-    return imageElements;
-}
+    // Add these methods to CanvasModel class in model.js
+    // Helper method to build a path to a node
 
-// Also add this method to recursively queue images for deletion
-queueImagesForDeletion(node) {
-    const images = this.findAllImageElementsInNode(node);
-    if (images.length > 0) {
-        OPTIMISM.log(`Found ${images.length} images to queue for deletion`);
+    // Generate a URL-friendly slug from text
+    generateSlug(text) {
+        if (!text) return 'untitled';
 
-        // Add each image to the deletion queue
-        for (const image of images) {
-            const deleteAtCounter = this.editCounter + 10;
-            this.deletedImageQueue.push({
-                imageId: image.imageDataId,
-                deleteAtCounter: deleteAtCounter
-            });
-            OPTIMISM.log(`Added image ${image.imageDataId} to deletion queue (will delete after edit #${deleteAtCounter})`);
-        }
-
-        // Always save the app state whenever the queue is modified
-        this.saveAppState();
-    }
-}
-
-// Add these methods to CanvasModel class in model.js
-// Helper method to build a path to a node
-
-// Generate a URL-friendly slug from text
-generateSlug(text) {
-    if (!text) return 'untitled';
-
-    // Convert to lowercase and replace non-alphanumeric characters with hyphens
-    return text.toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '') // Remove special characters
-        .replace(/[\s_-]+/g, '-') // Replace spaces, underscores, and hyphens with a single hyphen
-        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
-        .substring(0, 30); // Limit length
-}
-
-// Generate a URL hash for a node
-generateUrlHash(nodeId) {
-    const node = this.findNodeById(nodeId);
-    if (!node) return '#';
-
-    // For root, just return '#'
-    if (nodeId === 'root') return '#';
-
-    // For other nodes, combine slug and ID
-    let slug = 'untitled';
-
-    // If it's a text element, use its content for the slug
-    const parentNode = this.findParentNode(nodeId);
-    if (parentNode && parentNode.elements) {
-        const element = parentNode.elements.find(el => el.id === nodeId);
-        if (element && element.type === 'text' && element.text) {
-            slug = this.generateSlug(element.text);
-        } else if (element && element.type === 'image') {
-            slug = 'image';
-        }
+        // Convert to lowercase and replace non-alphanumeric characters with hyphens
+        return text.toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '') // Remove special characters
+            .replace(/[\s_-]+/g, '-') // Replace spaces, underscores, and hyphens with a single hyphen
+            .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+            .substring(0, 30); // Limit length
     }
 
-    // Add the first 6 characters of ID
-    const idPart = nodeId.substring(0, 6);
-    return `#${slug}-${idPart}`;
-}
+    // Generate a URL hash for a node
+    generateUrlHash(nodeId) {
+        const node = this.findNodeById(nodeId);
+        if (!node) return '#';
 
-// Find a node by ID in the entire data structure
-findNodeById(nodeId) {
-    // Root node is a special case
-    if (nodeId === 'root') return this.data;
+        // For root, just return '#'
+        if (nodeId === 'root') return '#';
 
-    // For other nodes, search through the children
-    return this.findNodeRecursive(this.data, nodeId);
-}
+        // For other nodes, combine slug and ID
+        let slug = 'untitled';
 
-// Recursively search for a node by ID
-findNodeRecursive(currentNode, targetId) {
-    // Check if this node has the target ID
-    if (currentNode.id === targetId) return currentNode;
-
-    // Check children
-    if (currentNode.children) {
-        for (const childId in currentNode.children) {
-            const result = this.findNodeRecursive(currentNode.children[childId], targetId);
-            if (result) return result;
-        }
-    }
-
-    return null;
-}
-
-// Find the parent node of a given node ID
-findParentNode(nodeId) {
-    // Root has no parent
-    if (nodeId === 'root') return null;
-
-    // Search through the entire structure
-    return this.findParentNodeRecursive(this.data, nodeId);
-}
-
-// Recursively search for the parent of a node
-findParentNodeRecursive(currentNode, targetId) {
-    // Check if any direct children have the target ID
-    if (currentNode.children) {
-        if (currentNode.children[targetId]) {
-            return currentNode;
+        // If it's a text element, use its content for the slug
+        const parentNode = this.findParentNode(nodeId);
+        if (parentNode && parentNode.elements) {
+            const element = parentNode.elements.find(el => el.id === nodeId);
+            if (element && element.type === 'text' && element.text) {
+                slug = this.generateSlug(element.text);
+            } else if (element && element.type === 'image') {
+                slug = 'image';
+            }
         }
 
-        // Check deeper in the hierarchy
-        for (const childId in currentNode.children) {
-            const result = this.findParentNodeRecursive(currentNode.children[childId], targetId);
-            if (result) return result;
+        // Add the first 6 characters of ID
+        const idPart = nodeId.substring(0, 6);
+        return `#${slug}-${idPart}`;
+    }
+
+    // Find a node by ID in the entire data structure
+    findNodeById(nodeId) {
+        // Root node is a special case
+        if (nodeId === 'root') return this.data;
+
+        // For other nodes, search through the children
+        return this.findNodeRecursive(this.data, nodeId);
+    }
+
+    // Recursively search for a node by ID
+    findNodeRecursive(currentNode, targetId) {
+        // Check if this node has the target ID
+        if (currentNode.id === targetId) return currentNode;
+
+        // Check children
+        if (currentNode.children) {
+            for (const childId in currentNode.children) {
+                const result = this.findNodeRecursive(currentNode.children[childId], targetId);
+                if (result) return result;
+            }
         }
+
+        return null;
     }
 
-    return null;
-}
+    // Find the parent node of a given node ID
+    findParentNode(nodeId) {
+        // Root has no parent
+        if (nodeId === 'root') return null;
 
-// Update the URL hash based on current navigation
-updateUrlHash() {
-    if (this.navigationStack.length === 0) return;
-
-    const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
-    const hash = this.generateUrlHash(currentNodeId);
-
-    // Update the URL without adding a new history entry
-    window.history.replaceState(null, '', hash);
-}
-
-// Navigate to a node based on URL hash
-async navigateToNodeByHash(hash) {
-    if (!hash || hash === '#') {
-        // Go to root if no hash or just '#'
-        return this.navigateToNode('root');
+        // Search through the entire structure
+        return this.findParentNodeRecursive(this.data, nodeId);
     }
 
-    // Remove the # character
-    hash = hash.substring(1);
+    // Recursively search for the parent of a node
+    findParentNodeRecursive(currentNode, targetId) {
+        // Check if any direct children have the target ID
+        if (currentNode.children) {
+            if (currentNode.children[targetId]) {
+                return currentNode;
+            }
 
-    // Extract the ID part (last part after the last hyphen)
-    const parts = hash.split('-');
-    if (parts.length < 2) return false;
+            // Check deeper in the hierarchy
+            for (const childId in currentNode.children) {
+                const result = this.findParentNodeRecursive(currentNode.children[childId], targetId);
+                if (result) return result;
+            }
+        }
 
-    const idPart = parts[parts.length - 1];
-    if (idPart.length !== 6) return false;
+        return null;
+    }
 
-    // Find nodes with matching ID prefix
-    const matchingNodes = this.findNodesWithIdPrefix(idPart);
-    if (matchingNodes.length === 0) return false;
+    // Update the URL hash based on current navigation
+    updateUrlHash() {
+        if (this.navigationStack.length === 0) return;
 
-    // If multiple matches, try to narrow down by slug
-    if (matchingNodes.length > 1) {
-        const slug = hash.substring(0, hash.length - idPart.length - 1);
-        for (const node of matchingNodes) {
-            const parentNode = this.findParentNode(node.id);
-            if (parentNode && parentNode.elements) {
-                const element = parentNode.elements.find(el => el.id === node.id);
-                if (element && element.type === 'text' && element.text) {
-                    const elementSlug = this.generateSlug(element.text);
-                    if (elementSlug === slug) {
-                        return this.navigateToNode(node.id);
+        const currentNodeId = this.navigationStack[this.navigationStack.length - 1].nodeId;
+        const hash = this.generateUrlHash(currentNodeId);
+
+        // Update the URL without adding a new history entry
+        window.history.replaceState(null, '', hash);
+    }
+
+    // Navigate to a node based on URL hash
+    async navigateToNodeByHash(hash) {
+        if (!hash || hash === '#') {
+            // Go to root if no hash or just '#'
+            return this.navigateToNode('root');
+        }
+
+        // Remove the # character
+        hash = hash.substring(1);
+
+        // Extract the ID part (last part after the last hyphen)
+        const parts = hash.split('-');
+        if (parts.length < 2) return false;
+
+        const idPart = parts[parts.length - 1];
+        if (idPart.length !== 6) return false;
+
+        // Find nodes with matching ID prefix
+        const matchingNodes = this.findNodesWithIdPrefix(idPart);
+        if (matchingNodes.length === 0) return false;
+
+        // If multiple matches, try to narrow down by slug
+        if (matchingNodes.length > 1) {
+            const slug = hash.substring(0, hash.length - idPart.length - 1);
+            for (const node of matchingNodes) {
+                const parentNode = this.findParentNode(node.id);
+                if (parentNode && parentNode.elements) {
+                    const element = parentNode.elements.find(el => el.id === node.id);
+                    if (element && element.type === 'text' && element.text) {
+                        const elementSlug = this.generateSlug(element.text);
+                        if (elementSlug === slug) {
+                            return this.navigateToNode(node.id);
+                        }
                     }
                 }
             }
         }
+
+        // If we couldn't narrow it down or there's only one match, use the first one
+        return this.navigateToNode(matchingNodes[0].id);
     }
 
-    // If we couldn't narrow it down or there's only one match, use the first one
-    return this.navigateToNode(matchingNodes[0].id);
-}
-
-// Find all nodes with a given ID prefix
-findNodesWithIdPrefix(idPrefix) {
-    const results = [];
-    this.findNodesWithIdPrefixRecursive(this.data, idPrefix, results);
-    return results;
-}
-
-// Recursively find nodes with matching ID prefix
-findNodesWithIdPrefixRecursive(currentNode, idPrefix, results) {
-    // Check if this node's ID starts with the prefix
-    if (currentNode.id && currentNode.id.startsWith(idPrefix)) {
-        results.push(currentNode);
+    // Find all nodes with a given ID prefix
+    findNodesWithIdPrefix(idPrefix) {
+        const results = [];
+        this.findNodesWithIdPrefixRecursive(this.data, idPrefix, results);
+        return results;
     }
 
-    // Check all children
-    if (currentNode.children) {
-        for (const childId in currentNode.children) {
-            this.findNodesWithIdPrefixRecursive(currentNode.children[childId], idPrefix, results);
-        }
-    }
-}
-
-buildPathToNode(nodeId) {
-    const path = [];
-    if (this.buildPathToNodeRecursive(this.data, nodeId, path)) {
-        return path;
-    }
-    return null;
-}
-
-
-// Recursively build a path to a node
-buildPathToNodeRecursive(currentNode, targetId, path) {
-    // Check if any direct children have the target ID
-    if (currentNode.children) {
-        if (currentNode.children[targetId]) {
-            path.push(targetId);
-            return true;
+    // Recursively find nodes with matching ID prefix
+    findNodesWithIdPrefixRecursive(currentNode, idPrefix, results) {
+        // Check if this node's ID starts with the prefix
+        if (currentNode.id && currentNode.id.startsWith(idPrefix)) {
+            results.push(currentNode);
         }
 
-        // Check deeper in the hierarchy
-        for (const childId in currentNode.children) {
-            path.push(childId);
-            if (this.buildPathToNodeRecursive(currentNode.children[childId], targetId, path)) {
+        // Check all children
+        if (currentNode.children) {
+            for (const childId in currentNode.children) {
+                this.findNodesWithIdPrefixRecursive(currentNode.children[childId], idPrefix, results);
+            }
+        }
+    }
+
+    buildPathToNode(nodeId) {
+        const path = [];
+        if (this.buildPathToNodeRecursive(this.data, nodeId, path)) {
+            return path;
+        }
+        return null;
+    }
+
+
+    // Recursively build a path to a node
+    buildPathToNodeRecursive(currentNode, targetId, path) {
+        // Check if any direct children have the target ID
+        if (currentNode.children) {
+            if (currentNode.children[targetId]) {
+                path.push(targetId);
                 return true;
             }
-            path.pop();
+
+            // Check deeper in the hierarchy
+            for (const childId in currentNode.children) {
+                path.push(childId);
+                if (this.buildPathToNodeRecursive(currentNode.children[childId], targetId, path)) {
+                    return true;
+                }
+                path.pop();
+            }
         }
-    }
 
-    return false;
-}
-
-// Add this method to the CanvasModel class in model.js
-async toggleImagesLocked() {
-    this.imagesLocked = !this.imagesLocked;
-    OPTIMISM.log(`Images locked state set to: ${this.imagesLocked}`);
-    await this.saveAppState();
-    return this.imagesLocked;
-}
-
-// In model.js
-async addQuickLink(nodeId, nodeTitle) {
-    // Don't add if already exists
-    if (this.quickLinks.some(link => link.nodeId === nodeId)) {
-        OPTIMISM.log(`Quick link for node ${nodeId} already exists`);
         return false;
     }
 
-    // Check if we already have 3 links, if so, remove the oldest one
-    if (this.quickLinks.length >= 3) {
-        this.quickLinks.shift(); // Remove oldest
-        OPTIMISM.log('Removed oldest quick link to make room for new one');
-    }
-
-    // Create new quick link with expiry timestamp
-    const newLink = {
-        nodeId,
-        nodeTitle,
-        addedAt: this.editCounter,
-        expiresAt: this.editCounter + this.quickLinkExpiryCount
-    };
-
-    // Add to the end of the array
-    this.quickLinks.push(newLink);
-    OPTIMISM.log(`Added quick link to node ${nodeId} (${nodeTitle})`);
-
-    // Save state
-    await this.saveAppState();
-    return true;
-}
-
-// Remove a quick link from the nav bar
-async removeQuickLink(nodeId) {
-    const initialLength = this.quickLinks.length;
-    this.quickLinks = this.quickLinks.filter(link => link.nodeId !== nodeId);
-
-    if (initialLength !== this.quickLinks.length) {
-        OPTIMISM.log(`Removed quick link to node ${nodeId}`);
+    // Add this method to the CanvasModel class in model.js
+    async toggleImagesLocked() {
+        this.imagesLocked = !this.imagesLocked;
+        OPTIMISM.log(`Images locked state set to: ${this.imagesLocked}`);
         await this.saveAppState();
-        return true;
+        return this.imagesLocked;
     }
 
-    OPTIMISM.log(`Quick link to node ${nodeId} not found`);
-    return false;
-}
-
-// Check and remove expired links
-async cleanupExpiredQuickLinks() {
-    const initialLength = this.quickLinks.length;
-
-    // Filter out expired links
-    this.quickLinks = this.quickLinks.filter(link =>
-        link.expiresAt > this.editCounter
-    );
-
-    if (initialLength !== this.quickLinks.length) {
-        OPTIMISM.log(`Removed ${initialLength - this.quickLinks.length} expired quick link(s)`);
-        await this.saveAppState();
-        return true;
-    }
-
-    return false;
-}
-
-// Add this method to the CanvasModel class in model.js
-async refreshQuickLinkExpiry(nodeId) {
-    // Find the quick link
-    const linkIndex = this.quickLinks.findIndex(link => link.nodeId === nodeId);
-    if (linkIndex === -1) {
-      OPTIMISM.log(`Quick link for node ${nodeId} not found to refresh`);
-      return false;
-    }
-
-    // Reset the expiry counter to a new value based on the current edit counter
-    this.quickLinks[linkIndex].expiresAt = this.editCounter + this.quickLinkExpiryCount;
-
-    OPTIMISM.log(`Refreshed quick link to node ${nodeId} (will expire after edit #${this.quickLinks[linkIndex].expiresAt})`);
-
-    // Save state
-    await this.saveAppState();
-    return true;
-  }
-
-  // Check if a card is locked
-isCardLocked(cardId) {
-    return this.lockedCards.includes(cardId);
-}
-
-// Lock a card
-async lockCard(cardId) {
-    if (!this.isCardLocked(cardId)) {
-        this.lockedCards.push(cardId);
-        OPTIMISM.log(`Card ${cardId} locked`);
-        await this.saveAppState();
-        return true;
-    }
-    return false;
-}
-
-// Unlock a card
-async unlockCard(cardId) {
-    const index = this.lockedCards.indexOf(cardId);
-    if (index !== -1) {
-        this.lockedCards.splice(index, 1);
-        OPTIMISM.log(`Card ${cardId} unlocked`);
-        await this.saveAppState();
-        return true;
-    }
-    return false;
-}
-
-// Toggle card lock state
-async toggleCardLock(cardId) {
-    if (this.isCardLocked(cardId)) {
-        return await this.unlockCard(cardId);
-    } else {
-        return await this.lockCard(cardId);
-    }
-}
-
-// Add this method to the CanvasModel class in model.js
-async updateNavigationTitles(elementId, newText) {
-    // Only update titles for text elements
-    const element = this.findElement(elementId);
-    if (!element || element.type !== 'text') return;
-
-    OPTIMISM.log(`Updating navigation titles for element ${elementId}`);
-
-    // Check if this element is a parent of any node in the navigation stack
-    let updated = false;
-
-    // Skip the root node (index 0)
-    for (let i = 1; i < this.navigationStack.length; i++) {
-        const navItem = this.navigationStack[i];
-
-        // If this node's ID matches the element ID, update its title
-        if (navItem.nodeId === elementId) {
-            // Create a title from the text (limit to 60 characters)
-            const newTitle = newText ?
-                (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) :
-                "Untitled";
-
-            navItem.nodeTitle = newTitle;
-            OPTIMISM.log(`Updated navigation title at level ${i} to "${newTitle}"`);
-            updated = true;
-        }
-
-        // Also update any children nodes that have this element as parent
-        // (in case we're editing an element that is a parent of navigation nodes)
-        const node = navItem.node;
-        if (node && node.parentId === elementId) {
-            // Update the node title in the current node
-            node.title = newText ?
-                (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) :
-                "Untitled";
-
-            // Also update the title in the navigation stack
-            navItem.nodeTitle = node.title;
-
-            OPTIMISM.log(`Updated node title for child of ${elementId} to "${node.title}"`);
-            updated = true;
-        }
-    }
-
-    // Also update titles for any child nodes that aren't in the navigation stack
-    if (this.currentNode.children && this.currentNode.children[elementId]) {
-        const childNode = this.currentNode.children[elementId];
-        childNode.title = newText ?
-            (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) :
-            "Untitled";
-
-        OPTIMISM.log(`Updated title for child node ${elementId} to "${childNode.title}"`);
-        updated = true;
-    }
-
-    // If we updated any titles, save the data
-    if (updated) {
-        await this.saveData();
-    }
-
-    return updated;
-}
-
-// Add methods to manage inbox cards
-async toggleInboxVisibility() {
-    // Close other panels but NOT split view or Arena
-    if (this.isSettingsVisible) {
-        this.isSettingsVisible = false;
-    }
-    if (this.isGridVisible) {
-        this.isGridVisible = false;
-    }
-
-    this.isInboxVisible = !this.isInboxVisible;
-    OPTIMISM.log(`Inbox visibility set to: ${this.isInboxVisible}`);
-    await this.saveAppState();
-    return this.isInboxVisible;
-}
-
-async addToInbox(element) {
-    // Create a copy of the element with a new ID
-    const inboxCard = {
-        ...element,
-        id: crypto.randomUUID(), // Generate new ID for inbox card
-        originalId: element.id, // Keep reference to original ID
-        addedToInboxAt: new Date().toISOString() // Track when added
-    };
-
-    // Add to inbox
-    this.inboxCards.unshift(inboxCard); // Add to beginning of array
-    OPTIMISM.log(`Added card to inbox: ${inboxCard.id}`);
-
-    // Save state
-    await this.saveAppState();
-    return inboxCard;
-}
-
-async removeFromInbox(cardId) {
-    const initialLength = this.inboxCards.length;
-    this.inboxCards = this.inboxCards.filter(card => card.id !== cardId);
-
-    if (initialLength !== this.inboxCards.length) {
-        OPTIMISM.log(`Removed card from inbox: ${cardId}`);
-        await this.saveAppState();
-        return true;
-    }
-
-    OPTIMISM.log(`Inbox card ${cardId} not found`);
-    return false;
-}
-
-async addBlankCardToInbox() {
-    // Create a new blank card at the top of the inbox
-    const blankCard = {
-        id: crypto.randomUUID(),
-        type: 'text',
-        text: '',
-        addedToInboxAt: new Date().toISOString(),
-        style: {
-            textSize: 'small',
-            textColor: 'default'
-        }
-    };
-
-    // Add to beginning of inbox
-    this.inboxCards.unshift(blankCard);
-    OPTIMISM.log(`Added blank card to inbox: ${blankCard.id}`);
-
-    // Save state
-    await this.saveAppState();
-    return blankCard;
-}
-
-async updateInboxCard(id, properties) {
-    const card = this.inboxCards.find(card => card.id === id);
-    if (card) {
-        Object.assign(card, properties);
-
-        // Delete card if text is empty (for text cards only)
-        if (card.type === 'text' &&
-            properties.text !== undefined &&
-            (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
-            await this.removeFromInbox(id);
-            return null; // Return null to indicate the card was deleted
-        }
-
-        await this.saveAppState();
-        return card; // Return the updated card
-    }
-    return null; // Card not found
-}
-
-// In model.js, modify toggleArenaView() method
-async toggleArenaView() {
-    // REMOVED: Check for split view
-    if (this.isSplitViewEnabled) {
-        this.isSplitViewEnabled = false;
-    }
-
-    // No longer disable other panels
-
-    this.isArenaVisible = !this.isArenaVisible;
-    OPTIMISM.log(`Are.na view set to: ${this.isArenaVisible}`);
-    await this.saveAppState();
-    return this.isArenaVisible;
-}
-
-async toggleNestingDisabled() {
-    this.isNestingDisabled = !this.isNestingDisabled;
-    OPTIMISM.log(`Nesting disabled state set to: ${this.isNestingDisabled}`);
-    await this.saveAppState();
-    return this.isNestingDisabled;
-}
-
-async toggleSettingsVisibility() {
-    // Close other panels but NOT split view or Arena
-    if (this.isInboxVisible) {
-        this.isInboxVisible = false;
-    }
-    if (this.isGridVisible) {
-        this.isGridVisible = false;
-    }
-
-    // Toggle settings panel
-    this.isSettingsVisible = !this.isSettingsVisible;
-    OPTIMISM.log(`Settings visibility set to: ${this.isSettingsVisible}`);
-    await this.saveAppState();
-    return this.isSettingsVisible;
-}
-
-// Then add a generic panel toggle method:
-async togglePanel(panelName) {
-    // Close all other panels first
-    for (const panel in this.panels) {
-        if (panel !== panelName) {
-            this.panels[panel] = false;
-        }
-    }
-
-    // Toggle the requested panel
-    this.panels[panelName] = !this.panels[panelName];
-    OPTIMISM.log(`Panel '${panelName}' visibility set to: ${this.panels[panelName]}`);
-
-    // Update legacy properties for backward compatibility
-    this.isSettingsVisible = this.panels.settings;
-    this.isInboxVisible = this.panels.inbox;
-    this.isGridVisible = this.panels.grid;
-
-    await this.saveAppState();
-    return this.panels[panelName];
-}
-
-isCardPriority(cardId) {
-    return this.priorityCards.includes(cardId);
-}
-
-// Toggle priority status
-async toggleCardPriority(cardId) {
-    if (this.isCardPriority(cardId)) {
-        // Remove from priorities
-        const index = this.priorityCards.indexOf(cardId);
-        if (index !== -1) {
-            this.priorityCards.splice(index, 1);
-            OPTIMISM.log(`Card ${cardId} removed from priorities`);
-            await this.saveAppState();
+    // In model.js
+    async addQuickLink(nodeId, nodeTitle) {
+        // Don't add if already exists
+        if (this.quickLinks.some(link => link.nodeId === nodeId)) {
+            OPTIMISM.log(`Quick link for node ${nodeId} already exists`);
             return false;
         }
-    } else {
-        // Add to priorities
-        this.priorityCards.push(cardId);
-        OPTIMISM.log(`Card ${cardId} added to priorities`);
+
+        // Check if we already have 3 links, if so, remove the oldest one
+        if (this.quickLinks.length >= 3) {
+            this.quickLinks.shift(); // Remove oldest
+            OPTIMISM.log('Removed oldest quick link to make room for new one');
+        }
+
+        // Create new quick link with expiry timestamp
+        const newLink = {
+            nodeId,
+            nodeTitle,
+            addedAt: this.editCounter,
+            expiresAt: this.editCounter + this.quickLinkExpiryCount
+        };
+
+        // Add to the end of the array
+        this.quickLinks.push(newLink);
+        OPTIMISM.log(`Added quick link to node ${nodeId} (${nodeTitle})`);
+
+        // Save state
         await this.saveAppState();
         return true;
     }
-    return this.isCardPriority(cardId);
-}
 
-// Toggle priorities panel visibility
-async togglePrioritiesVisibility() {
-    // Close other panels but NOT split view or Arena
-    if (this.isSettingsVisible) {
-        this.isSettingsVisible = false;
-    }
-    if (this.isGridVisible) {
-        this.isGridVisible = false;
-    }
-    if (this.isInboxVisible) {
-        this.isInboxVisible = false;
+    // Remove a quick link from the nav bar
+    async removeQuickLink(nodeId) {
+        const initialLength = this.quickLinks.length;
+        this.quickLinks = this.quickLinks.filter(link => link.nodeId !== nodeId);
+
+        if (initialLength !== this.quickLinks.length) {
+            OPTIMISM.log(`Removed quick link to node ${nodeId}`);
+            await this.saveAppState();
+            return true;
+        }
+
+        OPTIMISM.log(`Quick link to node ${nodeId} not found`);
+        return false;
     }
 
-    this.isPrioritiesVisible = !this.isPrioritiesVisible;
-    OPTIMISM.log(`Priorities visibility set to: ${this.isPrioritiesVisible}`);
-    await this.saveAppState();
-    return this.isPrioritiesVisible;
-}
+    // Check and remove expired links
+    async cleanupExpiredQuickLinks() {
+        const initialLength = this.quickLinks.length;
+
+        // Filter out expired links
+        this.quickLinks = this.quickLinks.filter(link =>
+            link.expiresAt > this.editCounter
+        );
+
+        if (initialLength !== this.quickLinks.length) {
+            OPTIMISM.log(`Removed ${initialLength - this.quickLinks.length} expired quick link(s)`);
+            await this.saveAppState();
+            return true;
+        }
+
+        return false;
+    }
+
+    // Add this method to the CanvasModel class in model.js
+    async refreshQuickLinkExpiry(nodeId) {
+        // Find the quick link
+        const linkIndex = this.quickLinks.findIndex(link => link.nodeId === nodeId);
+        if (linkIndex === -1) {
+            OPTIMISM.log(`Quick link for node ${nodeId} not found to refresh`);
+            return false;
+        }
+
+        // Reset the expiry counter to a new value based on the current edit counter
+        this.quickLinks[linkIndex].expiresAt = this.editCounter + this.quickLinkExpiryCount;
+
+        OPTIMISM.log(`Refreshed quick link to node ${nodeId} (will expire after edit #${this.quickLinks[linkIndex].expiresAt})`);
+
+        // Save state
+        await this.saveAppState();
+        return true;
+    }
+
+    // Check if a card is locked
+    isCardLocked(cardId) {
+        return this.lockedCards.includes(cardId);
+    }
+
+    // Lock a card
+    async lockCard(cardId) {
+        if (!this.isCardLocked(cardId)) {
+            this.lockedCards.push(cardId);
+            OPTIMISM.log(`Card ${cardId} locked`);
+            await this.saveAppState();
+            return true;
+        }
+        return false;
+    }
+
+    // Unlock a card
+    async unlockCard(cardId) {
+        const index = this.lockedCards.indexOf(cardId);
+        if (index !== -1) {
+            this.lockedCards.splice(index, 1);
+            OPTIMISM.log(`Card ${cardId} unlocked`);
+            await this.saveAppState();
+            return true;
+        }
+        return false;
+    }
+
+    // Toggle card lock state
+    async toggleCardLock(cardId) {
+        if (this.isCardLocked(cardId)) {
+            return await this.unlockCard(cardId);
+        } else {
+            return await this.lockCard(cardId);
+        }
+    }
+
+    // Add this method to the CanvasModel class in model.js
+    async updateNavigationTitles(elementId, newText) {
+        // Only update titles for text elements
+        const element = this.findElement(elementId);
+        if (!element || element.type !== 'text') return;
+
+        OPTIMISM.log(`Updating navigation titles for element ${elementId}`);
+
+        // Check if this element is a parent of any node in the navigation stack
+        let updated = false;
+
+        // Skip the root node (index 0)
+        for (let i = 1; i < this.navigationStack.length; i++) {
+            const navItem = this.navigationStack[i];
+
+            // If this node's ID matches the element ID, update its title
+            if (navItem.nodeId === elementId) {
+                // Create a title from the text (limit to 60 characters)
+                const newTitle = newText ?
+                    (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) :
+                    "Untitled";
+
+                navItem.nodeTitle = newTitle;
+                OPTIMISM.log(`Updated navigation title at level ${i} to "${newTitle}"`);
+                updated = true;
+            }
+
+            // Also update any children nodes that have this element as parent
+            // (in case we're editing an element that is a parent of navigation nodes)
+            const node = navItem.node;
+            if (node && node.parentId === elementId) {
+                // Update the node title in the current node
+                node.title = newText ?
+                    (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) :
+                    "Untitled";
+
+                // Also update the title in the navigation stack
+                navItem.nodeTitle = node.title;
+
+                OPTIMISM.log(`Updated node title for child of ${elementId} to "${node.title}"`);
+                updated = true;
+            }
+        }
+
+        // Also update titles for any child nodes that aren't in the navigation stack
+        if (this.currentNode.children && this.currentNode.children[elementId]) {
+            const childNode = this.currentNode.children[elementId];
+            childNode.title = newText ?
+                (newText.trim() === "" ? "Untitled" : newText.substring(0, 60)) :
+                "Untitled";
+
+            OPTIMISM.log(`Updated title for child node ${elementId} to "${childNode.title}"`);
+            updated = true;
+        }
+
+        // If we updated any titles, save the data
+        if (updated) {
+            await this.saveData();
+        }
+
+        return updated;
+    }
+
+    // Add methods to manage inbox cards
+    async toggleInboxVisibility() {
+        // Close other panels but NOT split view or Arena
+        if (this.isSettingsVisible) {
+            this.isSettingsVisible = false;
+        }
+        if (this.isGridVisible) {
+            this.isGridVisible = false;
+        }
+
+        this.isInboxVisible = !this.isInboxVisible;
+        OPTIMISM.log(`Inbox visibility set to: ${this.isInboxVisible}`);
+        await this.saveAppState();
+        return this.isInboxVisible;
+    }
+
+    async addToInbox(element) {
+        // Create a copy of the element with a new ID
+        const inboxCard = {
+            ...element,
+            id: crypto.randomUUID(), // Generate new ID for inbox card
+            originalId: element.id, // Keep reference to original ID
+            addedToInboxAt: new Date().toISOString() // Track when added
+        };
+
+        // Add to inbox
+        this.inboxCards.unshift(inboxCard); // Add to beginning of array
+        OPTIMISM.log(`Added card to inbox: ${inboxCard.id}`);
+
+        // Save state
+        await this.saveAppState();
+        return inboxCard;
+    }
+
+    async removeFromInbox(cardId) {
+        const initialLength = this.inboxCards.length;
+        this.inboxCards = this.inboxCards.filter(card => card.id !== cardId);
+
+        if (initialLength !== this.inboxCards.length) {
+            OPTIMISM.log(`Removed card from inbox: ${cardId}`);
+            await this.saveAppState();
+            return true;
+        }
+
+        OPTIMISM.log(`Inbox card ${cardId} not found`);
+        return false;
+    }
+
+    async addBlankCardToInbox() {
+        // Create a new blank card at the top of the inbox
+        const blankCard = {
+            id: crypto.randomUUID(),
+            type: 'text',
+            text: '',
+            addedToInboxAt: new Date().toISOString(),
+            style: {
+                textSize: 'small',
+                textColor: 'default'
+            }
+        };
+
+        // Add to beginning of inbox
+        this.inboxCards.unshift(blankCard);
+        OPTIMISM.log(`Added blank card to inbox: ${blankCard.id}`);
+
+        // Save state
+        await this.saveAppState();
+        return blankCard;
+    }
+
+    async updateInboxCard(id, properties) {
+        const card = this.inboxCards.find(card => card.id === id);
+        if (card) {
+            Object.assign(card, properties);
+
+            // Delete card if text is empty (for text cards only)
+            if (card.type === 'text' &&
+                properties.text !== undefined &&
+                (properties.text === '' || properties.text === null || properties.text.trim() === '')) {
+                await this.removeFromInbox(id);
+                return null; // Return null to indicate the card was deleted
+            }
+
+            await this.saveAppState();
+            return card; // Return the updated card
+        }
+        return null; // Card not found
+    }
+
+    // In model.js, modify toggleArenaView() method
+    async toggleArenaView() {
+        // REMOVED: Check for split view
+        if (this.isSplitViewEnabled) {
+            this.isSplitViewEnabled = false;
+        }
+
+        // No longer disable other panels
+
+        this.isArenaVisible = !this.isArenaVisible;
+        OPTIMISM.log(`Are.na view set to: ${this.isArenaVisible}`);
+        await this.saveAppState();
+        return this.isArenaVisible;
+    }
+
+    async toggleNestingDisabled() {
+        this.isNestingDisabled = !this.isNestingDisabled;
+        OPTIMISM.log(`Nesting disabled state set to: ${this.isNestingDisabled}`);
+        await this.saveAppState();
+        return this.isNestingDisabled;
+    }
+
+    async toggleSettingsVisibility() {
+        // Close other panels but NOT split view or Arena
+        if (this.isInboxVisible) {
+            this.isInboxVisible = false;
+        }
+        if (this.isGridVisible) {
+            this.isGridVisible = false;
+        }
+
+        // Toggle settings panel
+        this.isSettingsVisible = !this.isSettingsVisible;
+        OPTIMISM.log(`Settings visibility set to: ${this.isSettingsVisible}`);
+        await this.saveAppState();
+        return this.isSettingsVisible;
+    }
+
+    // Then add a generic panel toggle method:
+    async togglePanel(panelName) {
+        // Close all other panels first
+        for (const panel in this.panels) {
+            if (panel !== panelName) {
+                this.panels[panel] = false;
+            }
+        }
+
+        // Toggle the requested panel
+        this.panels[panelName] = !this.panels[panelName];
+        OPTIMISM.log(`Panel '${panelName}' visibility set to: ${this.panels[panelName]}`);
+
+        // Update legacy properties for backward compatibility
+        this.isSettingsVisible = this.panels.settings;
+        this.isInboxVisible = this.panels.inbox;
+        this.isGridVisible = this.panels.grid;
+
+        await this.saveAppState();
+        return this.panels[panelName];
+    }
+
+    isCardPriority(cardId) {
+        return this.priorityCards.includes(cardId);
+    }
+
+    // Toggle priority status
+    async toggleCardPriority(cardId) {
+        if (this.isCardPriority(cardId)) {
+            // Remove from priorities
+            const index = this.priorityCards.indexOf(cardId);
+            if (index !== -1) {
+                this.priorityCards.splice(index, 1);
+                OPTIMISM.log(`Card ${cardId} removed from priorities`);
+                await this.saveAppState();
+                return false;
+            }
+        } else {
+            // Add to priorities
+            this.priorityCards.push(cardId);
+            OPTIMISM.log(`Card ${cardId} added to priorities`);
+            await this.saveAppState();
+            return true;
+        }
+        return this.isCardPriority(cardId);
+    }
+
+    // Toggle priorities panel visibility
+    async togglePrioritiesVisibility() {
+        // Close other panels but NOT split view or Arena
+        if (this.isSettingsVisible) {
+            this.isSettingsVisible = false;
+        }
+        if (this.isGridVisible) {
+            this.isGridVisible = false;
+        }
+        if (this.isInboxVisible) {
+            this.isInboxVisible = false;
+        }
+
+        this.isPrioritiesVisible = !this.isPrioritiesVisible;
+        OPTIMISM.log(`Priorities visibility set to: ${this.isPrioritiesVisible}`);
+        await this.saveAppState();
+        return this.isPrioritiesVisible;
+    }
 
 
 

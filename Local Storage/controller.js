@@ -1430,4 +1430,39 @@ async togglePrioritiesVisibility() {
     }
 }
 
+// --- NEW METHOD for handling bookmark clicks ---
+async navigateToBookmark(elementId) {
+    if (!this.isInitialized) {
+        OPTIMISM.logError('Cannot navigate to bookmark: application not initialized');
+        return false;
+    }
+
+    try {
+        OPTIMISM.log(`Navigating directly to content of bookmarked element ${elementId}`);
+        this.view.showLoading('Navigating...'); // Show loading indicator
+
+        // Call the model method for direct navigation
+        const success = await this.model.navigateToElementDirectly(elementId);
+
+        if (success) {
+            OPTIMISM.log('Direct navigation successful');
+            // Ensure panels are closed before rendering
+            this.view.updatePrioritiesVisibility(false); // Close priorities panel
+            this.view.renderWorkspace(); // Render the new view
+            return true;
+        } else {
+            OPTIMISM.logError('Direct navigation failed');
+            alert('Failed to navigate to the bookmark.'); // Inform user
+            return false;
+        }
+    } catch (error) {
+        OPTIMISM.logError('Error navigating to bookmark:', error);
+        alert('An error occurred while navigating to the bookmark.'); // Inform user
+        return false;
+    } finally {
+         this.view.hideLoading(); // Hide loading indicator
+    }
+}
+
+
 }

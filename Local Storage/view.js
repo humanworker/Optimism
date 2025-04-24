@@ -4954,9 +4954,12 @@ renderPrioritiesPanel() {
 
     // Render each priority card
     for (const cardId of this.model.priorityCards) {
-        // Find the card in the canvas data structure
-        const element = this.findElementById(cardId);
-        if (!element) continue; // Skip if element not found
+        // *** CHANGE: Use findElementByIdRecursive instead of findElementById ***
+        const element = this.findElementByIdRecursive(this.model.data, cardId); // Search from root
+        if (!element) {
+            OPTIMISM.log(`Priority card element ${cardId} not found in data structure.`);
+            continue; // Skip if element not found
+        }
 
         const cardElement = document.createElement('div');
         cardElement.className = 'priority-card';
@@ -4966,10 +4969,10 @@ renderPrioritiesPanel() {
         if (element.type === 'text') {
             // Text card
             const content = document.createElement('div');
-            content.className = 'priority-card-content';
             // Truncate text for the display
             const truncatedText = element.text ?
                 (element.text.length > 100 ? element.text.substring(0, 100) + '...' : element.text) : '';
+            content.className = 'priority-card-content';
             content.textContent = truncatedText;
             cardElement.appendChild(content);
         } else if (element.type === 'image' && element.imageDataId) {
@@ -4994,104 +4997,126 @@ renderPrioritiesPanel() {
             cardElement.appendChild(img);
         }
 
+        // *** CHANGE: Update click event listener ***
         // Add click event to navigate to card
         cardElement.addEventListener('click', () => {
-            this.navigateToCardElement(cardId);
+            // Call the NEW controller method for direct navigation
+            this.controller.navigateToBookmark(cardId);
         });
+        // *** END CHANGE ***
 
         container.appendChild(cardElement);
     }
 }
 
-// Helper method to find an element by ID in the entire data structure
-findElementById(elementId) {
-    // First check if the element is in the current node
-    const elementInCurrent = this.model.findElement(elementId);
-    if (elementInCurrent) return elementInCurrent;
-
-    // If not in current node, search through the entire structure
-    return this.findElementInNode(this.model.data, elementId);
-}
-
-// Recursive search for an element in a node and its children
-findElementInNode(node, elementId) {
-    // Check if element is in this node
-    if (node.elements) {
-        const element = node.elements.find(el => el.id === elementId);
-        if (element) return element;
-    }
-
-    // Check in children nodes
-    if (node.children) {
-        for (const childId in node.children) {
-            const childNode = node.children[childId];
-            const foundElement = this.findElementInNode(childNode, elementId);
-            if (foundElement) return foundElement;
+// *** NEW HELPER METHOD (or adapt existing findNodeRecursive if available) ***
+    // Recursive search for an element by ID starting from a given node
+    findElementByIdRecursive(node, elementId) {
+        // Check elements in this node
+        if (node.elements) {
+            const element = node.elements.find(el => el.id === elementId);
+            if (element) return element;
         }
-    }
 
-    return null;
-}
-
-// Method to navigate to a card from the priorities panel
-navigateToCardElement(elementId) {
-    // Close the priorities panel first
-    this.updatePrioritiesVisibility(false);
-
-    // Find the path to the element
-    const path = this.findPathToElement(elementId);
-    if (!path) {
-        OPTIMISM.logError(`Could not find path to element ${elementId}`);
-        return;
-    }
-
-    // First navigate to the parent node
-    if (path.parentNodeId) {
-        this.controller.navigateToNode(path.parentNodeId).then(success => {
-            if (success) {
-                // After navigating to the parent, always try to navigate into the element
-                setTimeout(() => {
-                    OPTIMISM.log(`Navigating into priority card ${elementId}`);
-                    this.controller.navigateToElement(elementId);
-                }, 100);
+        // Check in children nodes
+        if (node.children) {
+            for (const childId in node.children) {
+                const foundElement = this.findElementByIdRecursive(node.children[childId], elementId);
+                if (foundElement) return foundElement;
             }
-        });
-    }
-}
-
-// Find the path to an element
-findPathToElement(elementId) {
-    // Check if element is in current node
-    const element = this.model.findElement(elementId);
-    if (element) {
-        return { parentNodeId: this.model.currentNode.id };
+        }
+        return null;
     }
 
-    // Otherwise, need to find it recursively
-    return this.findPathInNode(this.model.data, elementId, null);
-}
 
-// Recursive search for element path
-findPathInNode(node, elementId, parentId) {
-    // Check if element is in this node
-    if (node.elements) {
-        const element = node.elements.find(el => el.id === elementId);
+    // --- REMOVE THESE METHODS (no longer needed) ---
+    /*
+    findElementById(elementId) {
+        // First check if the element is in the current node
+        const elementInCurrent = this.model.findElement(elementId);
+        if (elementInCurrent) return elementInCurrent;
+
+        // If not in current node, search through the entire structure
+        return this.findElementInNode(this.model.data, elementId);
+    }
+
+    findElementInNode(node, elementId) {
+        // Check if element is in this node
+        if (node.elements) {
+            const element = node.elements.find(el => el.id === elementId);
+            if (element) return element;
+        }
+
+        // Check in children nodes
+        if (node.children) {
+            for (const childId in node.children) {
+                const childNode = node.children[childId];
+                const foundElement = this.findElementInNode(childNode, elementId);
+                if (foundElement) return foundElement;
+            }
+        }
+
+        return null;
+    }
+
+    navigateToCardElement(elementId) {
+        // Close the priorities panel first
+        this.updatePrioritiesVisibility(false);
+
+        // Find the path to the element
+        const path = this.findPathToElement(elementId);
+        if (!path) {
+            OPTIMISM.logError(`Could not find path to element ${elementId}`);
+            return;
+        }
+
+        // First navigate to the parent node
+        if (path.parentNodeId) {
+            this.controller.navigateToNode(path.parentNodeId).then(success => {
+                if (success) {
+                    // After navigating to the parent, always try to navigate into the element
+                    setTimeout(() => {
+                        OPTIMISM.log(`Navigating into priority card ${elementId}`);
+                        this.controller.navigateToElement(elementId);
+                    }, 100);
+                }
+            });
+        }
+    }
+
+    findPathToElement(elementId) {
+        // Check if element is in current node
+        const element = this.model.findElement(elementId);
         if (element) {
-            return { parentNodeId: node.id };
+            return { parentNodeId: this.model.currentNode.id };
         }
+
+        // Otherwise, need to find it recursively
+        return this.findPathInNode(this.model.data, elementId, null);
     }
 
-    // Check in children nodes
-    if (node.children) {
-        for (const childId in node.children) {
-            const childNode = node.children[childId];
-            const foundPath = this.findPathInNode(childNode, elementId, node.id);
-            if (foundPath) return foundPath;
+    findPathInNode(node, elementId, parentId) {
+        // Check if element is in this node
+        if (node.elements) {
+            const element = node.elements.find(el => el.id === elementId);
+            if (element) {
+                return { parentNodeId: node.id };
+            }
         }
-    }
 
-    return null;
-}
+        // Check in children nodes
+        if (node.children) {
+            for (const childId in node.children) {
+                const childNode = node.children[childId];
+                const foundPath = this.findPathInNode(childNode, elementId, node.id);
+                if (foundPath) return foundPath;
+            }
+        }
+
+        return null;
+    }
+    */
+   // --- END REMOVED METHODS ---
 
 updateSpacerPosition() {
     const spacer = document.getElementById('content-spacer');
