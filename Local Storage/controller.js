@@ -1422,7 +1422,7 @@ async navigateToBookmark(elementId) {
         if (success) {
             OPTIMISM.log('Direct navigation successful');
             // Ensure panels are closed before rendering
-            this.view.updatePrioritiesVisibility(false); // Close priorities panel
+            // this.view.updatePrioritiesVisibility(false); // Close priorities panel
             this.view.renderWorkspace(); // Render the new view
             return true;
         } else {

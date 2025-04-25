@@ -485,17 +485,17 @@ class CanvasView {
             }
             */
 
-            // 4. Priority panel should NOT close when clicking on canvas or cards
-            // Look for and comment out or remove:
-            /*
+            // 4. Priority panel should NOT close when clicking on canvas or cards,
+            //    AND SPECIFICALLY NOT when clicking INSIDE the panel itself.
+            // Replace the commented-out block above with this more robust check:
             if (this.prioritiesPanel &&
-                this.prioritiesPanel.style.display === 'block' &&
-                !this.prioritiesPanel.contains(e.target) &&
-                e.target !== this.prioritiesToggle) {
+                this.prioritiesPanel.style.display === 'block' && // Panel is visible
+                !e.target.closest('#priorities-panel') && // Click did NOT originate inside the panel
+                e.target !== this.prioritiesToggle) { // Click was not on the toggle button
 
+                // If the click was outside the panel and not on the toggle, close it.
                 this.controller.togglePrioritiesVisibility();
             }
-            */
 
             // 5. Grid panel can still close when clicking elsewhere
             const gridPanel = document.getElementById('grid-panel');
@@ -5111,22 +5111,34 @@ renderPrioritiesPanel() {
    // --- NEW METHOD to sync all panels ---
    syncAllPanelVisibilities() {
        OPTIMISM.log('Syncing all panel visibilities with model state.');
+
+       // --- START: Special handling for Priorities Panel after render ---
+       const prioritiesPanelWasVisible = this.prioritiesPanel && this.prioritiesPanel.style.display === 'block';
+       // --- END: Special handling ---
+
        this.updateSettingsVisibility(this.model.isSettingsVisible);
        this.updateInboxVisibility(this.model.isInboxVisible);
-       this.updatePrioritiesVisibility(this.model.isPrioritiesVisible);
+       // Priorities visibility handled below
 
        // Grid Panel
        const gridPanel = document.getElementById('grid-panel');
-       const gridShouldBeVisible = this.model.panels.grid; // Assuming generic panel state exists
+       // Use the specific model property if available, otherwise fallback to panels state
+       const gridShouldBeVisible = this.model.isGridVisible !== undefined ? this.model.isGridVisible : this.model.panels.grid; 
        if (gridPanel) {
             gridPanel.style.display = gridShouldBeVisible ? 'block' : 'none';
             if (gridShouldBeVisible) this.updateGridInputValues();
        }
 
-       // Style Panel (only visible if an element is selected)
-       const styleShouldBeVisible = !!this.model.selectedElement && this.model.findElement(this.model.selectedElement)?.type === 'text';
+       // --- MODIFIED: Priorities Panel Sync ---
+       // Keep it visible if it was visible *before* the sync, otherwise respect model state
+       this.updatePrioritiesVisibility(prioritiesPanelWasVisible || this.model.isPrioritiesVisible);
+       // --- END MODIFIED ---
+
+       // Style Panel (only visible if an element is selected and is text)
+       const selectedElement = this.model.selectedElement ? this.model.findElement(this.model.selectedElement) : null;
+       const styleShouldBeVisible = selectedElement && selectedElement.type === 'text';
        this.stylePanel.style.display = styleShouldBeVisible ? 'block' : 'none';
-       if (styleShouldBeVisible) this.updateStylePanel(this.model.findElement(this.model.selectedElement));
+       if (styleShouldBeVisible) this.updateStylePanel(selectedElement);
    }
 
 updateSpacerPosition() {
