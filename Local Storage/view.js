@@ -1226,10 +1226,21 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
         }
 
         // Re-render the grid if it was visible
+        // OPTIMISM.log(`renderWorkspace: Checking grid visibility. Model state isGridVisible = ${this.model.isGridVisible}`); // Keep logging for now
+        // Use a slight delay to ensure DOM is stable after clearing/element rendering
+        // and re-check the model state right before rendering.
         if (this.model.isGridVisible) {
-            this.renderGrid();
+            // Use setTimeout to defer slightly, allowing other DOM updates to potentially complete.
+            // Re-check the model state *inside* the timeout as well, as a final safeguard.
+            setTimeout(() => {
+                if (this.model.isGridVisible) { // Double-check state
+                    OPTIMISM.log('renderWorkspace (deferred): Rendering grid because model.isGridVisible is true.');
+                    this.renderGrid();
+                } else {
+                    OPTIMISM.log('renderWorkspace (deferred): NOT rendering grid because model.isGridVisible became false.');
+                }
+            }, 0); // Using 0ms timeout defers execution until after the current call stack clears.
         }
-
         // Hide style panel when no element is selected
         if (!this.model.selectedElement) {
             this.stylePanel.style.display = 'none';
@@ -3203,7 +3214,7 @@ this.controller.toggleInboxVisibility();
                 const rect = this.workspace.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top + this.workspace.scrollTop; // Add scrollTop
-                
+
                 OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
                 this.controller.moveFromInboxToCanvas(cardId, x, y);
             }
@@ -3426,7 +3437,7 @@ setupInboxDragEvents() {
                 const rect = this.workspace.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top + this.workspace.scrollTop; // Add scrollTop
-                
+
 
                 OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
                 this.controller.moveFromInboxToCanvas(cardId, x, y);
@@ -5123,7 +5134,7 @@ renderPrioritiesPanel() {
        // Grid Panel
        const gridPanel = document.getElementById('grid-panel');
        // Use the specific model property if available, otherwise fallback to panels state
-       const gridShouldBeVisible = this.model.isGridVisible !== undefined ? this.model.isGridVisible : this.model.panels.grid; 
+       const gridShouldBeVisible = this.model.isGridVisible !== undefined ? this.model.isGridVisible : this.model.panels.grid;
        if (gridPanel) {
             gridPanel.style.display = gridShouldBeVisible ? 'block' : 'none';
             if (gridShouldBeVisible) this.updateGridInputValues();
