@@ -1513,14 +1513,10 @@ class CanvasModel {
 
     // Add methods to manage inbox cards
     async toggleInboxVisibility() {
-        // Close other panels but NOT split view or Arena
-        if (this.isSettingsVisible) {
-            this.isSettingsVisible = false;
-        }
-        if (this.isGridVisible) {
+        // --- REMOVED: Logic to close other panels ---
+        /* if (this.isSettingsVisible) {
             this.isGridVisible = false;
-        }
-
+        } */
         this.isInboxVisible = !this.isInboxVisible;
         OPTIMISM.log(`Inbox visibility set to: ${this.isInboxVisible}`);
         await this.saveAppState();
@@ -1602,11 +1598,6 @@ class CanvasModel {
 
     // In model.js, modify toggleArenaView() method
     async toggleArenaView() {
-        // REMOVED: Check for split view
-        if (this.isSplitViewEnabled) {
-            this.isSplitViewEnabled = false;
-        }
-
         // No longer disable other panels
 
         this.isArenaVisible = !this.isArenaVisible;
@@ -1623,15 +1614,7 @@ class CanvasModel {
     }
 
     async toggleSettingsVisibility() {
-        // Close other panels but NOT split view or Arena
-        if (this.isInboxVisible) {
-            this.isInboxVisible = false;
-        }
-        if (this.isGridVisible) {
-            this.isGridVisible = false;
-        }
-
-        // Toggle settings panel
+        // --- REMOVED: Logic to close other panels ---
         this.isSettingsVisible = !this.isSettingsVisible;
         OPTIMISM.log(`Settings visibility set to: ${this.isSettingsVisible}`);
         await this.saveAppState();
@@ -1687,16 +1670,7 @@ class CanvasModel {
 
     // Toggle priorities panel visibility
     async togglePrioritiesVisibility() {
-        // Close other panels but NOT split view or Arena
-        if (this.isSettingsVisible) {
-            this.isSettingsVisible = false;
-        }
-        if (this.isGridVisible) {
-            this.isGridVisible = false;
-        }
-        if (this.isInboxVisible) {
-            this.isInboxVisible = false;
-        }
+        // --- REMOVED: Logic to close other panels ---
 
         this.isPrioritiesVisible = !this.isPrioritiesVisible;
         OPTIMISM.log(`Priorities visibility set to: ${this.isPrioritiesVisible}`);

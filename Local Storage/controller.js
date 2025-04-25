@@ -1046,16 +1046,7 @@ async toggleInboxVisibility() {
         return this.model.isInboxVisible;
     }
 
-    try {
-        OPTIMISM.log('Toggling inbox panel visibility');
-        const isVisible = await this.model.toggleInboxVisibility();
-        this.view.updateInboxVisibility(isVisible);
-        OPTIMISM.log(`Inbox panel visibility set to ${isVisible}`);
-        return isVisible;
-    } catch (error) {
-        OPTIMISM.logError('Error toggling inbox visibility:', error);
-        return this.model.isInboxVisible;
-    }
+    return this.togglePanel('inbox');
 }
 
 async moveToInbox(elementId) {
@@ -1087,11 +1078,14 @@ async moveToInbox(elementId) {
              return false;
         }
         this.view.renderWorkspace();
-        // Render inbox
-        this.view.renderInboxPanel();
 
         // Show backup reminder if needed
         if (showBackupReminder) { this.view.showBackupReminderModal(); }
+
+        // --- FIX: Explicitly sync inbox visibility AFTER rendering ---
+        // Ensure the view matches the model state as the very last step.
+        this.view.updateInboxVisibility(this.model.isInboxVisible);
+        // --- END FIX ---
 
         // Update undo/redo buttons
         this.view.updateUndoRedoButtons();
@@ -1100,8 +1094,7 @@ async moveToInbox(elementId) {
     } catch (error) {
         OPTIMISM.logError('Error executing move to inbox command:', error);
         // Attempt to re-render to potentially fix UI state
-        this.view.renderWorkspace();
-        this.view.renderInboxPanel();
+        this.view.renderWorkspace(); // Keep renderWorkspace for error recovery
         return false; // Indicate failure
     }
 }
@@ -1350,16 +1343,7 @@ async toggleSettingsVisibility() {
         return this.model.isSettingsVisible;
     }
 
-    try {
-        OPTIMISM.log('Toggling settings panel visibility');
-        const isVisible = await this.model.toggleSettingsVisibility();
-        this.view.updateSettingsVisibility(isVisible);
-        OPTIMISM.log(`Settings panel visibility set to ${isVisible}`);
-        return isVisible;
-    } catch (error) {
-        OPTIMISM.logError('Error toggling settings visibility:', error);
-        return this.model.isSettingsVisible;
-    }
+    return this.togglePanel('settings');
 }
 
 // In controller.js:
@@ -1418,16 +1402,7 @@ async togglePrioritiesVisibility() {
         return this.model.isPrioritiesVisible;
     }
 
-    try {
-        OPTIMISM.log('Toggling priorities panel visibility');
-        const isVisible = await this.model.togglePrioritiesVisibility();
-        this.view.updatePrioritiesVisibility(isVisible);
-        OPTIMISM.log(`Priorities panel visibility set to ${isVisible}`);
-        return isVisible;
-    } catch (error) {
-        OPTIMISM.logError('Error toggling priorities visibility:', error);
-        return this.model.isPrioritiesVisible;
-    }
+    return this.togglePanel('priorities');
 }
 
 // --- NEW METHOD for handling bookmark clicks ---

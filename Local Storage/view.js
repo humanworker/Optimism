@@ -1249,19 +1249,8 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
         // Update page title
         this.updatePageTitle();
 
-        // CRITICAL: Preserve panel visibility at the end of rendering
-        // This ensures no panel is inadvertently hidden during workspace updates
-        setTimeout(() => {
-            if (this.model.isInboxVisible) {
-                this.updateInboxVisibility(true);
-            }
-            if (this.model.isSettingsVisible) {
-                this.updateSettingsVisibility(true);
-            }
-            if (this.model.isPrioritiesVisible) {
-                this.updatePrioritiesVisibility(true);
-            }
-        }, 0);
+        // --- FIX: Explicitly sync ALL panel visibilities after render ---
+        this.syncAllPanelVisibilities();
 
         this.updateSpacerPosition(); // Position the spacer after rendering
         this.workspace.style.overflow = this.model.isArenaVisible ? 'hidden' : 'auto';
@@ -4652,9 +4641,7 @@ updateSettingsVisibility(isVisible) {
 
         // Show settings panel
         this.settingsPanel.style.display = 'block';
-
-        // Ensure settings panel is on top of split view or Arena
-        this.settingsPanel.style.zIndex = '250';
+        this.settingsPanel.style.zIndex = '1000'; // Ensure high z-index
     } else {
         this.settingsPanel.style.display = 'none';
     }
@@ -4668,33 +4655,34 @@ updatePanelVisibility(panelName, isVisible) {
 
     // Only hide panels on the same side
     if (isVisible) {
+        const panelsToClose = [];
         if (isLeftPanel) {
             // Hide other left panels
-            this.inboxPanel.style.display = 'none';
-            if (this.prioritiesPanel) {
-                this.prioritiesPanel.style.display = 'none';
-            }
+            if (panelName !== 'inbox') panelsToClose.push(this.inboxPanel);
+            if (panelName !== 'priorities' && this.prioritiesPanel) panelsToClose.push(this.prioritiesPanel);
         } else if (isRightPanel) {
             // Hide other right panels
-            this.stylePanel.style.display = 'none';
-            this.settingsPanel.style.display = 'none';
-            document.getElementById('grid-panel').style.display = 'none';
+            if (panelName !== 'style') panelsToClose.push(this.stylePanel);
+            if (panelName !== 'settings') panelsToClose.push(this.settingsPanel);
+            if (panelName !== 'grid') panelsToClose.push(document.getElementById('grid-panel'));
         }
+        panelsToClose.forEach(panel => { if (panel) panel.style.display = 'none'; });
     }
 
-    // Show the requested panel
+    // Show/Hide the requested panel
     switch(panelName) {
         case 'settings':
-            if (isVisible) {
-                this.settingsPanel.style.display = 'block';
-            }
+            this.settingsPanel.style.display = isVisible ? 'block' : 'none';
+            this.settingsPanel.style.zIndex = '1000'; // Ensure high z-index
             break;
+            // Visibility for inbox/priorities handled by their specific update methods
         case 'inbox':
             if (isVisible) {
                 this.inboxPanel.style.display = 'block';
                 this.renderInboxPanel();
             }
             break;
+            // Visibility for inbox/priorities handled by their specific update methods
         case 'priorities':
             if (isVisible) {
                 if (!this.prioritiesPanel) {
@@ -4705,14 +4693,17 @@ updatePanelVisibility(panelName, isVisible) {
             }
             break;
         case 'grid':
-            if (isVisible) {
-                document.getElementById('grid-panel').style.display = 'block';
+            const gridPanel = document.getElementById('grid-panel');
+            if (gridPanel) {
+                gridPanel.style.display = isVisible ? 'block' : 'none';
+                gridPanel.style.zIndex = '1000'; // Ensure high z-index
                 this.updateGridInputValues();
             }
             break;
         // Add more panels as needed
     }
 }
+
 
 // Ensure consistent panel styling for all panels
 setupConsistentPanelStyling() {
@@ -5117,6 +5108,27 @@ renderPrioritiesPanel() {
     }
     */
    // --- END REMOVED METHODS ---
+
+   // --- NEW METHOD to sync all panels ---
+   syncAllPanelVisibilities() {
+       OPTIMISM.log('Syncing all panel visibilities with model state.');
+       this.updateSettingsVisibility(this.model.isSettingsVisible);
+       this.updateInboxVisibility(this.model.isInboxVisible);
+       this.updatePrioritiesVisibility(this.model.isPrioritiesVisible);
+
+       // Grid Panel
+       const gridPanel = document.getElementById('grid-panel');
+       const gridShouldBeVisible = this.model.panels.grid; // Assuming generic panel state exists
+       if (gridPanel) {
+            gridPanel.style.display = gridShouldBeVisible ? 'block' : 'none';
+            if (gridShouldBeVisible) this.updateGridInputValues();
+       }
+
+       // Style Panel (only visible if an element is selected)
+       const styleShouldBeVisible = !!this.model.selectedElement && this.model.findElement(this.model.selectedElement)?.type === 'text';
+       this.stylePanel.style.display = styleShouldBeVisible ? 'block' : 'none';
+       if (styleShouldBeVisible) this.updateStylePanel(this.model.findElement(this.model.selectedElement));
+   }
 
 updateSpacerPosition() {
     const spacer = document.getElementById('content-spacer');
