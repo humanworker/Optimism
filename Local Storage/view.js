@@ -2153,20 +2153,18 @@ document.addEventListener('mousemove', (e) => {
         const deltaHeight = e.clientY - this.dragStartY;
         let newWidth, newHeight;
 
-        if (elementType === 'image') {
-            // ... image aspect ratio ...
-            const aspectRatio = this.initialHeight / this.initialWidth;
-            newWidth = Math.max(50, this.initialWidth + deltaWidth);
-            newHeight = Math.max(50, this.initialHeight + deltaHeight);
-            if (newWidth > newHeight) {
-                if (newWidth > 600) { newWidth = 600; newHeight = Math.round(newWidth * aspectRatio); }
-            } else {
-                if (newHeight > 600) { newHeight = 600; newWidth = Math.round(newHeight / aspectRatio); }
-            }
-        } else {
-            newWidth = Math.max(30, this.initialWidth + deltaWidth);
-            newHeight = Math.max(30, this.initialHeight + deltaHeight);
-        }
+        // Determine minimum allowed size based on type
+        const minAllowedWidth = (elementType === 'image') ? 50 : 30;
+        const minAllowedHeight = (elementType === 'image') ? 50 : 30;
+        newWidth = Math.max(minAllowedWidth, this.initialWidth + deltaWidth);
+        newHeight = Math.max(minAllowedHeight, this.initialHeight + deltaHeight);
+
+        // --- Apply workspace boundary constraint ---
+        const workspaceWidth = this.workspace.clientWidth; // Use clientWidth for visible area
+        const elementLeft = this.resizingElement.offsetLeft;
+        const maxWidth = workspaceWidth - elementLeft - 1; // Subtract 1 to avoid potential rounding issues/scrollbar flicker
+        newWidth = Math.min(newWidth, maxWidth);
+        // --- End boundary constraint ---
 
         // Grid snapping logic for resizing
         if (this.model.isGridVisible) {
@@ -2203,12 +2201,23 @@ document.addEventListener('mousemove', (e) => {
     // --- Handle DRAGGING ---
 
     // --- Handle DRAGGING ---
+
     if (!this.draggedElement) return;
 
     // ... (Don't drag locked items check remains the same) ...
     if ((this.model.imagesLocked && this.draggedElement.dataset.type === 'image') ||
-        (this.model.isCardLocked(this.draggedElement.dataset.id))) {
-        return;
+             (this.model.isCardLocked(this.draggedElement.dataset.id))) {
+            return;
+        }
+
+    // --- Bring element to front temporarily during drag ---
+    // Only do this if it's not already the highest (e.g., text elements)
+    let originalZIndex = this.draggedElement.style.zIndex;
+    if (this.draggedElement.dataset.type === 'image') {
+        this.draggedElement.style.zIndex = '99'; // Max image z-index during drag
+    } else {
+        // Text elements are already high, maybe ensure they are highest?
+        this.draggedElement.style.zIndex = '150'; // Temporarily higher than other text elements
     }
 
     // Calculate desired position relative to workspace (including scroll)
@@ -2260,6 +2269,14 @@ document.addEventListener('mousemove', (e) => {
     this.draggedElement.dataset.numY = finalY_style;
 
     // Highlight potential drop targets
+     // Restore original z-index after position calculation but before highlight logic
+     // This prevents flickering issues with drop target detection
+     if (this.draggedElement.dataset.type === 'image') {
+         this.draggedElement.style.zIndex = originalZIndex || '1'; // Restore or default
+     } else {
+         this.draggedElement.style.zIndex = originalZIndex || '100'; // Restore or default for text
+     }
+
     this.handleDragOver(e);
 });
 
