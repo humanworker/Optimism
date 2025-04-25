@@ -3531,10 +3531,10 @@ renderGrid() {
     }
 
     // Get workspace dimensions
-    const workspaceWidth = this.workspace.clientWidth;
-    const workspaceHeight = this.workspace.clientHeight;
-
-    // Parse layout pattern (rows x columns)
+    const workspaceWidth = this.workspace.scrollWidth; // Use scrollWidth for full content width
+    const workspaceHeight = this.workspace.scrollHeight; // Use scrollHeight for full content height
+    gridContainer.style.width = `${workspaceWidth}px`; // Size container to full width
+    gridContainer.style.height = `${workspaceHeight}px`; // Size container to full height
     const [rows, columns] = this.model.gridLayout.split('x').map(num => parseInt(num, 10));
 
     // Create vertical grid lines (for columns)

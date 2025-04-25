@@ -416,7 +416,6 @@ async updateElementStyle(id, styleProperties) {
 
         try {
             OPTIMISM.log(`Deleting element ${id}`);
-            const gridWasVisible = this.model.isGridVisible; // Store grid state
 
             // Create a delete element command
             const command = new DeleteElementCommand(this.model, id);
@@ -433,15 +432,8 @@ async updateElementStyle(id, styleProperties) {
                 // Hide the style panel since no element is selected
                 this.view.stylePanel.style.display = 'none';
 
-                // renderWorkspace handles the spacer update now
+                // renderWorkspace handles the spacer update and re-renders grid if necessary
                 this.view.renderWorkspace();
-
-                // Restore grid if it was visible
-                if (gridWasVisible && !this.model.isGridVisible) {
-                    this.model.isGridVisible = true;
-                    this.view.updateGridVisibility(true);
-                    await this.model.saveAppState();
-                }
 
                 this.view.updateUndoRedoButtons();
 
