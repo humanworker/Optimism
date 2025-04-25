@@ -236,10 +236,10 @@ class CanvasView {
             // Ignore if click was on an element or if modifier key is pressed
             if (e.target !== this.workspace || this.isModifierKeyPressed(e)) return;
 
-            // Get correct coordinates relative to the workspace
+            // Get correct coordinates relative to the workspace CONTENT
             const rect = this.workspace.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const x = e.clientX - rect.left + this.workspace.scrollLeft; // Add scrollLeft
+            const y = e.clientY - rect.top + this.workspace.scrollTop;  // Add scrollTop
 
             this.controller.createElement(x, y);
         });
@@ -662,8 +662,8 @@ document.addEventListener('drop', async (e) => {
 
     // Get correct coordinates relative to the workspace
     const rect = this.workspace.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = e.clientX - rect.left + this.workspace.scrollLeft; // Add scrollLeft
+    const y = e.clientY - rect.top + this.workspace.scrollTop;  // Add scrollTop
 
     let handled = false;
 
@@ -2049,8 +2049,8 @@ setupDragListeners() {
             const cardId = e.dataTransfer.getData('text/plain');
             if (cardId) {
                 const rect = this.workspace.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                const x = e.clientX - rect.left + this.workspace.scrollLeft; // Add scrollLeft
+                const y = e.clientY - rect.top + this.workspace.scrollTop;  // Add scrollTop
                 OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
                 this.controller.moveFromInboxToCanvas(cardId, x, y);
                 this.isDraggingFromInbox = false;
@@ -3202,11 +3202,9 @@ this.controller.toggleInboxVisibility();
                 // Get the position relative to the workspace
                 const rect = this.workspace.getBoundingClientRect();
                 const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-
-                OPTIMISM.log(`Dropping inbox card ${cardId} onto workspace at (${x}, ${y})`);
-
-                // Move the card from the inbox to the canvas
+                const y = e.clientY - rect.top + this.workspace.scrollTop; // Add scrollTop
+                
+                OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
                 this.controller.moveFromInboxToCanvas(cardId, x, y);
             }
         }
@@ -3427,7 +3425,8 @@ setupInboxDragEvents() {
                 // Get position relative to workspace
                 const rect = this.workspace.getBoundingClientRect();
                 const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                const y = e.clientY - rect.top + this.workspace.scrollTop; // Add scrollTop
+                
 
                 OPTIMISM.log(`Moving inbox card ${cardId} to canvas at position (${x}, ${y})`);
                 this.controller.moveFromInboxToCanvas(cardId, x, y);
@@ -4262,7 +4261,7 @@ setupArenaToggle() {
                 const blob = await res.blob();
                 const file = new File([blob], 'arena-image.png', { type: 'image/png' });
 
-                // Calculate position in the center of the viewport
+                // Calculate position at the center of the viewport
                 const rect = this.workspace.getBoundingClientRect();
                 const x = rect.width / 2;
                 const y = rect.height / 2;
@@ -4502,8 +4501,8 @@ document.addEventListener('paste', async (e) => {
 
     // Calculate position at the center of the viewport
     const rect = this.workspace.getBoundingClientRect();
-    const x = rect.width / 2;
-    const y = rect.height / 2;
+    const x = (rect.width / 2) + this.workspace.scrollLeft; // Add scrollLeft
+    const y = (rect.height / 2) + this.workspace.scrollTop; // Add scrollTop
 
     OPTIMISM.log(`Processing paste at center position (${x}, ${y})`);
 
