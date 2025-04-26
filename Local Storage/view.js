@@ -3257,6 +3257,13 @@ updateInboxVisibility(isVisible) {
     }
 
     if (isVisible) {
+        // --- Add check for Arena view ---
+        if (this.model.isArenaVisible) {
+            OPTIMISM.log('Arena view is active, preventing inbox panel from showing.');
+            this.inboxPanel.style.display = 'none'; // Ensure it's hidden
+            return; // Do not proceed to show
+        }
+        // --- End check ---
         // Close other LEFT-SIDE panels only
         if (this.prioritiesPanel) {
             this.prioritiesPanel.style.display = 'none';
@@ -4381,10 +4388,30 @@ updateArenaViewLayout(isEnabled) {
         return;
     }
 
-    // If Are.na was disabled but is now enabled
+    // --- Force Hide Left Panels and Update Model State ---
+    // This should run EVERY time Arena is enabled (isEnabled is true)
+    if (isEnabled) {
+        OPTIMISM.log('Arena enabling: Forcing hide of left panels.');
+        // Hide Inbox
+        if (this.inboxPanel && this.model.isInboxVisible) { // Only update if currently visible
+            this.inboxPanel.style.display = 'none';
+            this.model.isInboxVisible = false; // Update model state directly
+        } else if (this.inboxPanel) {
+             this.inboxPanel.style.display = 'none'; // Ensure it's hidden even if model state was already false
+        }
+        // Hide Priorities
+        if (this.prioritiesPanel && this.model.isPrioritiesVisible) { // Only update if currently visible
+            this.prioritiesPanel.style.display = 'none';
+            this.model.isPrioritiesVisible = false; // Update model state directly
+        } else if (this.prioritiesPanel) {
+             this.prioritiesPanel.style.display = 'none'; // Ensure it's hidden even if model state was already false
+        }
+        // Save the updated state immediately
+        this.model.saveAppState().catch(err => OPTIMISM.logError("Error saving state after hiding panels for Arena", err));
+        // --- End Force Hide ---
+    }
+    // If Are.na was disabled but is now enabled AND the viewport doesn't exist yet, create it.
     if (isEnabled && !this.arenaViewport) {
-        // Hide left-side panels (Priorities and Inbox)
-        this.hideLeftPanels();
 
         const workspaceWidth = 70; // 70% for main workspace
         const arenaWidth = 30; // 30% for Arena panel
@@ -4932,6 +4959,13 @@ updatePrioritiesVisibility(isVisible) {
     }
 
     if (isVisible) {
+        // --- Add check for Arena view ---
+        if (this.model.isArenaVisible) {
+            OPTIMISM.log('Arena view is active, preventing priorities panel from showing.');
+            this.prioritiesPanel.style.display = 'none'; // Ensure it's hidden
+            return; // Do not proceed to show
+        }
+        // --- End check ---
         // Close other LEFT-SIDE panels only
         if (this.inboxPanel) {
             this.inboxPanel.style.display = 'none';
@@ -5167,7 +5201,9 @@ renderPrioritiesPanel() {
 
        // --- MODIFIED: Priorities Panel Sync ---
        // Keep it visible if it was visible *before* the sync, otherwise respect model state
-       this.updatePrioritiesVisibility(prioritiesPanelWasVisible || this.model.isPrioritiesVisible);
+       // Only show if model says visible AND Arena is NOT visible
+       const prioritiesShouldBeVisible = (prioritiesPanelWasVisible || this.model.isPrioritiesVisible) && !this.model.isArenaVisible;
+       this.updatePrioritiesVisibility(prioritiesShouldBeVisible);
        // --- END MODIFIED ---
 
        // Style Panel (only visible if an element is selected and is text)
@@ -5222,37 +5258,6 @@ updateSpacerPosition() {
     OPTIMISM.log(`Spacer positioned at ${spacerTop}px below the lowest element.`);
 }
 
-// Add a new helper method for hiding left panels
-hideLeftPanels() {
-    // Store current state in model for future reference if needed
-    const prioritiesWasVisible = this.model.isPrioritiesVisible;
-    const inboxWasVisible = this.model.isInboxVisible;
-
-    // Hide Priorities panel if it's visible
-    if (this.model.isPrioritiesVisible) {
-        if (this.prioritiesPanel) {
-            this.prioritiesPanel.style.display = 'none';
-            this.model.isPrioritiesVisible = false;
-            OPTIMISM.log('Priorities panel hidden when opening Are.na');
-        }
-    }
-
-    // Hide Inbox panel if it's visible
-    if (this.model.isInboxVisible) {
-        if (this.inboxPanel) {
-            this.inboxPanel.style.display = 'none';
-            this.model.isInboxVisible = false;
-            OPTIMISM.log('Inbox panel hidden when opening Are.na');
-        }
-    }
-
-    // Save the new state
-    this.model.saveAppState().then(() => {
-        OPTIMISM.log('Saved app state after hiding left panels');
-    }).catch(error => {
-        OPTIMISM.logError('Error saving app state after hiding left panels:', error);
-    });
-}
 
 // NEW METHOD: Syncs a single element's visuals with the model state
 syncElementDisplay(elementId) {
