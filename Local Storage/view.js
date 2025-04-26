@@ -1579,9 +1579,15 @@ if (elementData.autoSize !== undefined) {
         e.stopPropagation();
     });
 
-    textEditor.addEventListener('blur', () => {
+    textEditor.addEventListener('blur', async () => { // Make the handler async
         // Get the original element's text before any changes
         const element = this.model.findElement(elementData.id);
+        // If element doesn't exist in model (e.g., during complex undo/redo), exit early
+        if (!element) {
+            OPTIMISM.log(`Blur event: Element ${elementData.id} not found in model.`);
+            return;
+        }
+
         const originalText = element ? element.text : '';
         const newText = textEditor.value;
 
@@ -1589,8 +1595,10 @@ if (elementData.autoSize !== undefined) {
         if (newText.trim() === '') {
             // The text is empty, delete the element
             this.controller.deleteElement(elementData.id);
-            return; // Don't continue since the element is deleted
+            // No need to sync display for deleted element
+            return;
         }
+        let commandPromise = null;
 
         // Only create an undo command if the text actually changed
         if (originalText !== newText) {
@@ -1600,7 +1608,7 @@ if (elementData.autoSize !== undefined) {
 
             // If auto-sizing was enabled, include dimensions in the update
             if (container.dataset.autoSize === 'true') {
-                this.controller.updateElementWithUndo(elementData.id, {
+                commandPromise = this.controller.updateElementWithUndo(elementData.id, {
                     text: newText,
                     width: currentWidth,
                     height: currentHeight,
@@ -1612,34 +1620,34 @@ if (elementData.autoSize !== undefined) {
                     autoSize: true
                 });
             } else {
-                this.controller.updateElementWithUndo(elementData.id, {
+                commandPromise = this.controller.updateElementWithUndo(elementData.id, {
                     text: newText
                 }, {
                     text: originalText
                 });
             }
+            try {
+                await commandPromise; // Wait for the command to complete
+            } catch (error) {
+                OPTIMISM.logError(`Error executing update command on blur for ${elementData.id}:`, error);
+                // Optionally handle error, maybe revert textarea?
+            }
         }
 
         // Don't process if element was deleted due to empty text
-        if (!this.model.findElement(elementData.id)) {
-            return;
-        }
-
-        // Update display content with converted links and header format if needed
-        const updatedElement = this.model.findElement(elementData.id);
-        const hasHeader = updatedElement.style && updatedElement.style.hasHeader;
-        const isHighlighted = updatedElement.style && updatedElement.style.isHighlighted;
-
-        if (hasHeader) {
-            textDisplay.innerHTML = this.formatTextWithHeader(textEditor.value, true, isHighlighted);
-        } else {
-            textDisplay.innerHTML = this.convertUrlsToLinks(textEditor.value, isHighlighted);
+        const elementStillExists = this.model.findElement(elementData.id);
+        if (elementStillExists) {
+            this.syncElementDisplay(elementData.id); // Call sync AFTER await
         }
 
         // Toggle visibility
-        textEditor.style.display = 'none';
-        textDisplay.style.display = 'block';
+        if (elementStillExists) { // Toggle visibility
+            textEditor.style.display = 'none';
+            const display = container?.querySelector('.text-display'); // Check if container exists
+            if (display) display.style.display = 'block';
+        }
     });
+
 
     // Handle link clicks within the display div
     textDisplay.addEventListener('click', (e) => {
@@ -5246,6 +5254,139 @@ hideLeftPanels() {
     });
 }
 
+// NEW METHOD: Syncs a single element's visuals with the model state
+syncElementDisplay(elementId) {
+    OPTIMISM.log(`Syncing display for element ${elementId}`);
+    const container = document.querySelector(`.element-container[data-id="${elementId}"]`);
+    if (!container) {
+        OPTIMISM.log(`Sync failed: Container not found for element ${elementId}`);
+        return; // Element not found in DOM (might have been deleted)
+    }
+
+    const elementData = this.model.findElement(elementId);
+    if (!elementData) {
+        OPTIMISM.log(`Sync failed: Element data not found in model for ${elementId}`);
+        // Element might have been deleted, maybe remove container? For now, just log.
+        // container.remove(); // Optional: clean up DOM if model says it's gone
+        return;
+    }
+
+    // --- Force clear highlight state first (belt and suspenders) ---
+    const textareaForClear = container.querySelector('.text-element');
+    const displayForClear = container.querySelector('.text-display');
+    if (textareaForClear) {
+        textareaForClear.classList.remove('is-highlighted');
+        textareaForClear.style.backgroundColor = '';
+    }
+    if (displayForClear) {
+        displayForClear.classList.remove('is-highlighted');
+        // We don't need to clear innerHTML here, it will be overwritten anyway
+    }
+    // --- End force clear ---
+    const finalStyle = elementData.style || {};
+    const elementType = elementData.type;
+
+    // --- Apply styles applicable to BOTH Text and Image Containers ---
+
+    // Card Background Color
+    container.classList.remove('card-bg-none', 'card-bg-yellow', 'card-bg-red');
+    const bgColor = finalStyle.cardBgColor || 'none';
+    if (bgColor !== 'none') {
+        container.classList.add(`card-bg-${bgColor}`);
+    }
+
+    // Card Border
+    if (finalStyle.hasBorder) {
+        container.classList.add('has-permanent-border');
+    } else {
+        container.classList.remove('has-permanent-border');
+    }
+
+    // Card Lock state (redundant with updateCardLockState, but safe to include)
+     if (this.model.isCardLocked(elementId)) {
+         container.classList.add('card-locked');
+     } else {
+         container.classList.remove('card-locked');
+     }
+
+    // Priority Border
+    if (this.model.isCardPriority(elementId)) {
+        container.classList.add('has-priority-border');
+    } else {
+        container.classList.remove('has-priority-border');
+    }
+
+    // --- Apply TEXT SPECIFIC styles ---
+    if (elementType === 'text') {
+        const textarea = container.querySelector('.text-element');
+        const display = container.querySelector('.text-display');
+        if (!textarea || !display) {
+            OPTIMISM.logError(`Sync failed: Textarea or display not found for text element ${elementId}`);
+            return;
+        }
+
+        // Text Size
+        textarea.classList.remove('size-small', 'size-large', 'size-huge');
+        display.classList.remove('size-small', 'size-large', 'size-huge');
+        if (finalStyle.textSize) {
+            textarea.classList.add(`size-${finalStyle.textSize}`);
+            display.classList.add(`size-${finalStyle.textSize}`);
+        }
+
+        // Text Color
+        textarea.classList.remove('color-default', 'color-red', 'color-green');
+        display.classList.remove('color-default', 'color-red', 'color-green');
+        const colorClass = `color-${finalStyle.textColor || 'default'}`;
+        textarea.classList.add(colorClass);
+        display.classList.add(colorClass);
+
+        // Text Alignment
+        textarea.classList.remove('align-left', 'align-centre', 'align-right');
+        display.classList.remove('align-left', 'align-centre', 'align-right');
+        const alignClass = `align-${finalStyle.textAlign || 'left'}`;
+        textarea.classList.add(alignClass);
+        display.classList.add(alignClass);
+
+        // Header Formatting & Highlight (These require re-rendering innerHTML)
+        const hasHeader = finalStyle.hasHeader;
+        const isHighlighted = finalStyle.isHighlighted; // Get highlight status
+
+        // Apply highlight class/style based on model state
+        if (isHighlighted) {
+            textarea.classList.add('is-highlighted');
+            textarea.style.backgroundColor = 'rgb(255, 255, 176)'; // Direct style needed for textarea bg
+            display.classList.add('is-highlighted');
+             OPTIMISM.log(`Sync: Applying highlight to ${elementId}`);
+        } else {
+            // Ensure classes/styles are removed if not highlighted (redundant with clear above, but safe)
+            textarea.classList.remove('is-highlighted');
+            textarea.style.backgroundColor = ''; // Clear direct style
+            display.classList.remove('is-highlighted');
+             OPTIMISM.log(`Sync: Removing highlight from ${elementId}`);
+        }
+
+        // Re-render display content (passing highlight status for <mark> tag)
+        if (hasHeader) {
+            display.classList.add('has-header');
+            display.innerHTML = this.formatTextWithHeader(elementData.text || '', true, isHighlighted);
+        } else {
+            display.classList.remove('has-header');
+            display.innerHTML = this.convertUrlsToLinks(elementData.text || '', isHighlighted);
+        }
+    }
+    // --- Apply IMAGE SPECIFIC styles (if any) ---
+    else if (elementType === 'image') {
+        // Handle image-specific styles if needed in the future
+        // E.g., Z-index for images
+        if (elementData.zIndex) {
+             container.style.zIndex = Math.min(parseInt(elementData.zIndex), 99);
+         } else {
+             container.style.zIndex = '1';
+         }
+    }
+
+    OPTIMISM.log(`Finished syncing display for element ${elementId}`);
+}
 
 
 }
