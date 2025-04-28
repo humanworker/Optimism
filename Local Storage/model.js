@@ -453,33 +453,51 @@ class CanvasModel {
         return null; // Element not found
     }
 
+    // Modify the deleteElement method to remove associated child node data
     async deleteElement(id) {
         if (!this.currentNode.elements) return false;
 
-        const index = this.currentNode.elements.findIndex(el => el.id === id);
+        const index = this.currentNode.elements.findIndex(el => el.id === id); // Use const
         if (index !== -1) {
             const element = this.currentNode.elements[index];
+            OPTIMISM.log(`deleteElement: Starting deletion for element ${id} of type ${element.type}`);
 
             // --- NEW: Remove associated child node data if it exists ---
-            if (this.currentNode.children && this.currentNode.children[id]) {
+            let collectedImageIds = [];
+            const currentChildren = this.currentNode.children; // Get ref
+            if (currentChildren && currentChildren[id]) { // Check existence
                 OPTIMISM.log(`Deleting nested child node structure for element ${id}`);
-                // TODO: Recursively delete images within this structure if needed before deleting the node
-                delete this.currentNode.children[id];
+                const nodeToDelete = currentChildren[id];
+                collectedImageIds = this.findAllImageIdsRecursive(nodeToDelete); // Find images *before* deleting node
+                delete currentChildren[id]; // Delete the child node entry using the ref
+                 OPTIMISM.log(`Removed child node entry for ${id}. Found ${collectedImageIds.length} nested images.`);
             }
             // --- END NEW ---
 
-            // If it's an image element, also delete the stored image data
-            if (element.type === 'image') {
-                // TODO: Implement image deletion queue or immediate deletion
-                // await this.deleteImageData(element.imageDataId);
-                OPTIMISM.log(`Image deletion for ${element.imageDataId} needs implementation (queue or immediate)`);
+            // If it's an image element, also collect its ID for deletion
+            if (element.type === 'image' && element.imageDataId) {
+                collectedImageIds.push(element.imageDataId);
+                OPTIMISM.log(`Added top-level image ${element.imageDataId} to deletion list.`);
             }
 
             // Remove element from array
             this.currentNode.elements.splice(index, 1);
 
+            // Queue all collected image IDs for deletion
+            const uniqueImageIds = [...new Set(collectedImageIds)]; // Ensure uniqueness
+            if (uniqueImageIds.length > 0) {
+                const deleteAtCounter = this.editCounter + 10; // Use a consistent delay
+                OPTIMISM.log(`Queueing ${uniqueImageIds.length} image(s) for deletion (element ${id} and descendants) at edit #${deleteAtCounter}`);
+                uniqueImageIds.forEach(imageId => {
+                    this.deletedImageQueue.push({ imageId, deleteAtCounter }); // Add to queue
+                });
+                // Save app state immediately to persist the queue
+                await this.saveAppState();
+            }
+
             // Save canvas data
             await this.saveData();
+            OPTIMISM.log(`deleteElement: Completed deletion for element ${id}`);
 
             return true;
         }
@@ -895,7 +913,8 @@ class CanvasModel {
         if (startNode.children) {
             if (startNode.children[targetNodeId]) {
                 const nodeToDelete = startNode.children[targetNodeId];
-                imageIds = this.findAllImageIdsRecursive(nodeToDelete); // Collect image IDs before deleting node
+                OPTIMISM.log(`findAndDeleteNodeRecursive: Found node ${targetNodeId} in parent ${startNode.id}`);
+                imageIds = this.findAllImageIdsRecursive(nodeToDelete); // Collect image IDs before deleting
                 delete startNode.children[targetNodeId];
                 OPTIMISM.log(`Deleted child node ${targetNodeId} from parent ${startNode.id}`);
                 return { deleted: true, imageIds };
@@ -1722,27 +1741,28 @@ class CanvasModel {
         return this.isInboxVisible;
     }
 
-    async addToInbox(element, childNodeData = null) { // Accept optional childNodeData
-        // Create a copy of the element with a new ID
-        const inboxCard = {
-            ...element,
-            id: crypto.randomUUID(), // Generate new ID for inbox card
-            originalId: element.id, // Keep reference to original ID
-            addedToInboxAt: new Date().toISOString(), // Track when added
-            // --- NEW: Store nested data ---
-            nestedData: childNodeData ? JSON.parse(JSON.stringify(childNodeData)) : null // Store a deep copy
-        };
+// --- Modify addToInbox in model.js ---
+async addToInbox(element, childNodeData = null) { // Accept optional childNodeData
+    OPTIMISM.log(`addToInbox: Adding element ${element.id}. Received childNodeData:`, childNodeData ? '{...}' : 'null');
+    // Create a copy of the element with a new ID for the inbox
+    const inboxCard = {
+        ...element,
+        id: crypto.randomUUID(), // Generate new ID for inbox card
+        originalId: element.id, // Keep reference to original ID
+        addedToInboxAt: new Date().toISOString(), // Track when added
+        // --- NEW: Store nested data ---
+        nestedData: childNodeData ? JSON.parse(JSON.stringify(childNodeData)) : null // Store a deep copy
+    };
 
+    // Add to inbox
+    this.inboxCards.unshift(inboxCard); // Add to beginning of array
+    // Log the actual stored data
+    OPTIMISM.log(`Added card to inbox: ${inboxCard.id}. Stored nestedData:`, inboxCard.nestedData ? '{...}' : 'null');
 
-
-        // Add to inbox
-        this.inboxCards.unshift(inboxCard); // Add to beginning of array
-        OPTIMISM.log(`Added card to inbox: ${inboxCard.id}`);
-
-        // Save state
-        await this.saveAppState();
-        return inboxCard;
-    }
+    // Save state
+    await this.saveAppState();
+    return inboxCard;
+}
 
     async removeFromInbox(cardId) {
         const initialLength = this.inboxCards.length;
@@ -1786,6 +1806,7 @@ class CanvasModel {
         const cardIndex = this.inboxCards.findIndex(card => card.id === cardId);
         if (cardIndex === -1) {
             OPTIMISM.logError(`Card ${cardId} not found in inbox`);
+            await this.saveAppState(); // Save state even if card not found initially
             return false; // Card not found
         }
         const card = this.inboxCards[cardIndex];
@@ -1814,6 +1835,7 @@ class CanvasModel {
 
         // --- NEW: Handle nested data ---
         let newChildNodeData = null;
+        OPTIMISM.log(`moveFromInboxToCanvas: Checking inbox card ${cardId} for nestedData:`, card.nestedData ? '{...}' : 'null');
         if (card.nestedData) {
             OPTIMISM.log(`Restoring nested data for element ${newElement.id} from inbox card ${cardId}`);
             newChildNodeData = JSON.parse(JSON.stringify(card.nestedData)); // Deep copy
@@ -1837,12 +1859,12 @@ class CanvasModel {
 
         // Save both canvas data and app state
         await this.saveData();
+        OPTIMISM.log(`moveFromInboxToCanvas: Saved canvasData after adding element ${newElement.id}.`);
         await this.saveAppState();
 
         OPTIMISM.log(`Moved card ${cardId} from inbox to canvas element ${newElement.id}${newChildNodeData ? ' (with nested data)' : ''}`);
         return newElement.id; // Return the ID of the newly created canvas element
     }
-
 
 
     async updateInboxCard(id, properties) {

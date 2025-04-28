@@ -749,9 +749,15 @@ class MoveToInboxCommand extends Command {
         const element = model.findElement(elementId);
         if (element) {
             this.element = {...element}; // Store a copy of the original element
+            // --- NEW: Store original nested data ---
+            const currentChildren = model.currentNode.children; // Get ref first
+            const childNode = currentChildren ? currentChildren[elementId] : null; // Check existence
+            this.originalChildNodeData = childNode ? JSON.parse(JSON.stringify(childNode)) : null; // Deep copy for undo
+            OPTIMISM.log(`MoveToInboxCommand Constructor: Found childNode for ${elementId}:`, childNode ? '{...}' : 'null'); // Log presence/absence
+            OPTIMISM.log(`MoveToInboxCommand Constructor: Stored originalChildNodeData for ${elementId}:`, this.originalChildNodeData ? '{...}' : 'null'); // Log presence/absence
         } else {
             OPTIMISM.log(`Element ${elementId} not found for MoveToInboxCommand`);
-            this.element = null; // NEW
+            this.element = null;
             this.originalChildNodeData = null;
         }
         this.nodeId = model.currentNode.id; // Node where the element originated
@@ -761,25 +767,22 @@ class MoveToInboxCommand extends Command {
     // In core.js, update the MoveToInboxCommand's execute method
     async execute() {
         if (!this.element) return false;
+        OPTIMISM.log(`MoveToInboxCommand Execute: Attempting to move ${this.elementId} with originalChildNodeData:`, this.originalChildNodeData ? '{...}' : 'null');
 
-        // --- NEW: Store original nested data ---
-        const childNode = this.model.currentNode.children ? this.model.currentNode.children[this.elementId] : null;
-        this.originalChildNodeData = childNode ? JSON.parse(JSON.stringify(childNode)) : null; // Deep copy for undo
-
-        // Add to inbox (this creates the inboxCard)
-        this.inboxCard = await this.model.addToInbox(this.element);
+        // Add to inbox, passing the nested data
+        this.inboxCard = await this.model.addToInbox(this.element, this.originalChildNodeData); // Pass nested data
         if (!this.inboxCard) {
             OPTIMISM.logError(`Failed to add element ${this.elementId} to inbox`);
             return false;
         }
 
-        // --- Directly remove the element from the current node ---
-        // --- Use model's deleteElement which now handles nested node removal ---
+        // Now delete the original element from the canvas
+        OPTIMISM.log(`MoveToInboxCommand Execute: Calling deleteElement for original ${this.elementId}`);
         const deleteSuccess = await this.model.deleteElement(this.elementId);
         if (!deleteSuccess) {
              OPTIMISM.logError(`Failed to delete original element ${this.elementId} after moving to inbox.`);
              // Attempt to rollback by removing from inbox
-             await this.model.removeFromInbox(this.inboxCard.id);
+             await this.model.removeFromInbox(this.inboxCard.id); // Use await here
              this.inboxCard = null;
              return false;
         }
@@ -794,6 +797,7 @@ class MoveToInboxCommand extends Command {
 
         // Find the inbox card to get its nested data (if any)
         const cardFromInbox = this.model.inboxCards.find(c => c.id === this.inboxCard.id);
+        OPTIMISM.log(`MoveToInboxCommand Undo: Found inbox card ${this.inboxCard.id} for undo. Has nestedData:`, cardFromInbox?.nestedData ? '{...}' : 'null');
 
         // Remove from inbox
         const removed = await this.model.removeFromInbox(this.inboxCard.id);
@@ -812,7 +816,7 @@ class MoveToInboxCommand extends Command {
 
              // --- NEW: Restore original nested data ---
              if (this.originalChildNodeData) {
-                 if (!this.model.currentNode.children) this.model.currentNode.children = {};
+                 if (!this.model.currentNode.children) this.model.currentNode.children = {}; // Ensure children object exists
                  this.model.currentNode.children[this.element.id] = JSON.parse(JSON.stringify(this.originalChildNodeData)); // Restore deep copy
                  OPTIMISM.log(`Restored nested data for element ${this.elementId} during move to inbox undo`);
              }
