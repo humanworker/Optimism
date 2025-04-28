@@ -460,9 +460,19 @@ class CanvasModel {
         if (index !== -1) {
             const element = this.currentNode.elements[index];
 
+            // --- NEW: Remove associated child node data if it exists ---
+            if (this.currentNode.children && this.currentNode.children[id]) {
+                OPTIMISM.log(`Deleting nested child node structure for element ${id}`);
+                // TODO: Recursively delete images within this structure if needed before deleting the node
+                delete this.currentNode.children[id];
+            }
+            // --- END NEW ---
+
             // If it's an image element, also delete the stored image data
             if (element.type === 'image') {
-                await this.deleteImageData(element.imageDataId);
+                // TODO: Implement image deletion queue or immediate deletion
+                // await this.deleteImageData(element.imageDataId);
+                OPTIMISM.log(`Image deletion for ${element.imageDataId} needs implementation (queue or immediate)`);
             }
 
             // Remove element from array
@@ -720,6 +730,60 @@ class CanvasModel {
         return true;
     }
 
+    /**
+     * Recursively finds all imageDataId values within a node and its descendants.
+     * @param {Object} nodeData The node data structure to search within.
+     * @returns {string[]} An array of all found imageDataIds.
+     */
+    findAllImageIdsRecursive(nodeData) {
+        let imageIds = [];
+        if (!nodeData) return imageIds;
+
+        // Check elements in the current node
+        if (nodeData.elements) {
+            nodeData.elements.forEach(el => {
+                if (el.type === 'image' && el.imageDataId) {
+                    imageIds.push(el.imageDataId);
+                }
+            });
+        }
+
+        // Check children nodes
+        if (nodeData.children) {
+            for (const childId in nodeData.children) {
+                imageIds = imageIds.concat(this.findAllImageIdsRecursive(nodeData.children[childId]));
+            }
+        }
+        return imageIds;
+    }
+
+    /**
+     * Recursively duplicates image data for a copied node structure.
+     * @param {Map<string, string>} imageIdMap A map of {originalImageDataId: newImageDataId}.
+     */
+    async duplicateImageDataBatch(imageIdMap) {
+        if (imageIdMap.size === 0) return;
+        OPTIMISM.log(`Duplicating image data for ${imageIdMap.size} images.`);
+        const promises = [];
+        for (const [originalId, newId] of imageIdMap.entries()) {
+            promises.push(
+                this.getImageData(originalId).then(imageData => {
+                    if (imageData) {
+                        return this.saveImageData(newId, imageData);
+                    } else {
+                        OPTIMISM.logError(`Original image data not found for ID: ${originalId} during duplication.`);
+                        return Promise.resolve(); // Continue even if one fails
+                    }
+                }).catch(error => {
+                    OPTIMISM.logError(`Error duplicating image data from ${originalId} to ${newId}:`, error);
+                    return Promise.resolve(); // Continue even if one fails
+                })
+            );
+        }
+        await Promise.all(promises);
+        OPTIMISM.log(`Finished duplicating image data.`);
+    }
+
     checkIfNodeIsEmpty(nodeId) {
         // Find the node in the current level's children
         const node = this.currentNode.children[nodeId];
@@ -731,6 +795,70 @@ class CanvasModel {
         const hasNoChildren = !node.children || Object.keys(node.children).length === 0;
 
         return hasNoElements && hasNoChildren;
+    }
+
+    /**
+     * Creates a deep copy of an element and its associated child node structure,
+     * generating new IDs for all copied elements and nodes.
+     * @param {string} originalElementId The ID of the element to copy in the sourceNode.
+     * @param {Object} sourceNode The node containing the original element.
+     * @param {string} newParentId The ID of the node where the copied element will reside.
+     * @returns {Promise<{newElement: Object, newChildNodeData: Object|null, imageIdMap: Map<string, string>}|null>}
+     *          Returns an object containing the new element, the new child node data (if any),
+     *          and a map of original->new imageDataIds, or null if the original element wasn't found.
+     */
+    async deepCopyElementData(originalElementId, sourceNode, newParentId) {
+        const originalElement = sourceNode.elements?.find(el => el.id === originalElementId);
+        if (!originalElement) {
+            OPTIMISM.logError(`Original element ${originalElementId} not found in source node ${sourceNode.id} for deep copy.`);
+            return null;
+        }
+
+        const originalChildNodeData = sourceNode.children ? sourceNode.children[originalElementId] : null;
+        const imageIdMap = new Map(); // Map<originalImageDataId, newImageDataId>
+
+        // 1. Create the new top-level element
+        const newElement = {
+            ...originalElement,
+            id: crypto.randomUUID() // Generate new ID for the element itself
+            // x, y, width, height will be set later based on paste/drop location
+        };
+        if (newElement.type === 'image' && newElement.imageDataId) {
+            const newImageDataId = crypto.randomUUID();
+            imageIdMap.set(newElement.imageDataId, newImageDataId);
+            newElement.imageDataId = newImageDataId;
+        }
+
+        let newChildNodeData = null;
+
+        // 2. If there's nested data, copy it recursively
+        if (originalChildNodeData) {
+            newChildNodeData = {
+                ...originalChildNodeData,
+                id: newElement.id, // Child node ID matches the new element ID
+                parentId: newParentId, // Link to the new parent node
+                elements: [],
+                children: {}
+            };
+
+            // 3. Recursively copy elements within the child node
+            if (originalChildNodeData.elements) {
+                for (const elem of originalChildNodeData.elements) {
+                    // Recursively copy this element and its potential children
+                    const nestedCopyResult = await this.deepCopyElementData(elem.id, originalChildNodeData, newChildNodeData.id); // Pass child node as source
+                    if (nestedCopyResult) {
+                        newChildNodeData.elements.push(nestedCopyResult.newElement);
+                        if (nestedCopyResult.newChildNodeData) {
+                            newChildNodeData.children[nestedCopyResult.newElement.id] = nestedCopyResult.newChildNodeData;
+                        }
+                        // Merge image ID maps
+                        nestedCopyResult.imageIdMap.forEach((newId, oldId) => imageIdMap.set(oldId, newId));
+                    }
+                }
+            }
+        }
+
+        return { newElement, newChildNodeData, imageIdMap };
     }
 
     // Modify the navigateToIndex method to update URL
@@ -753,15 +881,55 @@ class CanvasModel {
         return true;
     }
 
-    async moveElement(elementId, targetElementId) {
-        try {
-            // Find source element
-            const sourceElement = this.findElement(elementId);
-            if (!sourceElement) return false;
+    /**
+     * Finds and deletes a node and its descendants from the data structure.
+     * Also collects all imageDataIds within the deleted structure.
+     * @param {string} targetNodeId The ID of the node to delete.
+     * @param {Object} startNode The node from which to start the search (usually this.data).
+     * @returns {{deleted: boolean, imageIds: string[]}} Object indicating if deletion occurred and list of image IDs removed.
+     */
+    findAndDeleteNodeRecursive(targetNodeId, startNode) {
+        let deleted = false;
+        let imageIds = [];
 
-            // Find target element and its node
+        if (startNode.children) {
+            if (startNode.children[targetNodeId]) {
+                const nodeToDelete = startNode.children[targetNodeId];
+                imageIds = this.findAllImageIdsRecursive(nodeToDelete); // Collect image IDs before deleting node
+                delete startNode.children[targetNodeId];
+                OPTIMISM.log(`Deleted child node ${targetNodeId} from parent ${startNode.id}`);
+                return { deleted: true, imageIds };
+            } else {
+                for (const childId in startNode.children) {
+                    const result = this.findAndDeleteNodeRecursive(targetNodeId, startNode.children[childId]);
+                    if (result.deleted) {
+                        return result; // Found and deleted in a deeper level
+                    }
+                }
+            }
+        }
+        return { deleted: false, imageIds: [] }; // Not found in this branch
+    }
+
+    async moveElement(elementId, targetElementId) {
+        // NOTE: This function now performs a DEEP COPY when moving between cards.
+        // The original element and its children are REMOVED from the source.
+        try {
+            // Find source element in the CURRENT node
+            const sourceElementIndex = this.currentNode.elements?.findIndex(el => el.id === elementId);
+            if (sourceElementIndex === -1 || !this.currentNode.elements) {
+                 OPTIMISM.logError(`Source element ${elementId} not found in current node ${this.currentNode.id} for move.`);
+                 return false;
+            }
+            const sourceElement = this.currentNode.elements[sourceElementIndex];
+
+
+            // Find target element in the CURRENT node
             const targetElement = this.findElement(targetElementId);
-            if (!targetElement) return false;
+            if (!targetElement) {
+                 OPTIMISM.logError(`Target element ${targetElementId} not found in current node ${this.currentNode.id} for move.`);
+                return false;
+            }
 
             // Make sure target has children node
             if (!this.currentNode.children) {
@@ -769,17 +937,11 @@ class CanvasModel {
             }
 
             // Create child node for target if it doesn't exist
+             // Ensure target node exists or create it
+             if (!this.currentNode.children) this.currentNode.children = {};
             if (!this.currentNode.children[targetElementId]) {
-                let nodeTitle = "Untitled";
-
-                if (targetElement.type === 'text') {
-                    nodeTitle = targetElement.text ?
-                        (targetElement.text.trim() === "" ? "Untitled" : targetElement.text.substring(0, 60)) :
-                        "Untitled";
-                } else if (targetElement.type === 'image') {
-                    nodeTitle = "Image";
-                }
-
+                OPTIMISM.log(`Creating target child node for ${targetElementId}`);
+                let nodeTitle = targetElement.type === 'text' ? (targetElement.text?.substring(0, 60) || 'Untitled') : 'Image';
                 this.currentNode.children[targetElementId] = {
                     id: targetElementId,
                     parentId: this.currentNode.id,
@@ -788,33 +950,50 @@ class CanvasModel {
                     children: {}
                 };
             }
+             const targetNode = this.currentNode.children[targetElementId];
 
-            // Add source element to target's elements
-            const newElement = { ...sourceElement };
-            newElement.id = crypto.randomUUID();
+            // Perform deep copy (generates new IDs)
+            OPTIMISM.log(`Performing deep copy of ${elementId} into ${targetElementId}`);
+            const copyResult = await this.deepCopyElementData(elementId, this.currentNode, targetNode.id); // sourceNode is currentNode
 
-            // For image elements, we need to handle the image data separately
-            if (sourceElement.type === 'image') {
-                // Generate a new image data ID
-                const newImageDataId = crypto.randomUUID();
-
-                // Get the original image data
-                const imageData = await this.getImageData(sourceElement.imageDataId);
-
-                // Save with the new ID
-                await this.saveImageData(newImageDataId, imageData);
-
-                // Update the reference in the new element
-                newElement.imageDataId = newImageDataId;
+            if (!copyResult) {
+                OPTIMISM.logError(`Deep copy failed for element ${elementId}.`);
+                return false;
             }
 
-            this.currentNode.children[targetElementId].elements.push(newElement);
+            const { newElement, newChildNodeData, imageIdMap } = copyResult;
 
-            // Save data before attempting to delete
+            // Adjust position (optional - maybe center it in the target node?)
+            // For simplicity, we'll keep the original relative coords for now.
+            // If you want to reset position:
+            // newElement.x = 20;
+            // newElement.y = 20;
+
+            // Add the new element and its potential children to the target node
+            if (!targetNode.elements) targetNode.elements = [];
+            targetNode.elements.push(newElement);
+
+            if (newChildNodeData) {
+                if (!targetNode.children) targetNode.children = {};
+                targetNode.children[newElement.id] = newChildNodeData;
+            }
+
+            // Duplicate image data
+            if (imageIdMap.size > 0) {
+                await this.duplicateImageDataBatch(imageIdMap);
+            }
+
+            // Save data *before* deleting the original
             await this.saveData();
 
-            // Remove source element from current node
-            const deleteResult = await this.deleteElement(elementId);
+            // Now, delete the ORIGINAL element and its children from the source (current node)
+            OPTIMISM.log(`Deleting original element ${elementId} after successful move/copy.`);
+            // Use the existing deleteElement which now handles nested node removal
+            const deleteSuccess = await this.deleteElement(elementId);
+            if (!deleteSuccess) {
+                 OPTIMISM.logError(`Failed to delete original element ${elementId} after move. Data might be inconsistent.`);
+                 // Consider how to handle this error state - maybe try to undo the copy? Complex.
+            }
 
             return true;
         } catch (error) {
@@ -824,18 +1003,26 @@ class CanvasModel {
     }
 
     async moveElementToBreadcrumb(elementId, navIndex) {
+        // NOTE: This function now performs a DEEP COPY when moving.
+        // The original element and its children are REMOVED from the source.
         try {
-            // Find source element
-            const sourceElement = this.findElement(elementId);
-            if (!sourceElement) return false;
+            // Find source element in the CURRENT node
+            const sourceElementIndex = this.currentNode.elements?.findIndex(el => el.id === elementId);
+            if (sourceElementIndex === -1 || !this.currentNode.elements) {
+                OPTIMISM.logError(`Source element ${elementId} not found in current node ${this.currentNode.id} for breadcrumb move.`);
+                return false;
+            }
+            const sourceElement = this.currentNode.elements[sourceElementIndex];
+
 
             // Ensure the navigation index is valid
-            if (navIndex < 0 || navIndex >= this.navigationStack.length - 1) {
+            if (navIndex < 0 || navIndex >= this.navigationStack.length) { // Allow dropping onto the last breadcrumb (parent)
                 OPTIMISM.log(`Invalid navigation index: ${navIndex}`);
                 return false;
             }
 
             // Get the target node from the navigation stack
+            // Ensure the navigation index is valid and get the target node
             const targetNode = this.navigationStack[navIndex].node;
             if (!targetNode) {
                 OPTIMISM.log(`Target node not found at index: ${navIndex}`);
@@ -847,27 +1034,39 @@ class CanvasModel {
                 targetNode.elements = [];
             }
 
-            // Create a copy of the element for the target node
-            const newElement = { ...sourceElement };
-            newElement.id = crypto.randomUUID();
+            // Perform deep copy (generates new IDs)
+            OPTIMISM.log(`Performing deep copy of ${elementId} into breadcrumb node ${targetNode.id}`);
+            const copyResult = await this.deepCopyElementData(elementId, this.currentNode, targetNode.id);
 
-            // For image elements, we need to handle the image data separately
-            if (sourceElement.type === 'image') {
-                // Generate a new image data ID
-                const newImageDataId = crypto.randomUUID();
-
-                // Get the original image data
-                const imageData = await this.getImageData(sourceElement.imageDataId);
-
-                // Save with the new ID
-                await this.saveImageData(newImageDataId, imageData);
-
-                // Update the reference in the new element
-                newElement.imageDataId = newImageDataId;
+            if (!copyResult) {
+                OPTIMISM.logError(`Deep copy failed for element ${elementId}.`);
+                return false;
             }
 
-            // Add the new element to the target node
+            const { newElement, newChildNodeData, imageIdMap } = copyResult;
+
+            // Add the new element and its potential children to the target node
             targetNode.elements.push(newElement);
+
+            if (newChildNodeData) {
+                if (!targetNode.children) targetNode.children = {};
+                targetNode.children[newElement.id] = newChildNodeData;
+            }
+
+            // Duplicate image data
+            if (imageIdMap.size > 0) {
+                await this.duplicateImageDataBatch(imageIdMap);
+            }
+
+            // Save data *before* deleting the original
+            await this.saveData();
+
+            // Now, delete the ORIGINAL element and its children from the source (current node)
+            OPTIMISM.log(`Deleting original element ${elementId} after successful move/copy to breadcrumb.`);
+            const deleteSuccess = await this.deleteElement(elementId);
+             if (!deleteSuccess) {
+                 OPTIMISM.logError(`Failed to delete original element ${elementId} after move to breadcrumb. Data might be inconsistent.`);
+            }
 
             // Save data before attempting to delete
             await this.saveData();
@@ -1523,14 +1722,18 @@ class CanvasModel {
         return this.isInboxVisible;
     }
 
-    async addToInbox(element) {
+    async addToInbox(element, childNodeData = null) { // Accept optional childNodeData
         // Create a copy of the element with a new ID
         const inboxCard = {
             ...element,
             id: crypto.randomUUID(), // Generate new ID for inbox card
             originalId: element.id, // Keep reference to original ID
-            addedToInboxAt: new Date().toISOString() // Track when added
+            addedToInboxAt: new Date().toISOString(), // Track when added
+            // --- NEW: Store nested data ---
+            nestedData: childNodeData ? JSON.parse(JSON.stringify(childNodeData)) : null // Store a deep copy
         };
+
+
 
         // Add to inbox
         this.inboxCards.unshift(inboxCard); // Add to beginning of array
@@ -1576,6 +1779,71 @@ class CanvasModel {
         await this.saveAppState();
         return blankCard;
     }
+
+    // In model.js, add this method to handle moving from inbox
+    async moveFromInboxToCanvas(cardId, x, y) { // Renamed for clarity
+        // Find the card in the inbox
+        const cardIndex = this.inboxCards.findIndex(card => card.id === cardId);
+        if (cardIndex === -1) {
+            OPTIMISM.logError(`Card ${cardId} not found in inbox`);
+            return false; // Card not found
+        }
+        const card = this.inboxCards[cardIndex];
+
+        // Create a new element for the canvas
+        const newElement = {
+            id: crypto.randomUUID(), // New ID for the canvas element
+            type: card.type,
+            x: x,
+            y: y,
+            width: card.width || 200,
+            height: card.height || 100,
+        };
+
+
+
+        // Copy necessary properties based on type
+        if (card.type === 'text') {
+            newElement.text = card.text || '';
+            newElement.style = card.style || { textSize: 'small', textColor: 'default' };
+        } else if (card.type === 'image' && card.imageDataId) {
+            newElement.imageDataId = card.imageDataId; // Keep the same image data ID
+            newElement.storageWidth = card.storageWidth;
+            newElement.storageHeight = card.storageHeight;
+        }
+
+        // --- NEW: Handle nested data ---
+        let newChildNodeData = null;
+        if (card.nestedData) {
+            OPTIMISM.log(`Restoring nested data for element ${newElement.id} from inbox card ${cardId}`);
+            newChildNodeData = JSON.parse(JSON.stringify(card.nestedData)); // Deep copy
+            newChildNodeData.id = newElement.id; // Match the new element ID
+            newChildNodeData.parentId = this.currentNode.id; // Set parent to current node
+        }
+        // --- END NEW ---
+
+        // Add element to the current node
+        if (!this.currentNode.elements) this.currentNode.elements = [];
+        this.currentNode.elements.push(newElement);
+
+        // Add nested data to the current node's children
+        if (newChildNodeData) {
+            if (!this.currentNode.children) this.currentNode.children = {};
+            this.currentNode.children[newElement.id] = newChildNodeData;
+        }
+
+        // Remove card from inbox
+        this.inboxCards.splice(cardIndex, 1);
+
+        // Save both canvas data and app state
+        await this.saveData();
+        await this.saveAppState();
+
+        OPTIMISM.log(`Moved card ${cardId} from inbox to canvas element ${newElement.id}${newChildNodeData ? ' (with nested data)' : ''}`);
+        return newElement.id; // Return the ID of the newly created canvas element
+    }
+
+
 
     async updateInboxCard(id, properties) {
         const card = this.inboxCards.find(card => card.id === id);

@@ -1048,36 +1048,27 @@ async moveToInbox(elementId) {
     }
 
     try {
-        OPTIMISM.log(`Moving element ${elementId} to inbox`);
-        const element = this.model.findElement(elementId);
-        if (!element) {
-            OPTIMISM.logError(`Element ${elementId} not found`);
-            return false;
-        }
-
-        // Make sure inbox is visible when adding an item
-        // Commenting this out - let user manage inbox visibility separately
-        // if (!this.model.isInboxVisible) {
-        //     await this.toggleInboxVisibility();
-        // }
-
+        // --- CHANGE: Create and execute command ---
         // Create and execute the MoveToInboxCommand
         const command = new MoveToInboxCommand(this.model, elementId);
         const { result, showBackupReminder } = await this.model.execute(command);
 
         if (!result) {
              OPTIMISM.logError(`Move to inbox command failed for element ${elementId}`);
-             return false;
+            return false;
         }
-        this.view.renderWorkspace();
 
-        // Show backup reminder if needed
-        if (showBackupReminder) { this.view.showBackupReminderModal(); }
+        // --- Update UI ---
+        this.view.renderWorkspace(); // Re-render workspace to remove the element
 
         // --- FIX: Explicitly sync inbox visibility AFTER rendering ---
         // Ensure the view matches the model state as the very last step.
         this.view.updateInboxVisibility(this.model.isInboxVisible);
+        this.view.renderInboxPanel(); // Re-render inbox to show the new card
         // --- END FIX ---
+
+        // Show backup reminder if needed
+        if (showBackupReminder) { this.view.showBackupReminderModal(); }
 
         // Update undo/redo buttons
         this.view.updateUndoRedoButtons();
@@ -1085,7 +1076,7 @@ async moveToInbox(elementId) {
         return true; // Indicate success
     } catch (error) {
         OPTIMISM.logError('Error executing move to inbox command:', error);
-        // Attempt to re-render to potentially fix UI state
+        // Attempt to re-render to potentially fix UI state // Keep renderWorkspace for error recovery
         this.view.renderWorkspace(); // Keep renderWorkspace for error recovery
         return false; // Indicate failure
     }
@@ -1100,71 +1091,21 @@ async moveFromInboxToCanvas(cardId, x, y) {
     try {
         OPTIMISM.log(`Moving card ${cardId} from inbox to canvas at position (${x}, ${y})`);
 
-        // Find the card in the inbox
-        const card = this.model.inboxCards.find(card => card.id === cardId);
-        if (!card) {
-            OPTIMISM.logError(`Card ${cardId} not found in inbox`);
-            return false;
+        // --- CHANGE: Use the model method directly ---
+        const newElementId = await this.model.moveFromInboxToCanvas(cardId, x, y);
+
+        if (newElementId) {
+            // Render workspace and inbox
+            this.view.renderWorkspace(); // Re-render to show the new element
+            this.view.renderInboxPanel(); // Re-render inbox to remove the card
+            OPTIMISM.log(`Successfully moved inbox card ${cardId} to canvas element ${newElementId}`);
+            return true;
+        } else {
+             OPTIMISM.logError(`Failed to move inbox card ${cardId} to canvas.`);
+             return false;
         }
+        // --- END CHANGE ---
 
-        // Create a new element for the canvas
-        const newElement = {
-            id: crypto.randomUUID(),
-            type: card.type,
-            x: x,
-            y: y,
-            width: card.width || 200,
-            height: card.height || 100,
-        };
-
-        // Copy necessary properties based on type
-        if (card.type === 'text') {
-            newElement.text = card.text || '';
-            newElement.style = card.style || {
-                textSize: 'small',
-                textColor: 'default'
-            };
-        } else if (card.type === 'image' && card.imageDataId) {
-            // For image cards, copy image data ID and dimensions
-            // The width/height are already set above based on card.width/height
-            newElement.imageDataId = card.imageDataId;
-            newElement.storageWidth = card.storageWidth;
-            newElement.storageHeight = card.storageHeight;
-        }
-
-        // Create an add element command
-        const command = new AddElementCommand(this.model, newElement);
-
-        // For image elements, retrieve the image data and set it for the command
-        if (card.type === 'image' && card.imageDataId) {
-            try {
-                const imageData = await this.model.getImageData(card.imageDataId);
-                if (imageData) {
-                    // The AddElementCommand needs the actual image data (base64 string)
-                    // to potentially save it if it's treated as a new addition to the canvas.
-                    command.setImageData(imageData);
-                    OPTIMISM.log(`Retrieved and set image data for command (cardId: ${cardId}, imageDataId: ${card.imageDataId})`);
-                } else {
-                    OPTIMISM.logError(`Could not retrieve image data for inbox card ${cardId} (imageDataId: ${card.imageDataId})`);
-                    // Optionally, decide if the move should fail here or continue without image data
-                }
-            } catch (error) {
-                OPTIMISM.logError(`Error copying image data for inbox card ${cardId}:`, error);
-                // Optionally, decide if the move should fail here
-            }
-        }
-
-        // Execute the command to add the element to the canvas
-        await this.model.execute(command);
-
-        // Remove from inbox
-        await this.model.removeFromInbox(cardId);
-
-        // Render workspace and inbox
-        this.view.renderWorkspace();
-        this.view.renderInboxPanel();
-
-        return true;
     } catch (error) {
         OPTIMISM.logError('Error moving card from inbox to canvas:', error);
         return false;
