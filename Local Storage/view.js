@@ -3093,12 +3093,14 @@ updateCardLockState(cardId, isLocked) {
     const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
     if (!container) return;
 
+    // Simply add or remove the class based on the model state.
     if (isLocked) {
         container.classList.add('card-locked');
+        OPTIMISM.log(`View: Added .card-locked to ${cardId}`);
     } else {
         container.classList.remove('card-locked');
+        OPTIMISM.log(`View: Removed .card-locked from ${cardId}`);
     }
-
 }
 
 updateLockedCardStyles() {
