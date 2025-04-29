@@ -427,8 +427,8 @@ class CanvasView {
                 // 8 = toggle card lock
                 else if (e.key === '8') {
                     // Toggle current lock setting
-                    const isLocked = this.model.isCardLocked(this.model.selectedElement);
-                    this.controller.updateElementStyle(this.model.selectedElement, { isLocked: !isLocked });
+                    // --- CHANGE: Call toggleCardLock instead of updateElementStyle ---
+                    this.controller.toggleCardLock(this.model.selectedElement);
                     styleUpdated = true;
                     e.preventDefault();
                 }
@@ -1099,8 +1099,8 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
                 const isLocked = option.dataset.lock === 'true';
 
                 // Update the element's style
-                this.controller.updateElementStyle(this.model.selectedElement, { isLocked: isLocked });
-
+                // --- CHANGE: Call toggleCardLock instead of updateElementStyle ---
+                this.controller.toggleCardLock(this.model.selectedElement);
                 // Update the UI to show which option is selected
                 lockOptions.forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
@@ -1196,6 +1196,14 @@ const bgColorOptions = document.querySelectorAll('.option-value[data-bgcolor]');
         }
 
         // Apply locked state to cards if needed
+        this.model.lockedCards.forEach(cardId => {
+            const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
+            if (container) {
+                container.classList.add('card-locked');
+            }
+        });
+
+        // --- ADDITION: Explicitly re-apply locked state after rendering all elements ---
         this.model.lockedCards.forEach(cardId => {
             const container = document.querySelector(`.element-container[data-id="${cardId}"]`);
             if (container) {
@@ -2013,7 +2021,8 @@ updateStylePanel(elementData) {
     }
 
     // Set the correct lock option as selected
-    const isLocked = this.model.isCardLocked(elementData.id) ? 'true' : 'false';
+    // --- CHANGE: Use the model directly to get the definitive lock status ---
+    const isLocked = this.model.isCardLocked(elementData.id);
     const lockOption = document.querySelector(`.option-value[data-lock="${isLocked ? 'true' : 'false'}"]`);
     if (lockOption) {
         lockOption.classList.add('selected');
@@ -2330,7 +2339,7 @@ document.addEventListener('mouseup', (e) => {
 
     // Check locks *after* clearing highlights but before processing drop
     if ((this.model.imagesLocked && isImage) ||
-         this.model.isCardLocked(draggedId)) {
+         (this.model.isCardLocked(draggedId))) {
         // If locked, just reset dragging state and exit
         this.draggedElement.classList.remove('dragging');
         this.draggedElement = null;
@@ -3090,17 +3099,6 @@ updateCardLockState(cardId, isLocked) {
         container.classList.remove('card-locked');
     }
 
-    // Update style panel if the card is currently selected
-    if (this.model.selectedElement === cardId) {
-        const lockOption = document.querySelector(`.option-value[data-lock="${isLocked ? 'true' : 'false'}"]`);
-        if (lockOption) {
-            document.querySelectorAll('.option-value[data-lock]').forEach(opt => opt.classList.remove('selected'));
-            lockOption.classList.add('selected');
-        }
-    }
-
-    // Add CSS to handle locked cards
-    this.updateLockedCardStyles();
 }
 
 updateLockedCardStyles() {

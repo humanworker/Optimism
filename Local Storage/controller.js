@@ -413,7 +413,6 @@ async updateElementStyle(id, styleProperties) {
             // Just update the view's class and potentially the style panel selection
             this.view.updateCardLockState(id, finalStyle.isLocked);
         }
-
         // --- END: Direct DOM Manipulation ---
 
         OPTIMISM.log('Element style updated successfully (including immediate DOM update)');
@@ -1065,6 +1064,13 @@ async refreshQuickLinkExpiry(nodeId) {
         const isLocked = await this.model.toggleCardLock(cardId);
         this.view.updateCardLockState(cardId, isLocked);
         OPTIMISM.log(`Card lock state set to ${isLocked}`);
+
+        // --- ADDITION: Update style panel if this card is selected ---
+        if (this.model.selectedElement === cardId) {
+            const elementData = this.model.findElement(cardId);
+            if(elementData) this.view.updateStylePanel(elementData);
+        }
+        // --- END ADDITION ---
         return isLocked;
     } catch (error) {
         OPTIMISM.logError('Error toggling card lock state:', error);
