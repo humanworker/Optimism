@@ -1084,6 +1084,10 @@ async moveToInbox(elementId) {
             return false;
         }
 
+        // --- Save scroll position ---
+        const currentScrollTop = this.view.workspace.scrollTop;
+        const currentScrollLeft = this.view.workspace.scrollLeft;
+
         // --- Update UI ---
         this.view.renderWorkspace(); // Re-render workspace to remove the element
 
@@ -1092,6 +1096,10 @@ async moveToInbox(elementId) {
         this.view.updateInboxVisibility(this.model.isInboxVisible);
         this.view.renderInboxPanel(); // Re-render inbox to show the new card
         // --- END FIX ---
+
+        // --- Restore scroll position ---
+        this.view.workspace.scrollTop = currentScrollTop;
+        this.view.workspace.scrollLeft = currentScrollLeft;
 
         // Show backup reminder if needed
         if (showBackupReminder) { this.view.showBackupReminderModal(); }
