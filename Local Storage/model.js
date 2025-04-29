@@ -480,6 +480,15 @@ class CanvasModel {
                 OPTIMISM.log(`Added top-level image ${element.imageDataId} to deletion list.`);
             }
 
+            // --- NEW: Remove from priority list ---
+            const priorityIndex = this.priorityCards.indexOf(id);
+            if (priorityIndex > -1) {
+                this.priorityCards.splice(priorityIndex, 1);
+                OPTIMISM.log(`Removed element ${id} from priority list during deletion.`);
+                // No need to save app state separately here, it will be saved below
+            }
+            // --- END NEW ---
+
             // Remove element from array
             this.currentNode.elements.splice(index, 1);
 
@@ -491,12 +500,14 @@ class CanvasModel {
                 uniqueImageIds.forEach(imageId => {
                     this.deletedImageQueue.push({ imageId, deleteAtCounter }); // Add to queue
                 });
-                // Save app state immediately to persist the queue
-                await this.saveAppState();
+                // Save app state immediately to persist the queue - REMOVED FROM HERE
             }
 
             // Save canvas data
             await this.saveData();
+            // Save app state (includes updated priorityCards and image queue)
+            await this.saveAppState(); // Save AFTER modifying priorityCards and deletedImageQueue
+
             OPTIMISM.log(`deleteElement: Completed deletion for element ${id}`);
 
             return true;
