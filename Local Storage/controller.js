@@ -100,7 +100,7 @@ async createElement(x, y) {
             this.view.showBackupReminderModal();
         }
 
-        this.updateSpacerPosition();
+     
 
         OPTIMISM.log('Text element created successfully');
     } catch (error) {
