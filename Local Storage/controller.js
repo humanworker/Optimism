@@ -244,6 +244,21 @@ async updateElement(id, properties) {
                 OPTIMISM.log(`Updated element dimensions: ${container.style.width} × ${container.style.height}`);
             }
         }
+        // --- START ADDITION ---
+        // If position was updated
+        if (properties.x !== undefined || properties.y !== undefined) {
+            const container = document.querySelector(`.element-container[data-id="${id}"]`);
+            if (container) {
+                if (properties.x !== undefined) {
+                    container.style.left = `${properties.x}px`;
+                }
+                if (properties.y !== undefined) {
+                    container.style.top = `${properties.y}px`;
+                }
+                OPTIMISM.log(`Updated element position: left=${container.style.left}, top=${container.style.top}`);
+            }
+        }
+        // --- END ADDITION ---
 
         // Show backup reminder if needed
         if (showBackupReminder) {
