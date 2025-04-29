@@ -1,5 +1,8 @@
-// Controller to handle user actions
-class CanvasController {
+// controller.js
+import { ExportImportManager } from './export-import.js'; // Now needs export from export-import.js
+import { AddElementCommand, UpdateElementCommand, DeleteElementCommand, MoveElementCommand, MoveElementToBreadcrumbCommand, MoveToInboxCommand } from './commands.js'; // Import from correct file
+import { formatTextWithHeader, convertUrlsToLinks } from './view/utils.js'; // Import utility functions
+export class CanvasController { // Export the class
     constructor(model, view) {
         this.model = model;
         this.view = view;
@@ -26,7 +29,7 @@ async initialize() {
         this.view.setupGridPanel();
         this.view.setupArenaToggle(); // Add this line
         this.view.setupPrioritiesPanel(); // Add this line
-        this.view.setupPrioritiesPanel();
+        // this.view.setupPrioritiesPanel(); // Duplicate call removed
         this.view.updateTheme(this.model.isDarkTheme);
 
         // Initialize debug panel state
@@ -223,9 +226,9 @@ async updateElement(id, properties) {
                 if (display) {
                     // Check if we need to apply header formatting
                     if (updatedElement.style && updatedElement.style.hasHeader) {
-                        display.innerHTML = this.view.formatTextWithHeader(properties.text || '', true);
+                        display.innerHTML = formatTextWithHeader(properties.text || '', true); // Use direct import
                     } else {
-                        display.innerHTML = this.view.convertUrlsToLinks(properties.text || '');
+                        display.innerHTML = convertUrlsToLinks(properties.text || ''); // Use direct import
                     }
                 }
             }
@@ -356,11 +359,11 @@ async updateElementStyle(id, styleProperties) {
                     if (finalStyle.hasHeader) {
                         display.classList.add('has-header');
                         // Pass highlight status when re-rendering
-                        display.innerHTML = this.view.formatTextWithHeader(updatedElement.text || '', true, finalStyle.isHighlighted);
+                        display.innerHTML = formatTextWithHeader(updatedElement.text || '', true, finalStyle.isHighlighted); // Use direct import
                     } else {
                         display.classList.remove('has-header');
                         // Pass highlight status when re-rendering
-                        display.innerHTML = this.view.convertUrlsToLinks(updatedElement.text || '', finalStyle.isHighlighted);
+                        display.innerHTML = convertUrlsToLinks(updatedElement.text || '', finalStyle.isHighlighted); // Use direct import
                     }
                 }
 
@@ -378,9 +381,9 @@ async updateElementStyle(id, styleProperties) {
                     // Re-render display content for highlight changes
                     const hasHeader = finalStyle.hasHeader; // Use updated style
                     if (hasHeader) {
-                        display.innerHTML = this.view.formatTextWithHeader(updatedElement.text || '', true, finalStyle.isHighlighted);
+                        display.innerHTML = formatTextWithHeader(updatedElement.text || '', true, finalStyle.isHighlighted); // Use direct import
                     } else {
-                        display.innerHTML = this.view.convertUrlsToLinks(updatedElement.text || '', finalStyle.isHighlighted);
+                        display.innerHTML = convertUrlsToLinks(updatedElement.text || '', finalStyle.isHighlighted); // Use direct import
                     }
                 }
             } // end if textarea/display exist
@@ -486,14 +489,16 @@ async updateElementStyle(id, styleProperties) {
             // Create a move element command
             const command = new MoveElementCommand(this.model, elementId, targetElementId);
 
+            OPTIMISM.log("Controller: Executing MoveElementCommand..."); // Added log
             // Execute the command
             const { result, showBackupReminder } = await this.model.execute(command);
+            OPTIMISM.log("Controller: MoveElementCommand execution result:", result); // Added log
 
-            if (result) {
+            // Check the success flag from the result object
+            if (result && result.success) {
                 OPTIMISM.log('Element moved successfully');
-                this.view.renderWorkspace();
+                this.view.renderWorkspace(); // Re-render should now happen reliably
                 this.view.updateUndoRedoButtons();
-
                 // Show backup reminder if needed
                 if (showBackupReminder) {
                     this.view.showBackupReminderModal();
@@ -836,9 +841,9 @@ async updateElementWithUndo(id, newProperties, oldProperties) {
                 if (display) {
                     // Check if we need to apply header formatting
                     if (element.style && element.style.hasHeader) {
-                        display.innerHTML = this.view.formatTextWithHeader(newProperties.text || '', true);
+                        display.innerHTML = formatTextWithHeader(newProperties.text || '', true); // Use direct import
                     } else {
-                        display.innerHTML = this.view.convertUrlsToLinks(newProperties.text || '');
+                        display.innerHTML = convertUrlsToLinks(newProperties.text || ''); // Use direct import
                     }
                 }
             }

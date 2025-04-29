@@ -1,5 +1,13 @@
+import {
+    formatTextWithHeader,
+    convertUrlsToLinks,
+    findHighestImageZIndex,
+    findElementByIdRecursive // Only if moved here
+} from './utils.js';
+
+
 // View to handle UI interactions
-class CanvasView {
+export class CanvasView {
     // Modify the constructor in CanvasView to remove the imagesLocked property initialization:
     // In view.js, modify the constructor to add a new CSS style element
     constructor(model, controller) {
@@ -1349,95 +1357,9 @@ updatePageTitle() {
         OPTIMISM.log('Breadcrumbs rendered successfully');
     }
 
-    // Format text with header if needed
-    formatTextWithHeader(text, hasHeader, isHighlighted = false) {
-        if (!text || !hasHeader) return this.convertUrlsToLinks(text || '', isHighlighted);
+    
 
-        const lines = text.split('\n');
-        if (lines.length === 0) return '';
 
-        // Extract first line as header
-        const headerLine = lines[0];
-        const restOfText = lines.slice(1).join('\n');
-
-        let formattedHeader = this.convertUrlsToLinks(headerLine, isHighlighted);
-        let formattedText = this.convertUrlsToLinks(restOfText, isHighlighted);
-
-        return `<span class="first-line">${formattedHeader}</span>${formattedText}`;
-    }
-
-    // In view.js, update the convertUrlsToLinks method
-convertUrlsToLinks(text, isHighlighted = false) {
-    if (!text) return '';
-
-    // Escape HTML characters to prevent XSS
-    let safeText = text.replace(/[&<>"']/g, function(match) {
-        switch (match) {
-            case '&': return '&amp;';
-            case '<': return '&lt;';
-            case '>': return '&gt;';
-            case '"': return '&quot;';
-            case "'": return '&#39;';
-            default: return match;
-        }
-    });
-
-    // Replace newlines with <br> tags
-    safeText = safeText.replace(/\n/g, '<br>');
-
-    // Process the text to find and replace URLs with proper anchor tags
-    let result = '';
-    let lastIndex = 0;
-
-    // Updated regex to handle file URLs with encoded spaces (%20), email addresses, and hash symbols
-    const urlRegex = /(\bfile:\/\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=%\\\s]+[a-z0-9\-_~:/[\]@!$&'()*+,;=%\\#]|\bhttps?:\/\/[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=]|\bwww\.[a-z0-9\-._~:/?#[\]@!$&'()*+,;=]+[a-z0-9\-_~:/[\]@!$&'()*+,;=])/gi;
-
-    let match;
-    while ((match = urlRegex.exec(safeText)) !== null) {
-        // Add text before the URL
-        result += safeText.substring(lastIndex, match.index);
-
-        // Get the URL
-        let url = match[0];
-
-        // Different handling for different URL types
-        if (url.toLowerCase().startsWith('file:///')) {
-            // For file URLs, keep everything including hash
-            // But remove trailing punctuation except when part of valid characters
-            url = url.replace(/[.,;:!?)]+$/, '');
-        } else {
-            // For other URLs, remove any trailing punctuation that shouldn't be part of the URL
-            url = url.replace(/[.,;:!?)]+$/, '');
-        }
-
-        // Create the proper href attribute
-        let href = url;
-        if (url.toLowerCase().startsWith('www.')) {
-            href = 'https://' + url;
-        }
-
-        // Add the anchor tag
-        result += `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-
-        // Update lastIndex to end of current match
-        lastIndex = match.index + url.length;
-
-        // Adjust the regex lastIndex if we modified the URL
-        if (url.length !== match[0].length) {
-            urlRegex.lastIndex = lastIndex;
-        }
-    }
-
-    // Add any remaining text after the last URL
-    result += safeText.substring(lastIndex);
-
-    // Apply highlighting if needed
-    if (isHighlighted) {
-        result = `<mark>${result}</mark>`;
-    }
-
-    return result;
-}
 
 createTextElementDOM(elementData) {
     OPTIMISM.log(`Creating text element DOM for ${elementData.id}`);
@@ -1528,9 +1450,9 @@ if (elementData.autoSize !== undefined) {
 
     if (hasHeader) {
         textDisplay.classList.add('has-header');
-        textDisplay.innerHTML = this.formatTextWithHeader(elementData.text || '', true, isHighlighted);
+        textDisplay.innerHTML = formatTextWithHeader(elementData.text || '', true, isHighlighted);
     } else {
-        textDisplay.innerHTML = this.convertUrlsToLinks(elementData.text || '', isHighlighted);
+        textDisplay.innerHTML = convertUrlsToLinks(elementData.text || '', isHighlighted);
     }
 
     // Apply text size if defined
@@ -2726,22 +2648,7 @@ setupSettingsPanel() {
     OPTIMISM.log('Settings panel set up successfully');
 }
 
-    // Add this method to the CanvasView class in view.js
-// In view.js
-findHighestImageZIndex() {
-    const imageElements = document.querySelectorAll('.image-element-container');
-    let maxZIndex = 1; // Default z-index for images
 
-    imageElements.forEach(elem => {
-        const zIndex = parseInt(elem.style.zIndex) || 1;
-        if (zIndex > maxZIndex) {
-            maxZIndex = zIndex;
-        }
-    });
-
-    // Cap at 99 to ensure we're always below text elements (which are at 100+)
-    return Math.min(maxZIndex, 99);
-}
 
 setupLockImagesToggle() {
     OPTIMISM.log('Setting up lock images toggle');
@@ -4026,10 +3933,10 @@ renderPreviewContent(node) {
 
                     // Header formatting
                     if (element.style.hasHeader) {
-                        textDisplay.innerHTML = this.formatTextWithHeader(element.text || '', true);
+                        textDisplay.innerHTML = formatTextWithHeader(element.text || '', true);
                         textDisplay.classList.add('has-header');
                     } else {
-                        textDisplay.innerHTML = this.convertUrlsToLinks(element.text || '');
+                        textDisplay.innerHTML = convertUrlsToLinks(element.text || '');
                     }
 
                     // Highlight
@@ -4042,7 +3949,7 @@ renderPreviewContent(node) {
                         container.style.border = '1px solid var(--element-border-color)';
                     }
                 } else {
-                    textDisplay.innerHTML = this.convertUrlsToLinks(element.text || '');
+                    textDisplay.innerHTML = convertUrlsToLinks(element.text || '');
                 }
 
                 // If this element has children, also apply underline to the text display
@@ -5015,7 +4922,7 @@ renderPrioritiesPanel() {
     // Render each priority card
     for (const cardId of this.model.priorityCards) {
         // *** CHANGE: Use findElementByIdRecursive instead of findElementById ***
-        const element = this.findElementByIdRecursive(this.model.data, cardId); // Search from root
+        const element = findElementByIdRecursive(this.model.data, cardId); // Search from root
         if (!element) {
             OPTIMISM.log(`Priority card element ${cardId} not found in data structure.`);
             continue; // Skip if element not found
@@ -5069,24 +4976,7 @@ renderPrioritiesPanel() {
     }
 }
 
-// *** NEW HELPER METHOD (or adapt existing findNodeRecursive if available) ***
-    // Recursive search for an element by ID starting from a given node
-    findElementByIdRecursive(node, elementId) {
-        // Check elements in this node
-        if (node.elements) {
-            const element = node.elements.find(el => el.id === elementId);
-            if (element) return element;
-        }
 
-        // Check in children nodes
-        if (node.children) {
-            for (const childId in node.children) {
-                const foundElement = this.findElementByIdRecursive(node.children[childId], elementId);
-                if (foundElement) return foundElement;
-            }
-        }
-        return null;
-    }
 
 
     // --- REMOVE THESE METHODS (no longer needed) ---
@@ -5373,10 +5263,10 @@ syncElementDisplay(elementId) {
         // Re-render display content (passing highlight status for <mark> tag)
         if (hasHeader) {
             display.classList.add('has-header');
-            display.innerHTML = this.formatTextWithHeader(elementData.text || '', true, isHighlighted);
+            display.innerHTML = formatTextWithHeader(elementData.text || '', true, isHighlighted); // Use imported function
         } else {
             display.classList.remove('has-header');
-            display.innerHTML = this.convertUrlsToLinks(elementData.text || '', isHighlighted);
+            display.innerHTML = convertUrlsToLinks(elementData.text || '', isHighlighted); // Use imported function
         }
     }
     // --- Apply IMAGE SPECIFIC styles (if any) ---

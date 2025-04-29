@@ -936,11 +936,10 @@
 
 
     <!-- Load modular scripts -->
-    <script src="core.js"></script>
-    <script src="model.js"></script>
-    <script src="view.js"></script>
-    <script src="controller.js"></script>
-    <script src="export-import.js"></script>
+    <!-- Load the main view module and core entry point -->
+    <script type="module" src="core.js"></script> <!-- Load ONLY the main entry point -->
+
+
     <div id="backup-reminder-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-title">Backup Reminder</div>

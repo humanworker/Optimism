@@ -3,7 +3,7 @@
  * This manager takes care of serializing the database into a JSON file for
  * export and importing that data back into the application.
  */
-class ExportImportManager {
+export class ExportImportManager { // Export the class
     constructor(model, view) {
         this.model = model;
         this.view = view;
@@ -34,36 +34,36 @@ async exportData(includeImages = true) {
         // Get all node keys
         const nodeKeys = await this.model.db.getAllKeys('canvasData');
         const totalNodes = nodeKeys.length;
-        
+
         // Export each node
         for (let i = 0; i < nodeKeys.length; i++) {
             const nodeId = nodeKeys[i];
             const nodeData = await this.model.db.getData('canvasData', nodeId);
-            
+
             if (nodeData) {
                 exportData.data.nodes[nodeId] = nodeData;
             }
-            
+
             // Update progress for nodes (0-50%)
             const nodeProgress = Math.floor((i / totalNodes) * 50);
             this.view.showProgress('Exporting nodes...', nodeProgress);
         }
-        
+
         // Only include images if specified
         if (includeImages) {
             // Get all image keys
             const imageKeys = await this.model.db.getAllKeys('imageData');
             const totalImages = imageKeys.length;
-            
+
             // Export each image
             for (let i = 0; i < imageKeys.length; i++) {
                 const imageId = imageKeys[i];
                 const imageData = await this.model.db.getImage(imageId);
-                
+
                 if (imageData) {
                     exportData.data.images[imageId] = imageData;
                 }
-                
+
                 // Update progress for images (50-95%)
                 const imageProgress = 50 + Math.floor((i / totalImages) * 45);
                 this.view.showProgress('Exporting images...', imageProgress);
@@ -72,32 +72,32 @@ async exportData(includeImages = true) {
             // Skip image export, but update progress
             this.view.showProgress('Skipping images...', 95);
         }
-        
+
         // Convert the export data to a JSON string
         const jsonData = JSON.stringify(exportData);
-        
+
         // Create a blob and link for downloading
         const blob = new Blob([jsonData], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
+
         // Generate a filename based on the current date
         const date = new Date();
         const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         // Modify filename to indicate if images are excluded
-        const filename = includeImages ? 
-            `optimism_backup_${formattedDate}.json` : 
+        const filename = includeImages ?
+            `optimism_backup_${formattedDate}.json` :
             `optimism_backup_no_images_${formattedDate}.json`;
-        
+
         // Create a download link and trigger the download
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
         link.style.display = 'none';
         document.body.appendChild(link);
-        
+
         // Update progress to 100%
         this.view.showProgress('Finalizing export...', 100);
-        
+
         // Trigger the download after a small delay to show 100% progress
         setTimeout(() => {
             link.click();
@@ -108,10 +108,10 @@ async exportData(includeImages = true) {
 
         // Reset backup reminder after successful export
         this.model.resetBackupReminder();
-        
+
         return true;
     } catch (error) {
-        logError('Error during export:', error);
+        OPTIMISM.logError('Error during export:', error); // Use OPTIMISM.logError
         this.view.hideLoading();
         return false;
     }
@@ -124,28 +124,28 @@ async exportData(includeImages = true) {
 async importData(file) {
     try {
         this.view.showProgress('Preparing import...', 0);
-        
+
         // Read the file content
         const fileContent = await this.readFileAsText(file);
-        
+
         // Parse the JSON data
         let importData;
         try {
             importData = JSON.parse(fileContent);
         } catch (error) {
-            logError('Error parsing import file:', error);
+            OPTIMISM.logError('Error parsing import file:', error); // Use OPTIMISM.logError
             throw new Error('Invalid JSON format');
         }
-        
+
         // Validate the import data
         if (!this.validateImportData(importData)) {
             throw new Error('Invalid import data format');
         }
-        
+
         // Clear existing data
         this.view.showProgress('Clearing existing data...', 10);
         await this.clearExistingData();
-        
+
         // Import theme data
         this.view.showProgress('Importing theme settings...', 15);
         if (importData.data.theme) {
@@ -153,38 +153,38 @@ async importData(file) {
             this.model.isDarkTheme = importData.data.theme.isDarkTheme;
             this.view.updateTheme(this.model.isDarkTheme);
         }
-        
+
         // Import nodes
         const nodeIds = Object.keys(importData.data.nodes);
         const totalNodes = nodeIds.length;
-        
+
         this.view.showProgress('Importing nodes...', 20);
         for (let i = 0; i < nodeIds.length; i++) {
             const nodeId = nodeIds[i];
             const nodeData = importData.data.nodes[nodeId];
-            
+
             if (nodeData) {
                 await this.model.db.put('canvasData', nodeData);
             }
-            
+
             // Update progress for nodes (20-70%)
             const nodeProgress = 20 + Math.floor((i / totalNodes) * 50);
             this.view.showProgress('Importing nodes...', nodeProgress);
         }
-        
+
         // Import images
         const imageIds = Object.keys(importData.data.images);
         const totalImages = imageIds.length;
-        
+
         this.view.showProgress('Importing images...', 70);
         for (let i = 0; i < imageIds.length; i++) {
             const imageId = imageIds[i];
             const imageData = importData.data.images[imageId];
-            
+
             if (imageData) {
                 await this.model.db.saveImage(imageId, imageData);
             }
-            
+
             // Update progress for images (70-95%)
             const imageProgress = 70 + Math.floor((i / totalImages) * 25);
             this.view.showProgress('Importing images...', imageProgress);
@@ -200,25 +200,25 @@ async importData(file) {
             this.model.lastBackupReminder = importData.data.lastBackupReminder;
             OPTIMISM.log(`Imported last backup reminder: ${this.model.lastBackupReminder}`);
         }
-        
+
         // Save the app state after import to ensure it persists
         await this.model.saveAppState();
-        
+
         // Reload the data
         this.view.showProgress('Finalizing import...', 95);
         await this.model.loadData();
-        
+
         // Update progress to 100%
         this.view.showProgress('Import complete!', 100);
-        
+
         // Hide the loading overlay after a short delay
         setTimeout(() => {
             this.view.hideLoading();
         }, 500);
-        
+
         return true;
     } catch (error) {
-        logError('Error during import:', error);
+        OPTIMISM.logError('Error during import:', error); // Use OPTIMISM.logError
         this.view.hideLoading();
         return false;
     }
@@ -234,28 +234,28 @@ async importData(file) {
        if (!data || typeof data !== 'object') {
            return false;
        }
-       
+
        // Check for version
        if (!data.version) {
            return false;
        }
-       
+
        // Check for data object
        if (!data.data || typeof data.data !== 'object') {
            return false;
        }
-       
+
        // Check for nodes and images
        if (!data.data.nodes || typeof data.data.nodes !== 'object' ||
            !data.data.images || typeof data.data.images !== 'object') {
            return false;
        }
-       
+
        // Check for root node
        if (!data.data.nodes.root) {
            return false;
        }
-       
+
        return true;
    }
 
@@ -276,15 +276,15 @@ async importData(file) {
    readFileAsText(file) {
        return new Promise((resolve, reject) => {
            const reader = new FileReader();
-           
+
            reader.onload = (event) => {
                resolve(event.target.result);
            };
-           
+
            reader.onerror = (error) => {
                reject(error);
            };
-           
+
            reader.readAsText(file);
        });
    }

@@ -1,5 +1,9 @@
+// model.js
+
+import { SimpleDB } from './db/SimpleDB.js'; // Import SimpleDB
+
 // Model to manage data
-class CanvasModel {
+export class CanvasModel {
     constructor() {
         this.db = new SimpleDB('optimismDB');
         this.navigationStack = [{
@@ -949,7 +953,7 @@ class CanvasModel {
             const sourceElementIndex = this.currentNode.elements?.findIndex(el => el.id === elementId);
             if (sourceElementIndex === -1 || !this.currentNode.elements) {
                  OPTIMISM.logError(`Source element ${elementId} not found in current node ${this.currentNode.id} for move.`);
-                 return false;
+                 return { success: false }; // Indicate failure
             }
             const sourceElement = this.currentNode.elements[sourceElementIndex];
 
@@ -958,7 +962,7 @@ class CanvasModel {
             const targetElement = this.findElement(targetElementId);
             if (!targetElement) {
                  OPTIMISM.logError(`Target element ${targetElementId} not found in current node ${this.currentNode.id} for move.`);
-                return false;
+                return { success: false }; // Indicate failure
             }
 
             // Make sure target has children node
@@ -988,7 +992,7 @@ class CanvasModel {
 
             if (!copyResult) {
                 OPTIMISM.logError(`Deep copy failed for element ${elementId}.`);
-                return false;
+                return { success: false }; // Indicate failure
             }
 
             const { newElement, newChildNodeData, imageIdMap } = copyResult;
@@ -1022,13 +1026,14 @@ class CanvasModel {
             const deleteSuccess = await this.deleteElement(elementId);
             if (!deleteSuccess) {
                  OPTIMISM.logError(`Failed to delete original element ${elementId} after move. Data might be inconsistent.`);
-                 // Consider how to handle this error state - maybe try to undo the copy? Complex.
+                 return { success: false }; // Indicate failure
             }
 
-            return true;
+            // *** CHANGE: Return success status and the new element's ID ***
+            return { success: true, newElementId: newElement.id };
         } catch (error) {
             OPTIMISM.logError('Error in moveElement:', error);
-            return false;
+            return { success: false }; // Indicate failure
         }
     }
 
