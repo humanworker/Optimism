@@ -100,7 +100,7 @@ async createElement(x, y) {
             this.view.showBackupReminderModal();
         }
 
-     
+
 
         OPTIMISM.log('Text element created successfully');
     } catch (error) {
@@ -417,6 +417,10 @@ async updateElementStyle(id, styleProperties) {
         try {
             OPTIMISM.log(`Deleting element ${id}`);
 
+            // --- Save scroll position ---
+            const currentScrollTop = this.view.workspace.scrollTop;
+            const currentScrollLeft = this.view.workspace.scrollLeft;
+
             // Create a delete element command
             const command = new DeleteElementCommand(this.model, id);
 
@@ -434,6 +438,10 @@ async updateElementStyle(id, styleProperties) {
 
                 // renderWorkspace handles the spacer update and re-renders grid if necessary
                 this.view.renderWorkspace();
+
+                // --- Restore scroll position ---
+                this.view.workspace.scrollTop = currentScrollTop;
+                this.view.workspace.scrollLeft = currentScrollLeft;
 
                 this.view.updateUndoRedoButtons();
 
@@ -698,9 +706,18 @@ async updateElementStyle(id, styleProperties) {
 
         try {
             OPTIMISM.log('Performing undo');
+
+            // --- Save scroll position ---
+            const currentScrollTop = this.view.workspace.scrollTop;
+            const currentScrollLeft = this.view.workspace.scrollLeft;
+
             if (await this.model.undo()) {
                 OPTIMISM.log('Undo successful');
+                // Note: renderWorkspace is called within updateUndoRedoButtons in the original code, which seems unusual.
                 this.view.renderWorkspace();
+                // --- Restore scroll position ---
+                this.view.workspace.scrollTop = currentScrollTop;
+                this.view.workspace.scrollLeft = currentScrollLeft;
                 return true;
             }
             OPTIMISM.log('Nothing to undo');
@@ -719,9 +736,18 @@ async updateElementStyle(id, styleProperties) {
 
         try {
             OPTIMISM.log('Performing redo');
+
+            // --- Save scroll position ---
+            const currentScrollTop = this.view.workspace.scrollTop;
+            const currentScrollLeft = this.view.workspace.scrollLeft;
+
             if (await this.model.redo()) {
                 OPTIMISM.log('Redo successful');
+                // Note: renderWorkspace is called within updateUndoRedoButtons in the original code.
                 this.view.renderWorkspace();
+                // --- Restore scroll position ---
+                this.view.workspace.scrollTop = currentScrollTop;
+                this.view.workspace.scrollLeft = currentScrollLeft;
                 return true;
             }
             OPTIMISM.log('Nothing to redo');
