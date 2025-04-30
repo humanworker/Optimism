@@ -113,6 +113,7 @@ export class DragDropManager {
          // Only handle if dragging an element from the workspace
          if (!this.draggedElement) return;
 
+         event.preventDefault(); // Prevent default actions during move
          // Prevent dragging locked elements (double check)
          const id = this.draggedElement.dataset.id;
          const type = this.draggedElement.dataset.type;
@@ -176,10 +177,12 @@ export class DragDropManager {
 
 
          // Apply final position
+         // OPTIMISM_UTILS.log(`Dragging ${this.draggedElement.dataset.id} to style: ${finalX}, ${finalY}`);
          this.draggedElement.style.left = `${finalX}px`;
          this.draggedElement.style.top = `${finalY}px`;
          this.draggedElement.dataset.numX = finalX; // Store numeric position
          this.draggedElement.dataset.numY = finalY;
+         OPTIMISM_UTILS.log(`Dragging element style set to: left=${this.draggedElement.style.left}, top=${this.draggedElement.style.top}`);
 
 
          // --- Update Drop Target Highlighting ---
@@ -279,6 +282,7 @@ export class DragDropManager {
              // Final lock check
              if (this.model.isCardLocked(draggedId) || (type === 'image' && this.model.imagesLocked)) {
                   this.cancelDrag(); // Just resets state
+                  OPTIMISM_UTILS.log(`MouseUp cancelled for locked element ${draggedId}`);
                   return;
              }
 
@@ -318,20 +322,24 @@ export class DragDropManager {
                   const originalX = parseFloat(this.draggedElement.dataset.originalLeft || finalX); // Fallback needed?
                   const originalY = parseFloat(this.draggedElement.dataset.originalTop || finalY);
 
+                  OPTIMISM_UTILS.log(`Final Pos: ${finalX},${finalY} | Original Pos: ${originalX},${originalY}`);
+
                   // Only update if position actually changed significantly
-                  if (Math.abs(finalX - originalX) > 1 || Math.abs(finalY - originalY) > 1) {
+                  if (Math.abs(finalX - originalX) > 0.1 || Math.abs(finalY - originalY) > 0.1) {
                      OPTIMISM_UTILS.log(`DragDropManager: Element ${draggedId} moved to (${finalX}, ${finalY})`);
                       const updateProps = { x: finalX, y: finalY };
                       // Update zIndex for images moved freely
+                      OPTIMISM_UTILS.log(`Updating position for ${draggedId} via controller...`);
                       if (type === 'image') {
                           const newZIndex = this.view.renderer.element.findHighestImageZIndex() + 1;
                            updateProps.zIndex = Math.min(newZIndex, 99);
                       }
-                     this.controller.updateElement(draggedId, updateProps);
+                     this.controller.updateElement(draggedId, updateProps)
+                          .catch(err => OPTIMISM_UTILS.logError(`Error updating element position for ${draggedId}`, err)); // Add catch
                   } else {
-                       // OPTIMISM_UTILS.log(`DragDropManager: Element ${draggedId} position unchanged.`);
+                       OPTIMISM_UTILS.log(`DragDropManager: Element ${draggedId} position effectively unchanged.`);
                        // If it wasn't dropped on a target and didn't move, re-show style panel?
-                       if(type === 'text') this.view.panelManager.updatePanelVisibility('style', true);
+                       if(type === 'text' && !this.isOverInbox) this.view.panelManager.updatePanelVisibility('style', true);
                   }
              }
 

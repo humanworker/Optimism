@@ -270,34 +270,72 @@ body.resizing {
     text-decoration: none;
 }
 
+/* --- Side Panels --- */
+.side-panel {
+    position: fixed;
+    top: 40px;      /* CRITICAL */
+    width: var(--panel-width);
+    height: calc(100vh - 40px);
+    background-color: var(--panel-bg-color) !important; /* Ensure override */
+    padding: 20px;
+    padding-top: 60px; /* Extra space for panel title/controls */
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: none; /* CRITICAL - Hidden by default */
+    z-index: 250;  /* CRITICAL - Should be above workspace (z-index: 1) and Arena (z-index: 150) */
+    color: var(--element-text-color); /* Ensure text matches theme */
+    border-left: 1px solid var(--element-border-color); /* Subtle border for right panels */
+}
+
+/* Specific Panel Positioning */
+#style-panel, #settings-panel, #grid-panel {
+    right: 0;
+    left: auto;
+    border-left: 1px solid var(--element-border-color);
+    border-right: none;
+}
+#inbox-panel, #priorities-panel {
+    left: 0;
+    right: auto;
+    border-right: 1px solid var(--element-border-color);
+    border-left: none;
+}
+
+/* Ensure Panels are correctly positioned and visible when display: block */
+#style-panel, #settings-panel, #grid-panel, #inbox-panel, #priorities-panel {
+    visibility: visible; /* Override any potential parent visibility issues */
+}
+
 /* --- Workspace --- */
 #workspace {
     position: absolute;
-    top: 40px; /* Below title bar */
-    left: 0; /* Default: takes full width under title bar */
-    width: 100%; /* Default */
+    top: 40px;
+    /* REMOVE fixed left/width defaults here, let JS handle it */
+    /* left: 0; */
+    /* width: 100%; */
     height: calc(100vh - 40px);
     box-sizing: border-box;
     background-color: var(--canvas-bg-color);
     background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     background-size: 20px 20px;
-    overflow-y: auto; /* Primary scroll */
-    overflow-x: hidden; /* Prevent horizontal scroll */
+    overflow-y: auto;
+    overflow-x: hidden;
     z-index: 1;
+    transition: left 0.2s ease-in-out, width 0.2s ease-in-out; /* Add smooth transition */
 }
 
 /* Arena View Adjustments */
 body.arena-view-active #workspace {
-    right: 30%; /* Make space for Arena */
-    width: 70%;
-    left: 0;
+    left: 0 !important; /* Ensure override */
+    width: 70% !important; /* Ensure override */
+    right: auto; /* Explicitly remove right constraint */
 }
 body:not(.arena-view-active) #workspace {
      /* Adjust width based on panels when Arena is OFF */
-     /* This logic might be better handled by JS setting inline styles */
+     /* This logic is handled by JS setting inline styles */
      /* Default assuming no panels */
-     left: 0;
-     width: 100%;
+     /* left: 0; */
+     /* width: 100%; */
      /* Example if left panel is open */
      /* left: var(--panel-width); width: calc(100% - var(--panel-width)); */
      /* Example if right panel is open */
@@ -529,37 +567,6 @@ body.cmd-pressed .text-display:not(.has-children) {
 }
 body.cmd-pressed .text-display.has-children {
     cursor: pointer !important; /* Keep nav cursor for elements with children */
-}
-
-/* --- Side Panels --- */
-.side-panel {
-    position: fixed;
-    top: 40px; /* Below title bar */
-    width: var(--panel-width);
-    height: calc(100vh - 40px);
-    background-color: var(--panel-bg-color) !important; /* Ensure override */
-    padding: 20px;
-    padding-top: 60px; /* Extra space for panel title/controls */
-    box-sizing: border-box;
-    overflow-y: auto;
-    display: none; /* Hidden by default */
-    z-index: 250; /* Above workspace, below modals */
-    color: var(--element-text-color); /* Ensure text matches theme */
-    border-left: 1px solid var(--element-border-color); /* Subtle border for right panels */
-}
-
-/* Specific Panel Positioning */
-#style-panel, #settings-panel, #grid-panel {
-    right: 0;
-    left: auto;
-    border-left: 1px solid var(--element-border-color);
-    border-right: none;
-}
-#inbox-panel, #priorities-panel {
-    left: 0;
-    right: auto;
-    border-right: 1px solid var(--element-border-color);
-    border-left: none;
 }
 
 .panel-heading {

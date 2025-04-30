@@ -32,8 +32,8 @@ export class CanvasView {
 
         // --- Initialize Renderers ---
         // Renderers are responsible for *creating/updating* specific parts of the DOM
-        this.renderer = {
-            element: new ElementRenderer(this.model, this.controller, this.workspace),
+        this.renderer = { // Add view reference here
+            element: new ElementRenderer(this.model, this.controller, this, this.workspace),
             navigation: new NavigationRenderer(this.model, this.controller, this.titleBar),
             panel: new PanelRenderer(this.model, this.controller),
             grid: new GridRenderer(this.model, this.workspace),
@@ -41,20 +41,48 @@ export class CanvasView {
 
         // --- Initialize Managers ---
         // Managers handle specific *interactions* or *features*
-        this.panelManager = new PanelManager(this.model, this.controller, this); // Manages visibility/setup of all panels
-        this.dragDropManager = new DragDropManager(this.model, this.controller, this); // Handles all drag/drop
-        this.resizeManager = new ResizeManager(this.model, this.controller, this); // Handles element resizing
-        this.arenaManager = new ArenaManager(this.model, this.controller, this); // Manages Arena iframe
-        this.themeManager = new ThemeManager(this.model, this.controller); // Manages theme switching
-        this.undoRedoManager = new UndoRedoManager(this.model, this.controller); // Manages undo/redo buttons
-        this.modalManager = new ModalManager(this.model, this.controller); // Manages modals
-        this.debugManager = new DebugManager(this.model, this.controller); // Manages debug panel
-        this.settingsManager = new SettingsManager(this.model, this.controller, this); // Manages settings panel content/interactions
+        const panelManager = new PanelManager(this.model, this.controller, this); // Manages visibility/setup of all panels
+        const dragDropManager = new DragDropManager(this.model, this.controller, this); // Handles all drag/drop
+        const resizeManager = new ResizeManager(this.model, this.controller, this); // Handles element resizing
+        const arenaManager = new ArenaManager(this.model, this.controller, this); // Manages Arena iframe
+        const themeManager = new ThemeManager(this.model, this.controller); // Manages theme switching
+        const undoRedoManager = new UndoRedoManager(this.model, this.controller); // Manages undo/redo buttons
+        const modalManager = new ModalManager(this.model, this.controller); // Manages modals
+        const debugManager = new DebugManager(this.model, this.controller); // Manages debug panel
+        const settingsManager = new SettingsManager(this.model, this.controller, this); // Manages settings panel content/interactions
 
         // Assign view reference to managers that need it (if not passed in constructor)
-        this.dragDropManager.view = this;
-        this.resizeManager.view = this;
-        this.arenaManager.view = this;
+        // These assignments might become redundant if managers access view via this.managers.view
+        dragDropManager.view = this;
+        resizeManager.view = this;
+        arenaManager.view = this;
+
+        // --- *** ADD THIS BLOCK *** ---
+        // Assign managers to a unified 'managers' property
+        this.managers = {
+             panel: panelManager,
+             dragDrop: dragDropManager,
+             resize: resizeManager,
+             arena: arenaManager,
+             theme: themeManager,
+             undoRedo: undoRedoManager, // Assign the instance here
+             modal: modalManager,
+             debug: debugManager,
+             settings: settingsManager
+        };
+        // --- *** END ADDED BLOCK *** ---
+
+        // Keep individual references for backward compatibility or direct access if preferred
+        this.panelManager = panelManager;
+        this.dragDropManager = dragDropManager;
+        this.resizeManager = resizeManager;
+        this.arenaManager = arenaManager;
+        this.themeManager = themeManager;
+        this.undoRedoManager = undoRedoManager;
+        this.modalManager = modalManager;
+        this.debugManager = debugManager;
+        this.settingsManager = settingsManager;
+
 
         OPTIMISM_UTILS.log("View initialized with renderers and managers.");
     }
@@ -65,26 +93,30 @@ export class CanvasView {
          this.showLoading('Setting up UI...'); // Show loading during setup
 
          // Setup managers (which might add listeners or modify DOM)
-         this.themeManager.setup();
-         this.panelManager.setupPanels(); // Sets up structure & toggles
-         this.settingsManager.setup(); // Populates settings panel, sets up toggles within it
-         this.dragDropManager.setup();
-         this.resizeManager.setup();
-         this.arenaManager.setup();
-         this.undoRedoManager.setup();
-         this.modalManager.setup();
-         this.debugManager.setup();
+         // CRITICAL: Setup PanelManager FIRST so panel elements are found and populated
+         this.managers.panel.setupPanels(); // Finds elements, calls PanelRenderer.assignPanelElements -> _populateSettingsPanel
+         this.managers.settings.setup(); // Populates settings panel, sets up toggles within it
+         this.managers.theme.setup();
+
+         this.managers.dragDrop.setup();
+         this.managers.resize.setup();
+         this.managers.arena.setup();
+         this.managers.undoRedo.setup(); // Now safe to setup undo/redo buttons
+         this.managers.modal.setup();
+         this.managers.debug.setup();
          this.renderer.panel.setupStylePanelActions(); // Setup actions within the style panel
+
+
 
          // Setup core listeners not handled by specific managers
          this.setupCoreEventListeners();
          this.setupPasteHandler();
 
          // Initial render states
-         this.themeManager.updateTheme(this.model.isDarkTheme);
-         this.debugManager.updateVisibility(this.model.isDebugVisible);
-         this.panelManager.syncAllPanelVisibilities(); // Set initial visibility based on model
-         this.settingsManager.updateAllButtonStates(); // Sync settings buttons
+         this.managers.theme.updateTheme(this.model.isDarkTheme);
+         this.managers.debug.updateVisibility(this.model.isDebugVisible);
+         this.managers.panel.syncAllPanelVisibilities(); // Set initial visibility based on model
+         this.managers.settings.updateAllButtonStates(); // Sync settings buttons
 
          OPTIMISM_UTILS.log("View: UI setup complete.");
          // Loading hidden by main.js after initial render
@@ -131,8 +163,8 @@ export class CanvasView {
 
         // Update other UI elements
         this.updatePageTitle();
-        this.undoRedoManager.updateButtons();
-        this.panelManager.syncAllPanelVisibilities(); // Ensure panel states are correct
+        this.managers.undoRedo.updateButtons();
+        this.managers.panel.syncAllPanelVisibilities(); // Ensure panel states are correct
         this.updateSpacerPosition(); // Adjust spacer after rendering
 
         this.setScrollPosition(scroll); // Restore scroll after rendering
@@ -237,7 +269,7 @@ export class CanvasView {
                  container.classList.remove('selected');
                  if (this.model.selectedElement === container.dataset.id) {
                      this.model.selectedElement = null;
-                     this.panelManager.hidePanel('style');
+                     this.managers.panel.hidePanel('style');
                  }
              }
         });
@@ -252,7 +284,7 @@ export class CanvasView {
             // Click on empty space deselects
             if (e.target === this.workspace) {
                 this.renderer.element.deselectAllElements();
-                this.panelManager.hidePanel('style');
+                this.managers.panel.hidePanel('style');
             }
         });
         this.workspace.addEventListener('dblclick', (e) => {
@@ -271,7 +303,7 @@ export class CanvasView {
                 this.renderer.grid.renderGrid(); // Re-render grid on resize
             }
              if (this.model.panels.arena) { // Adjust arena layout
-                  this.arenaManager.updateLayout();
+                  this.managers.arena.updateLayout();
              }
              this.updateSpacerPosition(); // Adjust spacer on resize
         });

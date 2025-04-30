@@ -53,12 +53,17 @@ const App = {
 
             // Assign controller reference to view AFTER controller is created
             this.controller.view = this.view;
+            // Assign view reference to controller AFTER view is created
+            this.controller.assignView(this.view); // Ensure controller has view reference
 
             // Initialize application components
             await this.controller.initialize(); // This now includes model.initialize()
 
+            // *** ADD THIS LINE ***
+            this.view.setupUI(); // Setup UI components and listeners AFTER controller/model are ready
+
             // Setup global event listeners managed by view/managers
-            this.view.setupCoreEventListeners(); // Basic listeners in view
+            // this.view.setupCoreEventListeners(); // Basic listeners in view - MOVED TO setupUI
             setupKeyboardShortcuts(this.controller, this.model, this.view); // Setup keyboard shortcuts
 
             clearTimeout(initTimeout); // Clear the safety timeout

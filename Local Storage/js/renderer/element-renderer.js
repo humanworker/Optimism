@@ -1,9 +1,10 @@
 import { OPTIMISM_UTILS } from '../utils.js';
 
 export class ElementRenderer {
-    constructor(model, controller, workspace) {
+    constructor(model, controller, view, workspace) { // Add view parameter
         this.model = model;
         this.controller = controller;
+        this.view = view; // Store view reference
         this.workspace = workspace; // Reference to the main workspace container
     }
 
@@ -346,7 +347,7 @@ export class ElementRenderer {
              if (e.target === resizeHandle) return; // Don't drag if on resize handle
 
              this.selectElement(container, elementData, true); // Select but mark as dragging (prevents style panel)
-             this.dragDropManager.startDrag(e, container); // Delegate to drag manager
+             this.view.managers.dragDrop.startDrag(e, container); // *** FIX: Access manager via view ***
         });
 
         if (resizeHandle) {
@@ -357,7 +358,7 @@ export class ElementRenderer {
                   if (elementData.type === 'image' && this.model.imagesLocked) return;
 
                   this.selectElement(container, elementData); // Select before resizing
-                  this.resizeManager.startResize(e, container); // Delegate to resize manager
+                  this.view.managers.resize.startResize(e, container); // *** FIX: Access manager via view ***
                   e.stopPropagation(); // Prevent container drag start
              });
         }

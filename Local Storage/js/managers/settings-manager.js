@@ -39,6 +39,22 @@ export class SettingsManager {
     _setupButtonListeners() {
         // Note: Undo/Redo listeners are handled by UndoRedoManager
         // Note: Grid, Theme, Debug listeners handled by their respective managers
+        // No, Grid button listener IS handled here.
+        // CORRECTION: Grid button *is* handled here as it's inside settings panel
+        if (this.gridButton) {
+            this.gridButton.addEventListener('click', (e) => {
+                e.preventDefault(); // It's a link
+                e.stopPropagation();
+                this.controller.toggleGridVisibility(); // Toggle the grid panel
+                this.view.panelManager.hidePanel('settings'); // Hide settings after clicking
+            });
+        } else {
+            // *** ADD Safeguard Check ***
+            this.gridButton = document.getElementById('settings-grid-button');
+            // Check again if it exists NOW, maybe DOM updated late?
+            OPTIMISM_UTILS.logError("SettingsManager: Grid button (#settings-grid-button) not found.");
+        }
+
 
         if (this.copyLinkButton) {
             this.copyLinkButton.addEventListener('click', (e) => {
@@ -97,6 +113,9 @@ export class SettingsManager {
          this.updateLockImagesButton(this.model.imagesLocked);
          this.updateNestingButton(this.model.isNestingDisabled);
          // Undo/Redo state updated by UndoRedoManager
+         // Debug state updated by DebugManager
+         // Theme state updated by ThemeManager
+         // Grid state updated by PanelRenderer/Controller
     }
 
     updateLockImagesButton(isLocked) {

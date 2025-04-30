@@ -219,12 +219,15 @@ export class CanvasController {
 
              const updatedElement = this.model.findElement(id);
              if (updatedElement && this.view) {
+                 // Sync the specific element's display
                  this.view.renderer.element.syncElementDisplay(id);
-                 if (properties.text !== undefined && updatedElement.type === 'text') {
-                      await this.model.updateNavigationTitles(id, properties.text);
-                      this.view.renderer.navigation.renderBreadcrumbs();
-                      this.view.updatePageTitle();
-                 }
+
+                // *** FIX HERE: Use newProperties ***
+                if (newProperties.text !== undefined && updatedElement.type === 'text') {
+                    await this.model.updateNavigationTitles(id, newProperties.text);
+                    this.view.renderer.navigation.renderBreadcrumbs();
+                    this.view.updatePageTitle();
+                }
                  this.view.managers.undoRedo.updateButtons();
                   this.view.updateSpacerPosition();
                  if (showBackupReminder) this.view.managers.modal.showBackupReminder();

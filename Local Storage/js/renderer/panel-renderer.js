@@ -20,7 +20,12 @@ export class PanelRenderer {
         this.inboxPanel = panels.inbox;
         this.gridPanel = panels.grid;
         this.prioritiesPanel = panels.priorities;
-        this._populateSettingsPanel(); // Populate settings panel now that elements exist
+
+        // *** CHANGE: Populate panels immediately after assigning ***
+        this._populateSettingsPanel(); // Populate settings panel content
+        // Call population/setup for other panels if needed here
+        // e.g., this._setupGridInputControls(); (Moved from assignPanelElements)
+
         this.setupStylePanelActions(); // Setup actions for style panel buttons
         this._setupGridInputControls(); // Setup actions for grid panel buttons
     }
@@ -112,55 +117,91 @@ export class PanelRenderer {
 
     // Populates the settings panel with its options (called once)
     _populateSettingsPanel() {
-        if (!this.settingsPanel) return;
+        if (!this.settingsPanel) {
+             OPTIMISM_UTILS.logError("Renderer: Cannot populate settings panel - panel element missing.");
+             return;
+        }
         OPTIMISM_UTILS.log("Renderer: Populating settings panel...");
 
         // Clear existing maybe? Or assume structure is in HTML
         // Let's assume basic structure exists and we just add dynamic parts/listeners
+        // Safer: Ensure elements exist or create them.
+
+        // Helper to create an option if it doesn't exist
+        const ensureOption = (id, text, parentElement) => {
+            let link = document.getElementById(id);
+            if (!link) {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'settings-option';
+                link = document.createElement('a');
+                link.href = '#';
+                link.className = 'option-value';
+                link.id = id;
+                link.textContent = text;
+                optionDiv.appendChild(link);
+                 // Find a reasonable place to append or prepend
+                 // Appending to parent might be simplest if order isn't critical initially
+                 // Find the first child that is a settings-option or append if none
+                 const firstOption = parentElement.querySelector('.settings-option');
+                 if (firstOption) {
+                    parentElement.insertBefore(optionDiv, firstOption); // Prepend for consistency perhaps? Or append? Let's append.
+                 }
+                 parentElement.appendChild(optionDiv);
+                 OPTIMISM_UTILS.log(`Renderer: Created settings option: ${id}`);
+                return link; // Return the created link
+            }
+            // OPTIMISM_UTILS.log(`Renderer: Settings option already exists: ${id}`);
+            return link; // Return existing link
+        };
 
         // Add dynamic options like Grid, Copy Link, Lock Images, Nesting Toggle
-        // Find a suitable insertion point (e.g., after redo)
-         const redoOption = this.settingsPanel.querySelector('#settings-redo-button')?.parentElement;
+        // Define standard options and their initial text
+        const options = [
+            { id: 'settings-undo-button', text: 'Undo' },
+            { id: 'settings-redo-button', text: 'Redo' },
+            { id: 'settings-grid-button', text: 'Grid Settings' },
+            { id: 'settings-copy-link-button', text: 'Copy Link' },
+            { id: 'settings-lock-images-button', text: 'Lock Images' }, // Initial text updated later
+            { id: 'settings-disable-nesting-button', text: 'Disable Nesting' }, // Initial text updated later
+            { id: 'settings-export-button', text: 'Export' },
+            { id: 'settings-export-no-images-button', text: 'Export w/o Images' },
+            { id: 'settings-import-button', text: 'Import' },
+            { id: 'settings-theme-toggle', text: 'Toggle Theme' },
+            { id: 'settings-debug-toggle', text: 'Show Debug' } // Initial text updated later
+        ];
 
-         const createOption = (id, text) => {
-            const optionDiv = document.createElement('div');
-            optionDiv.className = 'settings-option';
-            const link = document.createElement('a');
-            link.href = '#';
-            link.className = 'option-value';
-            link.id = id;
-            link.textContent = text;
-            optionDiv.appendChild(link);
-            return optionDiv;
-         };
+        // Ensure all standard options exist within the settings panel
+        // This loop guarantees the elements exist before managers try to attach listeners
+        options.forEach(opt => ensureOption(opt.id, opt.text, this.settingsPanel));
 
-         const gridOption = createOption('settings-grid-button', 'Grid Settings');
-         const copyLinkOption = createOption('settings-copy-link-button', 'Copy Link');
-         const lockImagesOption = createOption('settings-lock-images-button', this.model.imagesLocked ? 'Unlock Images' : 'Lock Images');
-         const nestingOption = createOption('settings-disable-nesting-button', this.model.isNestingDisabled ? 'Enable Nesting' : 'Disable Nesting');
-         // Add export w/o images button
-        const exportNoImagesOption = createOption('settings-export-no-images-button', 'Export w/o Images');
+        // Initial state updates (sets correct text based on model)
+        this.updateSettingsButtonStates();
 
-        // Insert options
-         if (redoOption) {
-              // Insert in specific order after redo
-              redoOption.after(exportNoImagesOption);
-              exportNoImagesOption.after(nestingOption);
-              nestingOption.after(lockImagesOption);
-              lockImagesOption.after(copyLinkOption);
-              copyLinkOption.after(gridOption);
-         } else {
-              // Fallback: append to end
-              this.settingsPanel.appendChild(gridOption);
-              this.settingsPanel.appendChild(copyLinkOption);
-              this.settingsPanel.appendChild(lockImagesOption);
-              this.settingsPanel.appendChild(nestingOption);
-              this.settingsPanel.appendChild(exportNoImagesOption);
-         }
 
-        // Add listeners (handled by SettingsManager.setup)
+        OPTIMISM_UTILS.log("Renderer: Settings panel populated/verified.");
+    }
 
-        OPTIMISM_UTILS.log("Renderer: Settings panel populated.");
+    // Helper to update specific button states (called by managers or populate)
+    updateSettingsButtonStates() {
+        if (!this.settingsPanel) return;
+
+        const updateButtonText = (id, text) => {
+             const button = document.getElementById(id);
+             // Only update if button exists and text content needs changing
+             if (button && button.textContent !== text) button.textContent = text;
+        };
+
+        updateButtonText('settings-lock-images-button', this.model.imagesLocked ? 'Unlock Images' : 'Lock Images');
+        updateButtonText('settings-disable-nesting-button', this.model.isNestingDisabled ? 'Enable Nesting' : 'Disable Nesting');
+        updateButtonText('settings-debug-toggle', this.model.isDebugVisible ? 'Hide Debug' : 'Show Debug');
+
+        // Undo/Redo disabled state (handled by UndoRedoManager, but can be done here too for initial state)
+        const undoButton = document.getElementById('settings-undo-button');
+        const redoButton = document.getElementById('settings-redo-button');
+        // Ensure buttons exist before toggling class
+        if(undoButton) undoButton.classList.toggle('disabled', !this.model.canUndo());
+        if(redoButton) redoButton.classList.toggle('disabled', !this.model.canRedo());
+
     }
 
     // --- Grid Panel ---
@@ -171,7 +212,13 @@ export class PanelRenderer {
          OPTIMISM_UTILS.log("Renderer: Setting up grid input controls...");
 
         const setupBtn = (selector, isIncrease, isRows) => {
-            this.gridPanel.querySelector(selector)?.addEventListener('click', (e) => {
+            // Ensure the button exists before adding listener
+            const button = this.gridPanel.querySelector(selector);
+            if (!button) {
+                OPTIMISM_UTILS.logError(`Renderer: Grid control button not found: ${selector}`);
+                return;
+            }
+            button.addEventListener('click', (e) => {
                 e.preventDefault(); e.stopPropagation();
                 const [rows, cols] = this.model.gridLayout.split('x').map(Number);
                 let newRows = rows, newCols = cols;
@@ -184,7 +231,7 @@ export class PanelRenderer {
                     this.controller.setGridLayout(`${newRows}x${newCols}`);
                 }
             });
-        };
+         };
 
         // Row buttons
         setupBtn('.grid-input-group:nth-child(1) .grid-btn-decrease', false, true);
