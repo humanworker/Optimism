@@ -2221,6 +2221,8 @@ document.addEventListener('mousemove', (e) => {
 
     // In view.js -> setupDragListeners -> document.addEventListener('mouseup', ...)
 
+// view/CanvasView.js -> within setupDragListeners method
+
 document.addEventListener('mouseup', (e) => {
     // Handle end of resizing
     if (this.resizingElement) {
@@ -2231,19 +2233,27 @@ document.addEventListener('mouseup', (e) => {
             const width = parseFloat(this.resizingElement.style.width);
             const height = parseFloat(this.resizingElement.style.height);
             OPTIMISM.log(`Resize complete for element ${id}: ${width}x${height}`);
-            this.controller.updateElement(id, { width, height });
+            // Update the model with the new dimensions
+            // Use the appropriate command for undo/redo
+            this.controller.updateElement(id, { width, height }); // Consider using updateElementWithUndo if needed
         } else {
              OPTIMISM.log(`Resize cancelled for locked image ${this.resizingElement.dataset.id}`);
-             // Optionally revert size here if needed, though updateElement won't be called
+             // Optionally revert size here if needed
         }
         this.resizingElement = null; // Always reset resizing state
+        OPTIMISM.log("MouseUp: Handled resize, exiting."); // Add log
         return; // Exit after handling resize
     }
 
     // Handle end of dragging
-    if (!this.draggedElement) return; // Exit if not dragging
+    if (!this.draggedElement) {
+        // OPTIMISM.log("MouseUp: No dragged element, exiting."); // Optional log for clarity
+        return; // Exit if not dragging
+    }
 
-    // --- START: Moved Highlight Cleanup ---
+    OPTIMISM.log("MouseUp: Handling end of drag for element:", this.draggedElement.dataset.id); // Add log
+
+    // --- Moved Highlight Cleanup ---
     // Clear visual drop indicators *immediately* upon mouseup, before any drop logic
     document.querySelectorAll('.drag-over, .drag-highlight').forEach(el => {
         el.classList.remove('drag-over');
@@ -2253,43 +2263,46 @@ document.addEventListener('mouseup', (e) => {
     if (navControls) { // Add check in case it doesn't exist
          navControls.classList.remove('nav-drag-highlight');
     }
+    OPTIMISM.log("MouseUp: Highlights cleared."); // Add log
     // --- END: Moved Highlight Cleanup ---
 
     // Get dragged element info
     const draggedId = this.draggedElement.dataset.id;
     const isImage = this.draggedElement.dataset.type === 'image';
+    const isCardLocked = this.model.isCardLocked(draggedId); // Check card lock
+
+    OPTIMISM.log(`MouseUp: Dragged ID=${draggedId}, IsImage=${isImage}, IsCardLocked=${isCardLocked}, GlobalImagesLocked=${this.model.imagesLocked}`); // Add detailed log
 
     // Check locks *after* clearing highlights but before processing drop
-    if ((this.model.imagesLocked && isImage) ||
-         (this.model.isCardLocked(draggedId))) {
+    if ((this.model.imagesLocked && isImage) || isCardLocked) {
+        OPTIMISM.log(`MouseUp: Drag cancelled for locked element ${draggedId}. Resetting state.`); // Log reset reason
         // If locked, just reset dragging state and exit
-        this.draggedElement.classList.remove('dragging');
-        this.draggedElement = null;
-        OPTIMISM.log(`Drag cancelled for locked element ${draggedId}`);
-        return;
+        if (this.draggedElement) { // Check if it exists before removing class
+             this.draggedElement.classList.remove('dragging');
+        }
+        this.draggedElement = null; // << ENSURE THIS RUNS on cancel
+        OPTIMISM.log("MouseUp: Locked element state reset complete. this.draggedElement =", this.draggedElement); // Log reset
+        return; // Ensure return happens
     }
 
-    // Update z-index for dropped images
-    if (isImage) {
-        const newZIndex = this.findHighestImageZIndex() + 1;
-        const cappedZIndex = Math.min(newZIndex, 99);
-        this.draggedElement.style.zIndex = cappedZIndex;
-         // Note: updateElement below will save this zIndex if not dropped on target
-    }
+    // --- Z-Index Update (moved slightly later) ---
+    let zIndexUpdatePromise = Promise.resolve(); // Promise to track potential async update
 
     // Determine drop target
     const breadcrumbTarget = this.findBreadcrumbDropTarget(e);
     const quickLinksTarget = this.isOverQuickLinksArea(e);
 
     let droppedOnTarget = false; // Flag to check if dropped on a specific target
+    let controllerActionPromise = Promise.resolve(); // Promise to track async controller actions
 
+    // --- Drop Logic Start ---
     if (breadcrumbTarget) {
         droppedOnTarget = true;
         const navIndex = parseInt(breadcrumbTarget.dataset.index);
-        OPTIMISM.log(`Element ${draggedId} dropped onto breadcrumb at index ${navIndex}`);
+        OPTIMISM.log(`MouseUp: Dropped ${draggedId} onto breadcrumb index ${navIndex}`);
         this.deselectAllElements(); // Deselect before moving
-        this.controller.moveElementToBreadcrumb(draggedId, navIndex);
-        // Controller action handles re-render
+        // Capture the promise from the controller action
+        controllerActionPromise = this.controller.moveElementToBreadcrumb(draggedId, navIndex);
     } else if (quickLinksTarget) {
         droppedOnTarget = true;
          const element = this.model.findElement(draggedId);
@@ -2297,13 +2310,16 @@ document.addEventListener('mouseup', (e) => {
              let title = "Untitled";
              if (element.type === 'text' && element.text) { title = element.text.substring(0, 60); }
              else if (element.type === 'image') { title = "Image"; }
-             OPTIMISM.log(`Adding ${draggedId} (${title}) as quick link`);
-             this.controller.addQuickLink(draggedId, title);
-             // Snap back dragged element visually (model state is handled)
-             if (this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
+             OPTIMISM.log(`MouseUp: Dropped ${draggedId} onto quick links area. Adding quick link.`);
+             // Capture the promise from the controller action
+             controllerActionPromise = this.controller.addQuickLink(draggedId, title);
+             // Snap back dragged element visually immediately (model state is handled by controller)
+             if (this.draggedElement && this.draggedElement.dataset.originalLeft && this.draggedElement.dataset.originalTop) {
                  this.draggedElement.style.left = this.draggedElement.dataset.originalLeft;
                  this.draggedElement.style.top = this.draggedElement.dataset.originalTop;
              }
+         } else {
+             OPTIMISM.logError(`MouseUp: Could not find element data for ${draggedId} to add quick link.`);
          }
     } else {
         // Check for dropping onto another element (nesting)
@@ -2311,41 +2327,91 @@ document.addEventListener('mouseup', (e) => {
         if (dropTarget && dropTarget !== this.draggedElement) {
             droppedOnTarget = true;
             const targetId = dropTarget.dataset.id;
-            OPTIMISM.log(`Element ${draggedId} dropped onto ${targetId}`);
+            OPTIMISM.log(`MouseUp: Dropped ${draggedId} onto element ${targetId} for nesting.`);
             this.deselectAllElements(); // Deselect before moving
-            this.controller.moveElement(draggedId, targetId);
-            // Controller action handles re-render
+            // Capture the promise from the controller action
+            controllerActionPromise = this.controller.moveElement(draggedId, targetId);
         }
     }
 
     // If not dropped on any specific target, just update its position
     if (!droppedOnTarget) {
-        const newX = parseFloat(this.draggedElement.style.left);
-        const newY = parseFloat(this.draggedElement.style.top);
-        OPTIMISM.log(`Element ${draggedId} moved to position (${newX}, ${newY})`);
-        const updateProps = { x: newX, y: newY };
-        // Include zIndex update for images moved freely
-        if (isImage) {
-            updateProps.zIndex = parseInt(this.draggedElement.style.zIndex) || 1;
+        // Check if draggedElement still exists before accessing its properties
+        if (this.draggedElement) {
+            const newX = parseFloat(this.draggedElement.style.left);
+            const newY = parseFloat(this.draggedElement.style.top);
+            OPTIMISM.log(`MouseUp: Free drop for ${draggedId} at (${newX}, ${newY})`);
+            const updateProps = { x: newX, y: newY };
+
+            // --- Z-Index update for free-dropped images ---
+            if (isImage) {
+                const newZIndex = findHighestImageZIndex() + 1; // Use direct call
+                const cappedZIndex = Math.min(newZIndex, 99);
+                updateProps.zIndex = cappedZIndex;
+                 this.draggedElement.style.zIndex = cappedZIndex; // Also update style immediately
+                 OPTIMISM.log(`MouseUp: Calculated new zIndex ${cappedZIndex} for image ${draggedId}`);
+            }
+            // --- End Z-Index Update ---
+
+            OPTIMISM.log(`MouseUp: Calling updateElement for free drop of ${draggedId}`);
+            // Capture the promise from the controller action
+             // Use updateElementWithUndo if dropping freely needs undo for position/zindex
+            controllerActionPromise = this.controller.updateElement(draggedId, updateProps);
+
+        } else {
+            OPTIMISM.log(`MouseUp: Dragged element ${draggedId} was null before free drop updateElement call.`);
         }
-        this.controller.updateElement(draggedId, updateProps);
-        // Controller action might handle re-render depending on implementation
     }
+    // --- Drop Logic End ---
 
-    // --- Final Drag State Reset ---
-    // Reset the dragging class and the state variable
-    // Check if draggedElement still exists (it might be null if moveElement caused immediate re-render)
-    if (this.draggedElement) {
-        this.draggedElement.classList.remove('dragging');
-    }
-    this.draggedElement = null; // Reset state variable *last*
-    // --- End Final Drag State Reset ---
+    // *** Use Promise.allSettled to wait for controller action before cleanup ***
+    Promise.allSettled([controllerActionPromise, zIndexUpdatePromise]) // zIndexUpdatePromise is likely just resolved already
+        .then(results => {
+            results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                    OPTIMISM.logError(`MouseUp: Controller action (Promise ${index}) failed:`, result.reason);
+                    // Decide if you need to handle this error further
+                } else {
+                     OPTIMISM.log(`MouseUp: Controller action (Promise ${index}) completed successfully.`);
+                }
+            });
+        })
+        .catch(error => {
+            // Should ideally not happen with allSettled unless there's an error setting it up
+             OPTIMISM.logError(`MouseUp: Unexpected error in Promise.allSettled:`, error);
+        })
+        .finally(() => {
+            // --- Final Drag State Reset ---
+            OPTIMISM.log("MouseUp: Entering final drag state reset block.");
+            // **Crucially, check this.draggedElement AGAIN here** as the controller action
+            // might have caused a re-render, making the original DOM element invalid.
+            const finalDraggedElement = document.querySelector(`.element-container[data-id="${draggedId}"].dragging`); // Try finding it again
+            if (finalDraggedElement) {
+                OPTIMISM.log(`MouseUp: Removing dragging class from ${finalDraggedElement.dataset.id}`);
+                finalDraggedElement.classList.remove('dragging');
+            } else if (this.draggedElement) {
+                // Fallback if querySelector fails but original reference might still be valid (less likely)
+                 OPTIMISM.log(`MouseUp: Removing dragging class from original reference ${this.draggedElement.dataset.id}`);
+                 this.draggedElement.classList.remove('dragging');
+            } else {
+                 OPTIMISM.log(`MouseUp: Dragged element ref was null before final class removal.`);
+            }
 
-    // Always update spacer position after any mouseup that involved dragging
-    this.updateSpacerPosition();
-});
+            this.draggedElement = null; // Reset state variable *last*
+            OPTIMISM.log("MouseUp: Final drag state reset complete. this.draggedElement =", this.draggedElement);
+            // --- End Final Drag State Reset ---
+
+            // Always update spacer position after any mouseup that involved dragging
+            OPTIMISM.log("MouseUp: Calling updateSpacerPosition.");
+            this.updateSpacerPosition();
+            OPTIMISM.log("MouseUp: Handler finished.");
+        });
+
+}); // End of mouseup listener
 
     OPTIMISM.log('Drag listeners set up successfully');
+
+    
 }
 
 
