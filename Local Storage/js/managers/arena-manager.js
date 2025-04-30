@@ -136,8 +136,8 @@ export class ArenaManager {
               //     workspace.style.overflowY = 'auto';
               // }, 50);
          } else {
+            OPTIMISM_UTILS.log("ArenaManager: Restoring default workspace layout (handled by CSS).");
               // Restore workspace layout (handled by PanelManager based on other panels)
-              this.view.panelManager.adjustWorkspaceLayout();
                // Ensure overflow is restored
               // workspace.style.overflow = 'auto';
               // workspace.style.overflowY = 'auto';

@@ -174,16 +174,9 @@ export class PanelManager {
          // If showing a panel, ensure its content is up-to-date and adjust layout
          if (isVisible) {
               this.updatePanelContent(panelName); // Render content if needed
-              // Don't adjust layout for 'style' panel opening, only for side panels
-              if (panelName !== 'style' && panelName !== 'arena') {
-                   this.adjustWorkspaceLayout(); // Adjust workspace when a side panel opens
-              }
-         } else {
-              // If hiding a panel, readjust layout (unless it's the style panel)
-              if (panelName !== 'style' && panelName !== 'arena') {
-                   this.adjustWorkspaceLayout();
-              }
+              // NO NEED to call adjustWorkspaceLayout anymore
          }
+         // No adjustment needed when hiding either
     }
 
     // Calls the appropriate renderer to update content when a panel becomes visible
@@ -258,61 +251,14 @@ export class PanelManager {
         let anySidePanelVisible = false;
         for (const panelName in this.model.panels) {
              // Ensure we have a panel element managed for this state key
-             // Skip 'style' as its visibility is transient/contextual
-             if (panelName !== 'style' && this.panels[panelName] !== undefined) {
-                 const shouldBeVisible = this.model.panels[panelName];
-                 this.updatePanelVisibility(panelName, shouldBeVisible);
-                 if (shouldBeVisible && panelName !== 'arena') {
-                      anySidePanelVisible = true;
-                 }
+             const shouldBeVisible = this.model.panels[panelName];
+             this.updatePanelVisibility(panelName, shouldBeVisible); // Update display based on model
+             if (shouldBeVisible && panelName !== 'arena' && panelName !== 'style') {
+                 anySidePanelVisible = true; // Track if any *side* panel is open
              }
         }
-        // Adjust layout based on the final state of side panels (ignoring Arena)
-        this.adjustWorkspaceLayout();
-        OPTIMISM_UTILS.log(`PanelManager: Sync complete. Any side panel visible: ${anySidePanelVisible}`);
+         // REMOVED adjustWorkspaceLayout call - CSS handles layout now
+         OPTIMISM_UTILS.log(`PanelManager: Sync complete.`);
     }
-
-     // Adjusts workspace width/position based on which panels are open
-     // IMPORTANT: This should only consider side panels, not Arena.
-     adjustWorkspaceLayout() {
-          const workspace = this.view.workspace;
-          if (!workspace || this.model.panels.arena) {
-              // Don't adjust if workspace missing or if Arena is active
-              // (ArenaManager handles layout when it's active)
-              return;
-          }
-
-          const isLeftPanelOpen = this.model.panels.inbox || this.model.panels.priorities;
-          // Check Style panel visibility via DOM as it has no persistent model state
-          const isStylePanelVisible = this.isPanelVisible('style');
-          const isRightPanelOpen = this.model.panels.settings || isStylePanelVisible || this.model.panels.grid;
-          const panelWidthVar = 'var(--panel-width)';
-
-          let left = '0px';
-          let width = '100%';
-
-          if (isLeftPanelOpen && isRightPanelOpen) {
-               left = panelWidthVar;
-               width = `calc(100% - 2 * ${panelWidthVar})`;
-          } else if (isLeftPanelOpen) {
-               left = panelWidthVar;
-               width = `calc(100% - ${panelWidthVar})`;
-          } else if (isRightPanelOpen) {
-               left = '0px';
-               width = `calc(100% - ${panelWidthVar})`;
-          }
-
-          // Apply styles only if they change to avoid unnecessary reflows
-          if (workspace.style.left !== left || workspace.style.width !== width) {
-               OPTIMISM_UTILS.log(`PanelManager: Adjusting workspace layout -> left=${left}, width=${width} (LeftOpen: ${isLeftPanelOpen}, RightOpen: ${isRightPanelOpen})`);
-               workspace.style.left = left;
-               workspace.style.width = width;
-               // After adjusting layout, might need to redraw grid if visible
-               if(this.model.panels.grid) {
-                    // Use timeout to allow layout to settle before redraw
-                    setTimeout(() => this.view.renderer.grid.renderGrid(), 0);
-               }
-          }
-     }
 
 } // End PanelManager Class
