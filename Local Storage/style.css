@@ -1,0 +1,861 @@
+/* --- Root Variables --- */
+:root {
+    --element-width: 30px;
+    --canvas-bg-color: black;
+    --panel-bg-color: #e5e5e5; /* Consistent panel yellow */
+    --element-bg-color: transparent;
+    --element-text-color: white;
+    --element-border-color: #555;
+    --selected-border-color: #fff;
+    --panel-width: 250px;
+    --link-color: #3498db;
+    --red-text-color: #ff5555;
+    --green-text-color: #55ff55;
+    --card-bg-yellow: #ffffcc; /* Light yellow */
+    --card-bg-red: #ffcccc;    /* Light red */
+    --card-bg-none: transparent;
+}
+
+/* --- Light Theme --- */
+.light-theme {
+    --canvas-bg-color: white;
+    --element-text-color: black;
+    --element-border-color: #ddd;
+    --selected-border-color: #555;
+    --link-color: #2980b9;
+    --red-text-color: #ff0000;
+    --green-text-color: #008800;
+    /* Panel background remains --panel-bg-color */
+}
+
+/* --- Base Styles --- */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background-color: var(--panel-bg-color); /* Body matches panels */
+    color: var(--element-text-color); /* Default text color (overridden by theme) */
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden; /* Prevents body scroll */
+    position: relative;
+}
+
+body.resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+/* --- Loading Overlay --- */
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* Darker overlay */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000; /* Highest */
+    flex-direction: column;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+.loading-status {
+    margin-top: 20px;
+}
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid white;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.progress-container {
+    width: 200px;
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.3);
+    margin-top: 15px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.progress-bar {
+    height: 100%;
+    background-color: white;
+    width: 0%;
+    transition: width 0.2s;
+}
+.progress-text {
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+/* --- Drop Zone Indicator --- */
+#drop-zone-indicator {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 2000; /* Very high */
+    pointer-events: none;
+    border: 5px dashed white;
+    box-sizing: border-box;
+}
+#drop-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 24px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 20px;
+    border-radius: 10px;
+}
+
+/* --- Title Bar --- */
+#title-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background-color: var(--panel-bg-color);
+    border-bottom: 0px solid var(--element-border-color); /* Removed border */
+    display: flex;
+    align-items: center;
+    padding: 0 10px; /* Horizontal padding only */
+    z-index: 100; /* Above workspace */
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+#nav-controls {
+    display: flex;
+    align-items: center;
+    position: relative; /* For quick links absolute positioning */
+    width: 40%; /* Adjust as needed */
+    justify-content: flex-start;
+    min-width: 0; /* Allow shrinking */
+}
+
+#right-controls {
+    display: flex;
+    align-items: center;
+    width: 40%; /* Adjust as needed */
+    justify-content: flex-end;
+    position: relative;
+}
+
+#right-controls .nav-link {
+    margin-left: 10px;
+}
+
+/* Breadcrumbs */
+#breadcrumb-container {
+    display: flex;
+    align-items: center;
+    overflow-x: auto; /* Enable horizontal scrolling if needed */
+    white-space: nowrap;
+    max-width: 100%; /* Allow it to take full width of nav-controls */
+    margin-right: 10px;
+    padding-top: 2px;
+    padding-bottom: 0px;
+    /* Hide scrollbar */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+#breadcrumb-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.breadcrumb-item {
+    padding: 4px 8px;
+    color: var(--element-text-color);
+    text-decoration: underline;
+    margin-right: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-block;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.breadcrumb-item:last-child {
+    text-decoration: none;
+    cursor: default;
+}
+.breadcrumb-separator {
+    margin: 0 5px;
+    color: var(--element-text-color);
+    opacity: 0.5; /* More visible separator */
+    user-select: none; /* Prevent selection */
+}
+.breadcrumb-item.drag-highlight {
+    color: var(--green-text-color) !important;
+    background-color: rgba(85, 255, 85, 0.1); /* Subtle background */
+    border-radius: 3px;
+}
+
+/* Quick Links */
+#quick-links-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    top: 0;
+    pointer-events: auto;
+    z-index: 5; /* Below nav controls if they overlap */
+    gap: 15px; /* Space between links */
+}
+.quick-link {
+    padding: 4px 8px;
+    color: var(--element-text-color);
+    text-decoration: underline;
+    /* margin: 0 10px; REMOVED - using gap in container */
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-block;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: relative;
+    top: 1px; /* Align text */
+    border-radius: 3px;
+}
+.quick-link-placeholder {
+    color: var(--element-text-color);
+    font-size: 14px;
+    padding: 4px 8px;
+    opacity: 0.7;
+    position: relative;
+    top: 1px; /* Align text */
+    user-select: none;
+}
+.quick-link.drag-highlight,
+.quick-link-placeholder.drag-highlight {
+    color: var(--green-text-color) !important;
+    background-color: rgba(85, 255, 85, 0.1);
+}
+.quick-link.shift-hover {
+    color: var(--red-text-color) !important;
+    background-color: rgba(255, 85, 85, 0.1);
+}
+
+/* Nav Links / Buttons */
+.nav-link {
+    cursor: pointer;
+    padding: 5px 10px;
+    border: none;
+    background-color: transparent;
+    color: var(--element-text-color);
+    font-size: 14px;
+    text-decoration: underline;
+    padding-bottom: 3px; /* Align text */
+}
+.nav-link:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    text-decoration: none;
+}
+
+/* --- Workspace --- */
+#workspace {
+    position: absolute;
+    top: 40px; /* Below title bar */
+    left: 0; /* Default: takes full width under title bar */
+    width: 100%; /* Default */
+    height: calc(100vh - 40px);
+    box-sizing: border-box;
+    background-color: var(--canvas-bg-color);
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    overflow-y: auto; /* Primary scroll */
+    overflow-x: hidden; /* Prevent horizontal scroll */
+    z-index: 1;
+}
+
+/* Arena View Adjustments */
+body.arena-view-active #workspace {
+    right: 30%; /* Make space for Arena */
+    width: 70%;
+    left: 0;
+}
+body:not(.arena-view-active) #workspace {
+     /* Adjust width based on panels when Arena is OFF */
+     /* This logic might be better handled by JS setting inline styles */
+     /* Default assuming no panels */
+     left: 0;
+     width: 100%;
+     /* Example if left panel is open */
+     /* left: var(--panel-width); width: calc(100% - var(--panel-width)); */
+     /* Example if right panel is open */
+     /* left: 0; width: calc(100% - var(--panel-width)); */
+     /* Example if both panels are open */
+     /* left: var(--panel-width); width: calc(100% - 2 * var(--panel-width)); */
+}
+
+
+#content-spacer {
+    position: absolute;
+    left: 0;
+    width: 1px;
+    height: 30vh; /* Padding at the bottom */
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* --- Elements --- */
+.element-container {
+    position: absolute;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background-color: var(--element-bg-color); /* Default transparent */
+    min-width: var(--element-width);
+    min-height: 30px;
+    z-index: 1; /* Base z-index, overridden below */
+    cursor: move;
+    box-sizing: border-box;
+}
+
+.element-container.selected {
+    border-color: var(--selected-border-color);
+    z-index: 190 !important; /* Ensure selected is above others, but below panels */
+}
+
+/* Background Colors */
+.element-container.card-bg-none { background-color: var(--card-bg-none); }
+.element-container.card-bg-yellow { background-color: var(--card-bg-yellow); }
+.element-container.card-bg-red { background-color: var(--card-bg-red); }
+
+/* Permanent Border */
+.has-permanent-border {
+    border-color: var(--selected-border-color) !important;
+}
+
+/* Priority Border */
+.has-priority-border {
+    border: 1px solid var(--red-text-color) !important;
+}
+.element-container.selected.has-priority-border {
+     border-color: var(--red-text-color) !important; /* Priority overrides selection */
+}
+
+
+/* Z-indexing */
+.text-element-container { z-index: 100 !important; } /* Text always high */
+.image-element-container { z-index: 1; } /* Base for images */
+/* JS should set specific z-index for images based on model.zIndex */
+
+/* Image Element Specific */
+.image-element-container.has-children {
+    padding: 4px; /* Space for the border */
+}
+.image-element-container.has-children::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid var(--element-text-color); /* Visual indicator */
+    margin: 2px;
+    pointer-events: none;
+    border-radius: 2px;
+}
+.image-element {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    user-select: none; /* Prevent image selection */
+    -webkit-user-drag: none; /* Prevent native image drag */
+}
+
+/* Text Element Specific */
+.text-element, .text-display {
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+    color: var(--element-text-color);
+    border: none;
+    padding: 8px;
+    overflow: auto;
+    font-family: inherit;
+    box-sizing: border-box;
+    font-size: 14px; /* Default size - Small */
+    line-height: 1.3; /* Slightly increased line height */
+    text-align: left; /* Default alignment */
+}
+.text-element { /* Textarea specific */
+    resize: none;
+    cursor: text !important;
+}
+.text-element:focus { outline: none; cursor: text; }
+.text-display { /* Div specific */
+    cursor: move;
+}
+
+/* Text Sizes */
+.text-element.size-large, .text-display.size-large { font-size: 24px; }
+.text-element.size-huge, .text-display.size-huge { font-size: 36px; font-weight: bold; }
+
+/* Text Colors */
+.text-element.color-default, .text-display.color-default { color: var(--element-text-color); }
+.text-element.color-red, .text-display.color-red { color: var(--red-text-color); }
+.text-element.color-green, .text-display.color-green { color: var(--green-text-color); }
+
+/* Text Alignment */
+.text-element.align-left, .text-display.align-left { text-align: left; }
+.text-element.align-centre, .text-display.align-centre { text-align: center; }
+.text-element.align-right, .text-display.align-right { text-align: right; }
+
+/* Header Formatting */
+.text-display.has-header .first-line {
+    font-weight: bold;
+    font-size: 1.4em;
+    display: block;
+    margin-bottom: 5px;
+}
+.text-display.has-children, /* Div has children */
+.text-element.has-children  /* Textarea has children */
+{
+    text-decoration: underline;
+    cursor: pointer !important; /* Override text/move cursor */
+}
+/* Specificity for display links */
+.text-display a {
+    color: var(--link-color);
+    text-decoration: underline;
+    cursor: pointer;
+    pointer-events: auto; /* Ensure links are clickable */
+}
+.text-display.has-children a { /* Links inside elements with children */
+    cursor: pointer; /* Keep link cursor */
+}
+
+/* Highlight Formatting */
+.text-element.is-highlighted, .text-display.is-highlighted {
+    /* Highlight handled by <mark> tag */
+}
+mark {
+    background-color: rgb(255, 255, 176);
+    color: black !important; /* Ensure black text on yellow */
+    padding: 0 2px;
+}
+
+/* Resize Handle */
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px; /* Slightly larger */
+    height: 12px;
+    cursor: nwse-resize;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease-in-out;
+}
+.element-container:hover .resize-handle {
+    background-color: var(--element-text-color);
+    opacity: 0.3;
+}
+.element-container.selected .resize-handle {
+     opacity: 0.5; /* More visible when selected */
+}
+
+/* --- Dragging States --- */
+.dragging {
+    opacity: 0.7;
+    z-index: 200 !important; /* Ensure dragging element is on top */
+    cursor: grabbing !important;
+}
+.drag-over {
+    border: 2px dashed var(--selected-border-color) !important; /* Dashed border for element drop */
+    background-color: rgba(255, 255, 255, 0.05); /* Subtle background */
+}
+
+/* --- Locking States --- */
+/* Generic lock styles for cards and images */
+.card-locked, .image-locked {
+    cursor: default !important;
+}
+.card-locked .resize-handle,
+.image-locked .resize-handle {
+    display: none !important;
+}
+
+/* Specific card lock icon and pointer events */
+.card-locked.selected::after {
+    content: '🔒';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 14px;
+    opacity: 0.6;
+    z-index: 10;
+    pointer-events: none;
+}
+.card-locked { pointer-events: auto; } /* Allow selecting the locked card itself */
+.card-locked * { pointer-events: none; } /* Prevent interaction with content */
+
+/* Image lock pointer events */
+.image-locked {
+    pointer-events: none; /* Prevent all interaction with locked images */
+}
+.image-locked.selected {
+    border-color: transparent; /* Don't show selection border on locked images */
+}
+
+/* Cursor override when CMD/CTRL is pressed */
+body.cmd-pressed .element-container:not(.card-locked):not(.image-locked) {
+    cursor: pointer !important; /* Navigation cursor */
+}
+body.cmd-pressed .text-element {
+    cursor: text !important; /* Allow text selection */
+}
+body.cmd-pressed .text-display:not(.has-children) {
+    cursor: text !important; /* Text cursor on display unless it has children */
+}
+body.cmd-pressed .text-display.has-children {
+    cursor: pointer !important; /* Keep nav cursor for elements with children */
+}
+
+/* --- Side Panels --- */
+.side-panel {
+    position: fixed;
+    top: 40px; /* Below title bar */
+    width: var(--panel-width);
+    height: calc(100vh - 40px);
+    background-color: var(--panel-bg-color) !important; /* Ensure override */
+    padding: 20px;
+    padding-top: 60px; /* Extra space for panel title/controls */
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: none; /* Hidden by default */
+    z-index: 250; /* Above workspace, below modals */
+    color: var(--element-text-color); /* Ensure text matches theme */
+    border-left: 1px solid var(--element-border-color); /* Subtle border for right panels */
+}
+
+/* Specific Panel Positioning */
+#style-panel, #settings-panel, #grid-panel {
+    right: 0;
+    left: auto;
+    border-left: 1px solid var(--element-border-color);
+    border-right: none;
+}
+#inbox-panel, #priorities-panel {
+    left: 0;
+    right: auto;
+    border-right: 1px solid var(--element-border-color);
+    border-left: none;
+}
+
+.panel-heading {
+    font-size: 16px;
+    font-weight: bold; /* Make heading bold */
+    margin-bottom: 20px;
+    color: var(--element-text-color);
+}
+
+.style-option, .settings-option {
+    margin-bottom: 25px; /* Consistent spacing */
+}
+
+.option-label {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--element-text-color);
+    font-size: 14px;
+}
+
+.option-values {
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* Consistent gap */
+}
+
+.option-value {
+    cursor: pointer;
+    color: var(--element-text-color);
+    text-decoration: none;
+    font-size: 14px;
+    margin-right: 15px;
+    display: inline-block;
+    padding: 3px 6px; /* Add some padding */
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+.option-value:hover {
+    background-color: rgba(128, 128, 128, 0.1); /* Subtle hover */
+}
+.option-value.selected {
+    text-decoration: underline;
+    font-weight: bold;
+    background-color: rgba(128, 128, 128, 0.15);
+}
+
+/* Shortcut Badges */
+.shortcut-badges {
+    display: inline-flex;
+    margin-left: 8px;
+    vertical-align: middle;
+    position: relative;
+    top: -1px;
+}
+.shortcut-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(128, 128, 128, 0.15);
+    color: var(--element-text-color);
+    border: 1px solid var(--element-border-color); /* Add border */
+    border-radius: 3px;
+    font-size: 12px;
+    margin-right: 4px;
+    cursor: default;
+}
+
+/* --- Inbox Panel Specific --- */
+#inbox-panel .panel-heading { margin-bottom: 10px; }
+.inbox-container { display: flex; flex-direction: column; gap: 10px; }
+.inbox-card {
+    border: 1px solid var(--element-border-color);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 14px;
+    cursor: move;
+    position: relative;
+    background-color: var(--canvas-bg-color); /* Match workspace bg */
+    color: var(--element-text-color); /* Ensure text color */
+    overflow: hidden;
+    max-height: 80px; /* Limit height */
+    transition: background-color 0.2s ease;
+}
+.inbox-card:hover {
+    background-color: rgba(128, 128, 128, 0.1);
+}
+.inbox-card-content {
+    white-space: pre-wrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* Show max 3 lines */
+    -webkit-box-orient: vertical;
+    color: inherit; /* Inherit color */
+}
+.inbox-card-image {
+    max-height: 60px;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+.inbox-card.dragging { opacity: 0.5; border-style: dashed; }
+.inbox-card-edit {
+    width: 100%; height: 100%; background-color: transparent; color: var(--element-text-color);
+    border: none; padding: 0; resize: none; overflow: auto; font-family: inherit;
+    box-sizing: border-box; font-size: 14px; min-height: 60px; /* Match card padding */
+}
+.inbox-card-edit:focus { outline: none; }
+.inbox-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
+#inbox-toggle.drag-highlight { color: var(--green-text-color) !important; }
+#inbox-panel.drag-highlight { border: 2px dashed var(--green-text-color) !important; }
+
+/* --- Priorities Panel Specific --- */
+#priorities-panel .panel-heading { margin-bottom: 10px; }
+.priorities-container { display: flex; flex-direction: column; gap: 10px; }
+.priority-card {
+    border: 1px solid var(--red-text-color); /* Priority border */
+    border-radius: 4px; padding: 10px; font-size: 14px; cursor: pointer;
+    position: relative; background-color: var(--canvas-bg-color); /* Match workspace */
+    color: var(--element-text-color); /* Ensure text color */
+    overflow: hidden; max-height: 80px; /* Limit height */
+    transition: background-color 0.2s ease;
+}
+.priority-card:hover {
+    background-color: rgba(128, 128, 128, 0.1);
+}
+.priority-card-content {
+    white-space: pre-wrap; overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; /* Show max 2 lines */
+    -webkit-box-orient: vertical;
+    max-height: 40px; /* approx 2 lines */
+    color: inherit;
+}
+.priority-card-image { max-height: 60px; max-width: 100%; object-fit: contain; display: block; margin: 0 auto; }
+.priority-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
+
+/* --- Grid Panel Specific --- */
+.grid-input-container { display: flex; flex-direction: column; gap: 15px; }
+.grid-input-group { display: flex; align-items: center; justify-content: space-between; }
+.grid-input-group label { color: var(--element-text-color); font-size: 14px; margin-right: 10px; flex-shrink: 0; }
+.number-input-controls { display: flex; align-items: center; }
+.grid-btn-decrease, .grid-btn-increase {
+    background-color: transparent; border: 1px solid var(--element-border-color); color: var(--element-text-color);
+    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+.grid-btn-decrease:hover, .grid-btn-increase:hover { background-color: rgba(128, 128, 128, 0.1); }
+.grid-input-value { width: 35px; text-align: center; font-size: 14px; color: var(--element-text-color); padding: 0 5px; }
+
+/* --- Grid Lines --- */
+#grid-container {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+}
+.grid-line {
+    position: absolute;
+    background-color: rgba(173, 216, 230, 0.35); /* More subtle */
+    pointer-events: none;
+}
+.grid-line-vertical { width: 1px; height: 100%; top: 0; }
+.grid-line-horizontal { height: 1px; width: 100%; left: 0; }
+
+/* --- Arena View Specific --- */
+#arena-viewport {
+    position: fixed;
+    top: 40px;
+    left: 70%; /* Default position */
+    width: 30%; /* Default width */
+    height: calc(100vh - 40px);
+    box-sizing: border-box;
+    overflow: hidden;
+    background-color: var(--canvas-bg-color);
+    z-index: 150; /* Below panels */
+    border-left: 1px solid var(--element-border-color); /* Separator */
+}
+#arena-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+#arena-viewport-shadow { /* Simple shadow for Arena */
+    position: absolute; top: 0; left: 0; bottom: 0; width: 15px;
+    pointer-events: none; z-index: 5; /* Within viewport */
+    box-shadow: inset 10px 0 8px -8px rgba(0,0,0,0.2);
+    background: linear-gradient(to right, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 100%);
+}
+
+/* --- Modals / Dialogs --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6); /* Slightly darker */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2500 !important; /* Ensure above panels */
+    display: none; /* Hidden by default */
+}
+.dialog-content, .modal-content {
+    background-color: var(--panel-bg-color) !important; /* Match panels */
+    border: 1px solid var(--element-border-color);
+    border-radius: 5px;
+    padding: 25px; /* More padding */
+    max-width: 450px; /* Wider */
+    width: 90%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    color: var(--element-text-color); /* Ensure text matches theme */
+}
+.dialog-title, .modal-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: inherit;
+}
+.dialog-message, .modal-message {
+    margin-bottom: 25px; /* More space */
+    color: inherit;
+    line-height: 1.5;
+}
+.dialog-buttons, .modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px; /* More space */
+}
+.dialog-button, .modal-button {
+    padding: 9px 18px; /* Larger buttons */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500; /* Slightly bolder */
+    transition: opacity 0.2s ease;
+}
+.dialog-button:hover, .modal-button:hover {
+    opacity: 0.85;
+}
+/* Specific button colors */
+.confirm-button { background-color: #e74c3c; color: white; } /* Stronger red */
+.cancel-button { background-color: #95a5a6; color: white; } /* Grey */
+.primary-button { background-color: var(--link-color); color: white; }
+.secondary-button { background-color: #bdc3c7; color: #333; } /* Lighter grey */
+
+/* --- Debug / Status --- */
+#debug-panel {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    width: 80%;
+    max-height: 200px;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: #e0e0e0; /* Lighter grey */
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    overflow-y: auto;
+    z-index: 2000; /* High */
+    display: none; /* Hidden by default */
+    border: 1px solid #444;
+}
+#reset-db-button {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    padding: 8px 12px;
+    background-color: #c0392b; /* Darker red */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 2000;
+    display: none;
+    font-size: 13px;
+}
+#status-message {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    padding: 5px 10px;
+    background-color: rgba(231, 76, 60, 0.8); /* Red background for memory mode */
+    color: white;
+    border-radius: 5px;
+    font-size: 12px;
+    z-index: 2000;
+    display: none;
+    font-weight: bold;
+}
+
+/* --- General Helpers --- */
+.hidden { display: none !important; }
+
+/* Ensure specific panel styles override general ones if needed */
+#style-panel { /* Example override if needed */ }
