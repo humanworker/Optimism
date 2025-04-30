@@ -23,41 +23,161 @@ export class PanelRenderer {
 
         // *** CHANGE: Populate panels immediately after assigning ***
         this._populateSettingsPanel(); // Populate settings panel content
-        // Call population/setup for other panels if needed here
-        // e.g., this._setupGridInputControls(); (Moved from assignPanelElements)
-
-        this.setupStylePanelActions(); // Setup actions for style panel buttons
+        this._populateStylePanel();    // *** ADD: Populate style panel content ***
+        this.setupStylePanelActions(); // Setup actions for style panel buttons (now elements should exist)
         this._setupGridInputControls(); // Setup actions for grid panel buttons
     }
 
     // --- Style Panel ---
 
+    // *** NEW METHOD: Creates the style options if they don't exist ***
+    _populateStylePanel() {
+        if (!this.stylePanel) {
+            OPTIMISM_UTILS.logError("Renderer: Cannot populate style panel - panel element missing.");
+            return;
+        }
+        OPTIMISM_UTILS.log("Renderer: Populating style panel options...");
+
+        // Helper to create structure
+        const createOption = (idPrefix, label, shortcut, values) => {
+            // Check if option group already exists (use a data attribute or ID)
+            const groupId = `${idPrefix}-option`;
+            if (this.stylePanel.querySelector(`#${groupId}`)) {
+                // OPTIMISM_UTILS.log(`Style option group ${groupId} already exists.`);
+                return; // Already populated
+            }
+
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'style-option';
+            optionDiv.id = groupId; // Add ID for checking existence
+
+            optionDiv.innerHTML = `
+                <div class="option-label">
+                    ${label}
+                    <span class="shortcut-badges">
+                        <span class="shortcut-badge" title="${label}">${shortcut}</span>
+                    </span>
+                </div>
+                <div class="option-values">
+                    ${values.map(val => `<a href="#" class="option-value" data-${idPrefix}="${val.value}">${val.text}</a>`).join('\n')}
+                </div>
+            `;
+            // Prepend before the "Move to Inbox" option if possible
+            const moveToInboxOption = this.stylePanel.querySelector('#move-to-inbox-option');
+            if (moveToInboxOption) {
+                 this.stylePanel.insertBefore(optionDiv, moveToInboxOption);
+            } else {
+                 this.stylePanel.appendChild(optionDiv); // Fallback append
+            }
+        };
+
+        // Define options
+        createOption('size', 'Text Size', '1', [
+            { value: 'small', text: 'Small' },
+            { value: 'large', text: 'Large' },
+            { value: 'huge', text: 'Huge' }
+        ]);
+        createOption('color', 'Text Color', '2', [
+            { value: 'default', text: 'Default' },
+            { value: 'red', text: 'Red' },
+            { value: 'green', text: 'Green' }
+        ]);
+        createOption('align', 'Text Alignment', '3', [
+             { value: 'left', text: 'Left' },
+             { value: 'centre', text: 'Centre' },
+             { value: 'right', text: 'Right' }
+        ]);
+        createOption('bgcolor', 'Card Background', '4', [
+             { value: 'none', text: 'None' },
+             { value: 'yellow', text: 'Yellow' },
+             { value: 'red', text: 'Red' }
+        ]);
+        createOption('header', 'Header?', '5', [
+            { value: 'false', text: 'No' },
+            { value: 'true', text: 'Yes' }
+        ]);
+        createOption('highlight', 'Highlighted?', '6', [
+             { value: 'false', text: 'No' },
+             { value: 'true', text: 'Yes' }
+        ]);
+        createOption('border', 'Card Border?', '7', [
+            { value: 'false', text: 'No' },
+            { value: 'true', text: 'Yes' }
+        ]);
+        createOption('lock', 'Lock Card?', '8', [
+            { value: 'false', text: 'No' },
+            { value: 'true', text: 'Yes' }
+        ]);
+
+         OPTIMISM_UTILS.log("Renderer: Style panel options populated.");
+    }
+
+
     // Setup listeners for the interactive elements within the style panel
     setupStylePanelActions() {
-        if (!this.stylePanel) return;
+        if (!this.stylePanel) {
+             OPTIMISM_UTILS.logError("Renderer: Cannot setup style panel actions - panel missing.");
+             return;
+        }
         OPTIMISM_UTILS.log("Renderer: Setting up style panel actions...");
 
+        // Helper to attach listeners, checking if element exists first
         const setupOptionListeners = (attribute, controllerMethod) => {
-            this.stylePanel.querySelectorAll(`.option-value[data-${attribute}]`).forEach(option => {
+            const options = this.stylePanel.querySelectorAll(`.option-value[data-${attribute}]`);
+            if (options.length === 0) {
+                 OPTIMISM_UTILS.log(`Renderer: No options found for attribute [data-${attribute}] in style panel.`);
+                 return; // Skip if options weren't created
+            }
+            options.forEach(option => {
+                // Remove potential old listeners before adding new ones (optional, but safer)
+                // const newOption = option.cloneNode(true);
+                // option.parentNode.replaceChild(newOption, option);
+                // option = newOption; // Use the new node
+
                 option.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     const elementId = this.model.selectedElement;
                     if (!elementId) return;
+
+                    // Ensure element data exists before proceeding
+                     const elementData = this.model.findElementGlobally(elementId);
+                     if (!elementData) {
+                          OPTIMISM_UTILS.logError(`Style Action Error: Element ${elementId} not found in model.`);
+                          return;
+                     }
+
                     const value = option.dataset[attribute];
                      // Convert boolean strings
                      let processedValue = value;
                      if (value === 'true') processedValue = true;
                      if (value === 'false') processedValue = false;
 
-                    controllerMethod.call(this.controller, elementId, { [attribute]: processedValue });
+                     // Use a consistent property name format (e.g., camelCase) if needed
+                     let propertyName = attribute;
+                     if (attribute === 'size') propertyName = 'textSize';
+                     if (attribute === 'color') propertyName = 'textColor';
+                     if (attribute === 'align') propertyName = 'textAlign';
+                     if (attribute === 'bgcolor') propertyName = 'cardBgColor';
+                     if (attribute === 'header') propertyName = 'hasHeader';
+                     if (attribute === 'highlight') propertyName = 'isHighlighted';
+                     if (attribute === 'border') propertyName = 'hasBorder';
+                     // Lock is handled separately below
+
+                     // Call the specific controller method directly
+                     this.controller.updateElementStyle(elementId, { [propertyName]: processedValue });
+
                      // Update UI immediately
-                     this.updateStylePanelOptions(this.model.findElement(elementId));
+                     // Update UI immediately (find element data *after* update potentially)
+                     const updatedElementData = this.model.findElementGlobally(elementId); // Re-fetch data
+                     if (updatedElementData) {
+                         this.updateStylePanelOptions(updatedElementData);
+                     }
                 });
             });
         };
 
-        // Use simplified mapping for direct style updates via controller
+        // Setup listeners for each style attribute
         setupOptionListeners('size', this.controller.updateElementStyle); // textSize
         setupOptionListeners('color', this.controller.updateElementStyle); // textColor
         setupOptionListeners('align', this.controller.updateElementStyle); // textAlign
@@ -67,41 +187,63 @@ export class PanelRenderer {
         setupOptionListeners('border', this.controller.updateElementStyle); // hasBorder
 
         // Specific handlers for lock and move-to-inbox
-        this.stylePanel.querySelectorAll('.option-value[data-lock]').forEach(option => {
-             option.addEventListener('click', (e) => {
+        const lockOptions = this.stylePanel.querySelectorAll('.option-value[data-lock]');
+        if (lockOptions.length > 0) {
+            lockOptions.forEach(option => {
+                 // const newOption = option.cloneNode(true); option.parentNode.replaceChild(newOption, option); option = newOption; // Replace node if needed
+              option.addEventListener('click', (e) => {
+                   e.preventDefault(); e.stopPropagation();
+                   const elementId = this.model.selectedElement;
+                   if (!elementId) return;
+                   this.controller.toggleCardLock(elementId); // Use specific controller method
+                   // Update UI immediately
+                   // Note: toggleCardLock already triggers style panel update if needed
+              });
+            });
+        } else { OPTIMISM_UTILS.log("Renderer: Lock options not found in style panel."); }
+
+
+         const moveToInboxLink = this.stylePanel.querySelector('.move-to-inbox');
+         if (moveToInboxLink) {
+              // const newLink = moveToInboxLink.cloneNode(true); moveToInboxLink.parentNode.replaceChild(newLink, moveToInboxLink); moveToInboxLink = newLink; // Replace node if needed
+              moveToInboxLink.addEventListener('click', (e) => {
                   e.preventDefault(); e.stopPropagation();
                   const elementId = this.model.selectedElement;
                   if (!elementId) return;
-                  this.controller.toggleCardLock(elementId); // Use specific controller method
-                   // Update UI immediately
-                   // Note: toggleCardLock already triggers style panel update if needed
-             });
-        });
+                  OPTIMISM_UTILS.log(`Renderer: Moving ${elementId} to inbox via style panel`);
+                  this.controller.moveToInbox(elementId);
+                  // Controller/PanelManager handles hiding panel if necessary
+              });
+         } else { OPTIMISM_UTILS.log("Renderer: Move to Inbox link not found in style panel."); }
 
-         this.stylePanel.querySelector('.move-to-inbox')?.addEventListener('click', (e) => {
-             e.preventDefault(); e.stopPropagation();
-             const elementId = this.model.selectedElement;
-             if (!elementId) return;
-             OPTIMISM_UTILS.log(`Renderer: Moving ${elementId} to inbox via style panel`);
-             this.controller.moveToInbox(elementId);
-             // Controller handles hiding panel if necessary via panelManager
-         });
 
         OPTIMISM_UTILS.log("Renderer: Style panel actions set up.");
     }
 
     // Updates the selected state of options in the style panel
     updateStylePanelOptions(elementData) {
-        if (!this.stylePanel || !elementData || elementData.type !== 'text') return;
+        if (!this.stylePanel || !elementData || elementData.type !== 'text') {
+             // Clear selections or hide panel if element is not text?
+             // Let's just ensure it doesn't error if panel/element not valid
+              // If style panel is visible but shouldn't be (e.g., image selected), hide it.
+              if (this.stylePanel && this.stylePanel.style.display === 'block' && (!elementData || elementData.type !== 'text')) {
+                   this.controller.view.panelManager.hidePanel('style');
+              }
+             return;
+        }
         // OPTIMISM_UTILS.log(`Renderer: Updating style panel for ${elementData.id}`);
 
+        // Helper to update selection for a group
         const updateSelected = (attribute, value) => {
+            // Convert boolean values to strings for comparison with dataset attribute
+            const comparisonValue = String(value);
             this.stylePanel.querySelectorAll(`.option-value[data-${attribute}]`).forEach(opt => {
-                opt.classList.toggle('selected', opt.dataset[attribute] === String(value));
+                opt.classList.toggle('selected', opt.dataset[attribute] === comparisonValue);
             });
         };
 
         const style = elementData.style || {};
+        // Map model property names to dataset attributes used in the HTML/creation
         updateSelected('size', style.textSize || 'small');
         updateSelected('color', style.textColor || 'default');
         updateSelected('align', style.textAlign || 'left');

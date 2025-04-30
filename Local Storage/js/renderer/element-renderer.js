@@ -377,7 +377,7 @@ export class ElementRenderer {
          this.controller.togglePanel(showStyle ? 'style' : null); // Use togglePanel to handle visibility and potentially close others
 
          if (showStyle) {
-              this.renderer.panel.updateStylePanelOptions(elementData); // Update panel content
+              this.view.renderer.panel.updateStylePanelOptions(elementData); // *** FIX: Access panel renderer via view ***
          }
     }
 
@@ -524,9 +524,8 @@ export class ElementRenderer {
          return content;
     }
 
-        
-    
-            // Text formatting helpers (can be static or moved to utils if preferred)
+
+    // Text formatting helpers (can be static or moved to utils if preferred)
     _formatTextWithHeader(text, hasHeader, isHighlighted = false) {
         // (This function remains the same as before, ensure it calls the corrected _convertUrlsToLinks)
         if (!text) return '';
