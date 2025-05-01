@@ -348,23 +348,30 @@ export class CanvasController {
         OPTIMISM_UTILS.log(`Controller: Navigating to bookmark element ${elementId}`);
         if (!this.view) return false; // Need view to show loading
 
-        this.view.showLoading('Navigating...');
         try {
-             const success = await this.model.navigateToElementDirectly(elementId);
-             if (success) {
-                 this.view.renderWorkspace();
-                 OPTIMISM_UTILS.log('Controller: Bookmark navigation successful.');
-                 return true;
-             }
-             OPTIMISM_UTILS.logError('Controller: Bookmark navigation failed.');
-             alert('Failed to navigate to the bookmark.');
-             return false;
+            OPTIMISM_UTILS.log(`Controller: Navigating directly to content of bookmarked element ${elementId}`);
+            // this.view.showLoading('Navigating...'); // REMOVE loading indicator for bookmarks
+
+            // Call the model method for direct navigation
+            const success = await this.model.navigateToElementDirectly(elementId);
+
+            if (success) {
+                OPTIMISM_UTILS.log('Controller: Direct bookmark navigation successful');
+                // Ensure panels are closed before rendering
+                // this.view.updatePrioritiesVisibility(false); // Close priorities panel
+                this.view.renderWorkspace(); // Render the new view
+                return true;
+            } else {
+                OPTIMISM_UTILS.logError('Controller: Bookmark navigation failed.');
+                alert('Failed to navigate to the bookmark.');
+                return false;
+            }
         } catch (error) {
-             OPTIMISM_UTILS.logError('Error navigating to bookmark:', error);
-             alert('An error occurred while navigating to the bookmark.');
-             return false;
+            OPTIMISM_UTILS.logError('Error navigating to bookmark:', error);
+            alert('An error occurred while navigating to the bookmark.'); // Inform user
+            return false;
         } finally {
-             this.view.hideLoading();
+             // this.view.hideLoading(); // REMOVE corresponding hideLoading
         }
     }
 

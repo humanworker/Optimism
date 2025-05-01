@@ -236,6 +236,7 @@ export class ElementRenderer {
         // Double-click to edit
         container.addEventListener('dblclick', (e) => {
              if (e.target.tagName === 'A') return; // Don't edit on link click
+             if (OPTIMISM_UTILS.isModifierKeyPressed(e)) return; // <<< ADD: Ignore dblclick if modifier is pressed
              if (container.classList.contains('card-locked')) return; // Don't edit locked cards
              display.style.display = 'none';
              textarea.style.display = 'block';
@@ -323,13 +324,12 @@ export class ElementRenderer {
              // CMD/CTRL + Click = Navigate
              if (OPTIMISM_UTILS.isModifierKeyPressed(e)) {
                  // Allow navigation even if locked (consistent with original code)
-                 if (this.model.hasChildren(elementData.id)) {
-                     this.controller.navigateToElement(elementData.id);
-                 }
-                 e.stopPropagation();
-                 return;
+                 // REMOVED hasChildren check - Navigate regardless
+                 this.controller.navigateToElement(elementData.id);
+                 e.stopPropagation(); // Prevent other actions like selection
+                 return; // <<< IMPORTANT: Exit early after handling nav
              }
-             // Check locks *before* selecting
+             // Check locks *before* selecting (standard click)
              if (container.classList.contains('card-locked')) return;
              if (elementData.type === 'image' && this.model.imagesLocked) return;
 
