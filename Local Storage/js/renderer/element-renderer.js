@@ -77,6 +77,11 @@ export class ElementRenderer {
         if (elementData.autoSize && textEditor.value.trim() !== '') {
              this.autoSizeElement(container, textEditor);
              // Update model immediately after auto-sizing on creation? Maybe better after first edit.
+             // We'll let the blur handler save the final size after the first edit.
+             // this.controller.updateElement(elementData.id, {
+             //      width: parseInt(container.style.width),
+             //      height: parseInt(container.style.height)
+             // });
         }
 
         return container;
@@ -149,6 +154,8 @@ export class ElementRenderer {
         if (elementData.autoSize !== undefined) {
             container.dataset.autoSize = elementData.autoSize;
         }
+        // Clear potential leftover size calculation data from dataset
+        delete container.dataset.currentWidth; delete container.dataset.currentHeight;
 
         // Add resize handle (will be hidden by CSS if locked)
         const resizeHandle = document.createElement('div');
@@ -247,14 +254,16 @@ export class ElementRenderer {
 
          // Auto-sizing on input
          textarea.addEventListener('input', () => {
+            // Check dataset flag; only auto-size if true
             if (container.dataset.autoSize === 'true') {
                 this.autoSizeElement(container, textarea);
             }
          });
 
          // Blur to save changes
+         // Define blur handler as a separate named function or use async directly
          textarea.addEventListener('blur', async () => {
-            const element = this.model.findElement(elementData.id); // Get fresh data
+            const element = this.model.findElementGlobally(elementData.id); // Use global find
             if (!element) return; // Element deleted before blur finished
 
             const originalText = element.text || '';
@@ -268,34 +277,45 @@ export class ElementRenderer {
              let oldProps = {};
              let needsUpdate = false;
 
+             // 1. Check for text changes
              if (newText !== originalText) {
                  propsToUpdate.text = newText;
                  oldProps.text = originalText;
                  needsUpdate = true;
              }
 
-             // If auto-sizing was active, update dimensions and turn it off
-             if (container.dataset.autoSize === 'true') {
-                  const currentWidth = parseInt(container.style.width);
-                  const currentHeight = parseInt(container.style.height);
-                  // Only include dimensions if they actually changed during auto-size
-                  if(currentWidth !== element.width || currentHeight !== element.height) {
-                      propsToUpdate.width = currentWidth;
-                      propsToUpdate.height = currentHeight;
-                      oldProps.width = element.width; // Original width
-                      oldProps.height = element.height; // Original height
-                      needsUpdate = true;
+             // 2. Check if auto-sizing was active and dimensions changed
+             const wasAutoSize = element.autoSize === true; // Check original model state
+             // Read size potentially updated by input handler from dataset
+             const currentWidth = parseFloat(container.dataset.currentWidth || container.style.width);
+             const currentHeight = parseFloat(container.dataset.currentHeight || container.style.height);
+
+             if (wasAutoSize) {
+                  // Always turn off auto-size after first edit/blur
+                   propsToUpdate.autoSize = false; // Turn off auto-size
+                   oldProps.autoSize = true;
+                   container.dataset.autoSize = 'false'; // Update DOM dataset too
+                   needsUpdate = true; // Need to save the autoSize=false change
+
+                  // Check if dimensions *actually* changed from model state
+                  if (Math.abs(currentWidth - element.width) > 1 || Math.abs(currentHeight - element.height) > 1) {
+                       propsToUpdate.width = currentWidth;
+                       propsToUpdate.height = currentHeight;
+                       oldProps.width = element.width;
+                       oldProps.height = element.height;
+                       // needsUpdate is already true
                   }
-                  propsToUpdate.autoSize = false; // Turn off auto-size
-                  oldProps.autoSize = true;
-                  container.dataset.autoSize = 'false'; // Update DOM dataset too
              }
+             // Clear dataset values after reading them
+             delete container.dataset.currentWidth;
+             delete container.dataset.currentHeight;
+
 
             if (needsUpdate) {
                  // Update model (use the command that handles undo)
                  await this.controller.updateElementWithUndo(elementData.id, propsToUpdate, oldProps);
                  // Re-sync display after model update completes, only if element still exists
-                  const stillExists = this.model.findElement(elementData.id);
+                  const stillExists = this.model.findElementGlobally(elementData.id);
                   if(stillExists) {
                        this.syncElementDisplay(elementData.id); // Ensure display matches final model state
                   }
@@ -401,8 +421,11 @@ export class ElementRenderer {
             measurer = document.createElement('div');
             measurer.id = 'text-size-measurer';
             Object.assign(measurer.style, {
-                position: 'absolute', visibility: 'hidden', height: 'auto', width: 'auto',
-                whiteSpace: 'pre-wrap', padding: '8px', boxSizing: 'border-box', overflow: 'hidden'
+                position: 'absolute', visibility: 'hidden', height: 'auto', width: 'auto', // Start with auto width
+                whiteSpace: 'pre-wrap', // Allows wrapping
+                overflowWrap: 'break-word', // Ensure long words wrap
+                padding: '8px', boxSizing: 'border-box',
+                // border: '1px solid red' // DEBUG: Make measurer visible
             });
             document.body.appendChild(measurer);
         }
@@ -412,24 +435,39 @@ export class ElementRenderer {
             measurer.style[prop] = computedStyle[prop];
         });
 
-        const maxWidth = Math.floor(window.innerWidth * 0.3);
-        measurer.style.maxWidth = `${maxWidth}px`; // Apply max width constraint
+        // Define max width (e.g., 30% of viewport or a fixed pixel value)
+        const maxWidth = Math.min(500, Math.floor(window.innerWidth * 0.4)); // Example: max 40% or 500px
+        const minWidth = 100; // Set a reasonable minimum width
+        const minHeight = 30; // Consistent minimum height
+        const paddingBuffer = 18; // Extra space for padding/scrollbar clearance (~2 * 8px padding + buffer)
 
-        // Use innerHTML with <br> for accurate height calculation with newlines
-        measurer.innerHTML = textarea.value.replace(/\n/g, '<br>');
+        // Use text content directly for measurement
+        const textContent = textarea.value;
+        // Replace spaces with non-breaking spaces for width calculation if needed? Sometimes helps.
+        // measurer.textContent = textContent.replace(/ /g, '\u00a0');
+        // Use innerHTML with &lt;br&gt; for height calculation
+        measurer.innerHTML = textContent.replace(/\n/g, '<br>') || ' '; // Use nbsp for empty state
 
-        // Calculate dimensions including padding/border (offsetWidth/Height includes these)
-        let newWidth = measurer.offsetWidth + 2; // Add 2px buffer for borders/rounding
-        let newHeight = measurer.offsetHeight + 2;
+        // 1. Calculate Natural Width (width: auto) up to maxWidth
+        measurer.style.width = 'auto';
+        measurer.style.maxWidth = `${maxWidth}px`; // Apply max width to measurer directly
+        let calculatedWidth = measurer.scrollWidth + paddingBuffer;
+        calculatedWidth = Math.max(minWidth, Math.min(calculatedWidth, maxWidth)); // Apply min/max width
 
-        // Ensure minimum size
-        newWidth = Math.max(30, Math.min(newWidth, maxWidth)); // Apply min and max width
-        newHeight = Math.max(30, newHeight);
+        // 2. Calculate Height based on the *calculated* width
+        measurer.style.width = `${calculatedWidth - paddingBuffer}px`; // Set the constrained width for height calc (minus padding)
+        let calculatedHeight = measurer.scrollHeight + paddingBuffer;
+        calculatedHeight = Math.max(minHeight, calculatedHeight); // Apply min height
 
-        container.style.width = `${newWidth}px`;
-        container.style.height = `${newHeight}px`;
+        // Apply calculated dimensions
+        container.style.width = `${calculatedWidth}px`;
+        container.style.height = `${calculatedHeight}px`;
 
-        // OPTIMISM_UTILS.log(`Auto-sized element ${container.dataset.id} to: ${newWidth}x${newHeight}`);
+        // Update dataset for potential use in updateElement command
+        container.dataset.currentWidth = calculatedWidth;
+        container.dataset.currentHeight = calculatedHeight;
+
+        // OPTIMISM_UTILS.log(`Auto-sized element ${container.dataset.id} to: ${calculatedWidth}x${calculatedHeight}`);
     }
 
     // Updates the visual representation of a single element based on model data
