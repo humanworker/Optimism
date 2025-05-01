@@ -55,6 +55,7 @@ const App = {
             this.controller.view = this.view;
             // Assign view reference to controller AFTER view is created
             this.controller.assignView(this.view); // Ensure controller has view reference
+            console.error("%%%%% main.js: controller.assignView CALLED with view:", this.view ? 'VALID View instance' : 'INVALID/NULL View');
 
             // Initialize application components
             await this.controller.initialize(); // This now includes model.initialize()

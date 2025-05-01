@@ -26,12 +26,14 @@ export class CanvasController {
             await this.model.initialize();
 
             // Initialize managers that depend on the model
-            this.exportImportManager = new ExportImportManager(this.model, null); // View might be needed later
+            // REMOVE Instantiation from here
+            // this.exportImportManager = new ExportImportManager(this.model, null); // View might be needed later
 
-            // Controller is ready, model data is loaded
-            this.isInitialized = true;
-            OPTIMISM_UTILS.log('Controller initialized successfully.');
-            return true;
+
+             // Controller is ready, model data is loaded
+             this.isInitialized = true;
+             OPTIMISM_UTILS.log('Controller initialized successfully.');
+             return true;
         } catch (error) {
             OPTIMISM_UTILS.logError('Failed to initialize controller:', error);
             this.isInitialized = false;
@@ -41,10 +43,16 @@ export class CanvasController {
 
     // Assign view reference (called from main.js or view constructor)
     assignView(view) {
-        this.view = view;
-        // Now that view is assigned, pass it to managers that need it
-        if (this.exportImportManager) {
-            this.exportImportManager.view = this.view;
+        console.error("%%%%% controller.assignView: Received view:", view ? 'VALID View instance' : 'INVALID/NULL View');
+        this.view = view; // Assign view to controller
+        OPTIMISM_UTILS.log("Controller: View assigned.");
+        // *** Instantiate ExportImportManager HERE, now that view is guaranteed to exist ***
+        if (!this.exportImportManager && this.model && this.view) { // Ensure model/view exist and manager not already created
+            this.exportImportManager = new ExportImportManager(this.model, this.view); // Pass model AND view
+            OPTIMISM_UTILS.log("Controller: ExportImportManager instantiated with View.");
+        } else {
+            // This log helps determine if the manager doesn't exist yet when assignView is called
+            console.error("%%%%% controller.assignView: exportImportManager is NULL/UNDEFINED at this point!");
         }
         // Initialize other managers that need the view here? Or handle in view setup?
         // Let's assume view setup handles manager initialization that needs the view.
@@ -725,7 +733,25 @@ export class CanvasController {
 
     // --- Export/Import Proxy ---
     async exportData(includeImages = true) {
-        if (!this.isInitialized || !this.exportImportManager) return;
+        console.error("%%%%% controller.exportData: CALLED %%%%%");
+        console.error("%%%%% controller.exportData: this.isInitialized:", this.isInitialized);
+        console.error("%%%%% controller.exportData: this.exportImportManager exists:", !!this.exportImportManager);
+        if (this.exportImportManager) {
+            console.error("%%%%% controller.exportData: manager.model exists:", !!this.exportImportManager.model);
+            console.error("%%%%% controller.exportData: manager.view exists:", !!this.exportImportManager.view); // <<< The crucial check
+        }
+
+        if (!this.isInitialized || !this.exportImportManager) {
+            OPTIMISM_UTILS.logError('Cannot export data: application not initialized or manager missing'); // More specific log
+            return;
+        }
+        // Add the check here too, just before the call
+        if (!this.exportImportManager.model || !this.exportImportManager.view) {
+            OPTIMISM_UTILS.logError('Cannot export data: manager missing model or view reference JUST BEFORE CALL');
+            alert("Export failed due to internal setup error. Please reload.");
+            return;
+        }
+
         OPTIMISM_UTILS.log(`Controller: Requesting export ${includeImages ? 'with' : 'without'} images`);
         await this.exportImportManager.exportData(includeImages);
         // Reset backup reminder is handled within export manager now

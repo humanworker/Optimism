@@ -3,13 +3,16 @@ import { OPTIMISM_UTILS } from '../utils.js';
 export class ExportImportManager {
     constructor(model, view) {
         this.model = model;
-        this.view = view; // May be null initially, assigned later
+        this.view = view; // May be null initially
         this.exportVersion = '1.1'; // Increment version if format changes
     }
 
+    // *** ADD THIS METHOD ***
     // Called by main.js or view setup to provide view reference
     assignView(viewInstance) {
+        console.error("%%%%% ExportImportManager.assignView: Received view:", viewInstance ? 'VALID View instance' : 'INVALID/NULL View');
         this.view = viewInstance;
+        console.error("%%%%% ExportImportManager.assignView: this.view is NOW:", this.view ? 'VALID View instance' : 'INVALID/NULL View');
     }
 
     // Reads a file as text
@@ -38,6 +41,10 @@ export class ExportImportManager {
     }
 
     async exportData(includeImages = true) {
+        console.error("%%%%% ExportImportManager.exportData: CALLED %%%%%");
+        console.error("%%%%% ExportImportManager.exportData: this.model exists:", !!this.model);
+        console.error("%%%%% ExportImportManager.exportData: this.view exists:", !!this.view); // <<< The crucial check
+
         if (!this.model || !this.view) {
              OPTIMISM_UTILS.logError("Export failed: Model or View not available.");
              alert("Export failed. Please try again later.");
