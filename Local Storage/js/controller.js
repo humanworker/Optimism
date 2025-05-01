@@ -500,26 +500,63 @@ export class CanvasController {
 
     // --- Feature Toggles ---
 
-    async togglePanel(panelName) {
+    // Generic toggle - calls model's toggle which handles exclusivity
+     async togglePanel(panelName) {
          if (!this.isInitialized || !panelName) return false;
          OPTIMISM_UTILS.log(`Controller: Toggling panel ${panelName}`);
          try {
-              const isVisible = await this.model.togglePanel(panelName);
-              if (this.view) {
-                   this.view.panelManager.updatePanelVisibility(panelName, isVisible);
-              }
-              return isVisible;
+             // Model's togglePanel now handles exclusivity rules and saves state
+             const isVisible = await this.model.togglePanel(panelName);
+             if (this.view) {
+                  // Sync *all* panels with the possibly updated model state
+                  // TODO: Need to add syncPanelsWithModelState to PanelManager
+                  // For now, let's assume it exists or call syncAllPanelVisibilities
+                  if (typeof this.view.panelManager.syncPanelsWithModelState === 'function') {
+                       this.view.panelManager.syncPanelsWithModelState();
+                  } else {
+                       OPTIMISM_UTILS.logWarn("Controller: panelManager.syncPanelsWithModelState not found, using syncAllPanelVisibilities as fallback.");
+                       this.view.panelManager.syncAllPanelVisibilities();
+                  }
+             }
+             return isVisible;
          } catch (error) {
-              OPTIMISM_UTILS.logError(`Error toggling panel ${panelName}:`, error);
-              return false;
+             OPTIMISM_UTILS.logError(`Error toggling panel ${panelName}:`, error);
+             return false;
          }
     }
+
+     // Explicitly show a panel (e.g., Style panel on selection)
+     async showPanel(panelName) {
+         if (!this.isInitialized || !panelName) return false;
+          OPTIMISM_UTILS.log(`Controller: Showing panel ${panelName}`);
+         try {
+             await this.model.showPanel(panelName); // Model handles exclusivity & saves state
+             if (this.view) {
+                  // Sync *all* panels with the possibly updated model state
+                  // TODO: Need to add syncPanelsWithModelState to PanelManager
+                  // For now, let's assume it exists or call syncAllPanelVisibilities
+                  if (typeof this.view.panelManager.syncPanelsWithModelState === 'function') {
+                       this.view.panelManager.syncPanelsWithModelState();
+                  } else {
+                       OPTIMISM_UTILS.logWarn("Controller: panelManager.syncPanelsWithModelState not found, using syncAllPanelVisibilities as fallback.");
+                       this.view.panelManager.syncAllPanelVisibilities();
+                  }
+             }
+             return true;
+         } catch (error) {
+              OPTIMISM_UTILS.logError(`Error showing panel ${panelName}:`, error);
+              return false;
+         }
+     }
+
+    // Optional: Keep specific toggles if preferred, they just call the generic one now
     // Specific panel toggles calling the generic one
-    async toggleSettingsVisibility() { return this.togglePanel('settings'); }
     async toggleInboxVisibility() { return this.togglePanel('inbox'); }
     async toggleGridVisibility() { return this.togglePanel('grid'); }
     async togglePrioritiesVisibility() { return this.togglePanel('priorities'); }
     async toggleArenaView() { return this.togglePanel('arena'); }
+    async toggleSettingsVisibility() { return this.togglePanel('settings'); } // Keep this one
+
 
     async toggleTheme() {
          if (!this.isInitialized) return false;

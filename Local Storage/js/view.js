@@ -115,7 +115,7 @@ export class CanvasView {
          // Initial render states
          this.managers.theme.updateTheme(this.model.isDarkTheme);
          this.managers.debug.updateVisibility(this.model.isDebugVisible);
-         this.managers.panel.syncAllPanelVisibilities(); // Set initial visibility based on model
+         this.managers.panel.syncPanelsWithModelState(); // Set initial visibility based on model
          this.managers.settings.updateAllButtonStates(); // Sync settings buttons
 
          OPTIMISM_UTILS.log("View: UI setup complete.");
@@ -163,8 +163,8 @@ export class CanvasView {
 
         // Update other UI elements
         this.updatePageTitle();
-        this.managers.undoRedo.updateButtons();
-        this.managers.panel.syncAllPanelVisibilities(); // Ensure panel states are correct
+        this.managers.undoRedo.updateButtons(); // Access via managers
+        this.managers.panel.syncPanelsWithModelState(); // Ensure panel states are correct
         this.updateSpacerPosition(); // Adjust spacer after rendering
 
         this.setScrollPosition(scroll); // Restore scroll after rendering

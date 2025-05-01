@@ -1252,37 +1252,88 @@ export class CanvasModel {
     }
 
     // --- Panel Management ---
-    async togglePanel(panelName) {
-        if (!Object.hasOwnProperty.call(this.panels, panelName)) return false;
+    // async togglePanel(panelName) {
+    //     if (!Object.hasOwnProperty.call(this.panels, panelName)) return false;
+    //
+    //     const currentState = this.panels[panelName];
+    //     const newState = !currentState;
+    //
+    //     // Close conflicting panels
+    //     const isLeft = panelName === 'inbox' || panelName === 'priorities';
+    //     const isRight = panelName === 'settings' || panelName === 'style' || panelName === 'grid';
+    //
+    //     for (const pName in this.panels) {
+    //          const pIsLeft = pName === 'inbox' || pName === 'priorities';
+    //          const pIsRight = pName === 'settings' || pName === 'style' || pName === 'grid';
+    //          // Close if: opening a new panel AND (it's not the one being opened AND it's on the same side)
+    //          // OR if opening Arena (which closes all side panels)
+    //          if (newState && pName !== panelName && ((isLeft && pIsLeft) || (isRight && pIsRight) || panelName === 'arena')) {
+    //              this.panels[pName] = false;
+    //          }
+    //          // Special case: opening a side panel closes Arena
+    //          if (newState && (isLeft || isRight) && panelName !== 'arena') {
+    //               this.panels.arena = false;
+    //          }
+    //     }
+    //
+    //     // Toggle the requested panel
+    //     this.panels[panelName] = newState;
+    //     OPTIMISM_UTILS.log(`Panel '${panelName}' visibility toggled to: ${newState}`);
+    //
+    //     await this.saveAppState();
+    //     return newState;
+    // }
 
-        const currentState = this.panels[panelName];
-        const newState = !currentState;
+     // --- NEW: Centralized Panel State Logic ---
 
-        // Close conflicting panels
-        const isLeft = panelName === 'inbox' || panelName === 'priorities';
-        const isRight = panelName === 'settings' || panelName === 'style' || panelName === 'grid';
+     // Sets a specific panel's state, handling exclusivity
+     _setPanelState(panelNameToSet, isVisible) {
+         if (!Object.hasOwnProperty.call(this.panels, panelNameToSet)) return false;
 
-        for (const pName in this.panels) {
-             const pIsLeft = pName === 'inbox' || pName === 'priorities';
-             const pIsRight = pName === 'settings' || pName === 'style' || pName === 'grid';
-             // Close if: opening a new panel AND (it's not the one being opened AND it's on the same side)
-             // OR if opening Arena (which closes all side panels)
-             if (newState && pName !== panelName && ((isLeft && pIsLeft) || (isRight && pIsRight) || panelName === 'arena')) {
-                 this.panels[pName] = false;
+         // If setting to visible
+         if (isVisible) {
+             // Determine if the panel being opened is left/right/arena/style
+             const isLeft = panelNameToSet === 'inbox' || panelNameToSet === 'priorities';
+             const isRight = panelNameToSet === 'settings' || panelNameToSet === 'grid'; // Style panel handled specially
+             const isSidePanel = isLeft || isRight;
+
+             // Close conflicting panels based on rules
+             for (const pName in this.panels) {
+                 if (pName === panelNameToSet) continue; // Don't close self
+
+                 const pIsLeft = pName === 'inbox' || pName === 'priorities';
+                 const pIsRight = pName === 'settings' || pName === 'grid';
+
+                 // Rule 1: Opening Arena closes all side panels
+                 if (panelNameToSet === 'arena' && (pIsLeft || pIsRight)) {
+                     this.panels[pName] = false;
+                 }
+                 // Rule 2: Opening a Left panel closes other Left panels & Arena
+                 else if (isLeft && (pIsLeft || pName === 'arena')) {
+                     this.panels[pName] = false;
+                 }
+                 // Rule 3: Opening a Right panel closes other Right panels & Arena
+                 else if (isRight && (pIsRight || pName === 'arena')) {
+                      this.panels[pName] = false;
+                 }
+                 // Rule 4: Opening Style panel closes Settings & Grid (Right panels) & Arena
+                 else if (panelNameToSet === 'style' && (pIsRight || pName === 'arena')) {
+                       this.panels[pName] = false;
+                 }
+                 // Rule 5: Opening Settings/Grid closes Style panel
+                 else if (isRight && pName === 'style') {
+                       this.panels[pName] = false;
+                 }
              }
-             // Special case: opening a side panel closes Arena
-             if (newState && (isLeft || isRight) && panelName !== 'arena') {
-                  this.panels.arena = false;
-             }
-        }
+         }
+         // Else (setting to invisible): No automatic closing of others needed
 
-        // Toggle the requested panel
-        this.panels[panelName] = newState;
-        OPTIMISM_UTILS.log(`Panel '${panelName}' visibility toggled to: ${newState}`);
+         // Set the state for the target panel
+         this.panels[panelNameToSet] = isVisible;
+         OPTIMISM_UTILS.log(`Model: Panel state updated - ${panelNameToSet}: ${isVisible}`);
+         return true; // Indicate state potentially changed
+     }
 
-        await this.saveAppState();
-        return newState;
-    }
 
      // --- Other Toggles ---
      toggleDebugPanel() {
@@ -1297,9 +1348,26 @@ export class CanvasModel {
          return this.isNestingDisabled;
      }
      async toggleArenaView() { return this.togglePanel('arena'); }
-     async toggleSettingsVisibility() { return this.togglePanel('settings'); }
+    // Replace simple togglePanel calls with more controlled logic
+     // async toggleSettingsVisibility() { return this.togglePanel('settings'); }
      async toggleInboxVisibility() { return this.togglePanel('inbox'); }
      async toggleGridVisibility() { return this.togglePanel('grid'); }
      async togglePrioritiesVisibility() { return this.togglePanel('priorities'); }
+     // async toggleStyleVisibility() - Style panel is usually shown contextually, not toggled directly by user button
+
+     // Revised togglePanel using new logic
+     async togglePanel(panelName) {
+         if (!Object.hasOwnProperty.call(this.panels, panelName)) return false;
+         const currentState = this.panels[panelName];
+         const success = this._setPanelState(panelName, !currentState);
+         if (success) await this.saveAppState();
+         return this.panels[panelName]; // Return the new state
+     }
+
+      // Method to explicitly show a panel (e.g., style panel on element select)
+      async showPanel(panelName) {
+           if (this._setPanelState(panelName, true)) await this.saveAppState();
+           return this.panels[panelName];
+      }
 
 } // End CanvasModel Class

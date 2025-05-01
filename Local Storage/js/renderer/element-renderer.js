@@ -374,10 +374,11 @@ export class ElementRenderer {
 
          // Show style panel only for text elements and if not currently dragging
          const showStyle = elementData.type === 'text' && !isDragging;
-         this.controller.togglePanel(showStyle ? 'style' : null); // Use togglePanel to handle visibility and potentially close others
+         // Use controller.showPanel to ensure exclusivity rules are handled in the model
+         if (showStyle) this.controller.showPanel('style');
 
          if (showStyle) {
-              this.view.renderer.panel.updateStylePanelOptions(elementData); // *** FIX: Access panel renderer via view ***
+              this.view.renderer.panel.updateStylePanelOptions(elementData); // Update panel content
          }
     }
 

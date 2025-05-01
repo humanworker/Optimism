@@ -28,10 +28,13 @@ export class PanelManager {
 
     // Called once during view initialization
     setupPanels() {
+        // console.error("%%%%% PanelManager.setupPanels() IS BEING CALLED %%%%%"); // Remove debug log
         OPTIMISM_UTILS.log("PanelManager: Setting up panels...");
 
-        // Find panel elements from the DOM
+        // Find panel elements
         this.panels.style = document.getElementById('style-panel');
+        // ... find other panel elements ...
+
         this.panels.settings = document.getElementById('settings-panel');
         this.panels.inbox = document.getElementById('inbox-panel');
         this.panels.grid = document.getElementById('grid-panel');
@@ -40,11 +43,12 @@ export class PanelManager {
 
         // Find toggle buttons
         this.toggles.settings = document.getElementById('settings-toggle');
+        // *** REMOVE Button Creation Logic - Assume buttons exist in HTML ***
         this.toggles.inbox = document.getElementById('inbox-toggle');
         this.toggles.priorities = document.getElementById('priorities-toggle');
          this.toggles.arena = document.getElementById('arena-toggle');
-         // REMOVE: Grid toggle button lookup - SettingsManager handles this now
-         // this.toggles.grid = document.getElementById('settings-grid-button');
+         this.toggles.grid = document.getElementById('settings-grid-button'); // Still need reference for settings manager interaction? Maybe not needed here.
+         // *** END REMOVAL ***
 
 
         // --- Attach Toggle Listeners ---
@@ -53,38 +57,34 @@ export class PanelManager {
                 e.stopPropagation();
                 this.controller.toggleSettingsVisibility();
             });
-        } else { OPTIMISM_UTILS.logError("PanelManager: Settings toggle button not found."); }
+        } // Removed error log as button presence is assumed from HTML
 
         if (this.toggles.inbox) {
              this.toggles.inbox.addEventListener('click', (e) => {
                   e.stopPropagation();
                   this.controller.toggleInboxVisibility();
              });
-        } else { OPTIMISM_UTILS.logError("PanelManager: Inbox toggle button not found."); }
+        } // Removed error log
 
         if (this.toggles.priorities) {
              this.toggles.priorities.addEventListener('click', (e) => {
                   e.stopPropagation();
                   this.controller.togglePrioritiesVisibility();
              });
-        } else { OPTIMISM_UTILS.logError("PanelManager: Priorities toggle button not found."); }
+        } // Removed error log
 
         if (this.toggles.arena) {
              this.toggles.arena.addEventListener('click', (e) => {
                   e.stopPropagation();
                   this.controller.toggleArenaView();
              });
-        } else { OPTIMISM_UTILS.logError("PanelManager: Arena toggle button not found."); }
+        } // Removed error log
 
         // REMOVE: Grid toggle listener attachment - SettingsManager handles this now
         // else {
         //      OPTIMISM_UTILS.logError("PanelManager: Grid toggle button (inside settings) not found.");
         // }
 
-
-        // --- Global Click Listener for Closing Panels ---
-        // This listener helps close panels when clicking outside them
-        document.addEventListener('click', (e) => this.handleGlobalClick(e));
 
          // Pass panel elements to PanelRenderer so it knows where to render content
          if (this.view.renderer.panel) {
@@ -93,7 +93,7 @@ export class PanelManager {
                   settings: this.panels.settings,
                   inbox: this.panels.inbox,
                   grid: this.panels.grid,
-                  priorities: this.panels.priorities
+                  priorities: this.panels.priorities,
               });
          } else {
              OPTIMISM_UTILS.logError("PanelManager: PanelRenderer not available on view.");
@@ -101,45 +101,6 @@ export class PanelManager {
 
         OPTIMISM_UTILS.log("PanelManager: Panel setup complete.");
     }
-
-     // Handles clicks outside of open panels to close them
-     handleGlobalClick(event) {
-          // Check which panel might be open and needs closing
-          for (const panelName in this.panels) {
-               // Skip style panel (closed by selection logic) and Arena viewport
-               if (panelName === 'style' || panelName === 'arena' || !this.panels[panelName]) {
-                   continue;
-               }
-
-               const panelElement = this.panels[panelName];
-               const toggleElement = this.toggles[panelName];
-
-               // Check if the panel is currently visible (using style.display)
-               // Important: Only check panels managed directly (not style/arena)
-               if (panelElement.style.display === 'block') {
-                   // Check if the click was outside the panel AND outside its toggle button
-                   const clickedOutsidePanel = !panelElement.contains(event.target);
-                   // Check toggle existence before accessing contains
-                   const clickedOutsideToggle = toggleElement ? !toggleElement.contains(event.target) : true;
-
-                   // Exception: Don't close Settings when clicking the Grid toggle inside it
-                   // const clickedGridToggleInSettings = panelName === 'settings' && event.target === this.toggles.grid; // Grid toggle handled by SettingsManager now
-                   const clickedGridToggleInSettings = false; // Simplified: Assume SettingsManager handles its internal clicks
-
-                   if (clickedOutsidePanel && clickedOutsideToggle && !clickedGridToggleInSettings) {
-                        OPTIMISM_UTILS.log(`Global click detected outside of open panel: ${panelName}. Closing.`);
-                        // Use controller to toggle off, ensuring model state updates
-                        // This assumes controller methods exist for each panel type
-                        const toggleMethodName = `toggle${panelName.charAt(0).toUpperCase() + panelName.slice(1)}Visibility`;
-                        if (typeof this.controller[toggleMethodName] === 'function') {
-                             this.controllertoggleMethodName;
-                        } else {
-                             OPTIMISM_UTILS.logError(`PanelManager: No controller method found for toggling panel ${panelName}`);
-                        }
-                   }
-               }
-          }
-     }
 
 
     // --- Visibility Control ---
@@ -151,7 +112,7 @@ export class PanelManager {
 
          // Handle Arena separately via its manager
          if (panelName === 'arena') {
-              this.view.arenaManager.updateLayout(isVisible);
+              this.view.managers.arena.updateLayout(isVisible);
               return;
          }
 
@@ -173,10 +134,9 @@ export class PanelManager {
 
          // If showing a panel, ensure its content is up-to-date and adjust layout
          if (isVisible) {
-              this.updatePanelContent(panelName); // Render content if needed
-              // NO NEED to call adjustWorkspaceLayout anymore
+             this.updatePanelContent(panelName); // Render content if needed
+             // Layout adjustment is now handled by CSS only
          }
-         // No adjustment needed when hiding either
     }
 
     // Calls the appropriate renderer to update content when a panel becomes visible
@@ -204,7 +164,7 @@ export class PanelManager {
                         break;
                   case 'settings':
                         // Settings panel content is mostly static, but update button states
-                        this.view.settingsManager.updateAllButtonStates();
+                        this.view.managers.settings.updateAllButtonStates();
                         break;
              }
          } catch (error) {
@@ -221,44 +181,36 @@ export class PanelManager {
      // Explicitly hides a panel (can be called by other managers/logic)
      hidePanel(panelName) {
           // Only hide if currently visible according to DOM
-          if (this.isPanelVisible(panelName)) {
+          // Check model state instead of DOM state to avoid race conditions
+           if (this.model.panels[panelName]) {
                 OPTIMISM_UTILS.log(`PanelManager: Hiding panel ${panelName} explicitly.`);
                 // Use controller toggle method to ensure model state is updated IF it exists
-                const toggleMethodName = `toggle${panelName.charAt(0).toUpperCase() + panelName.slice(1)}Visibility`;
-                if (panelName !== 'style' && typeof this.controller[toggleMethodName] === 'function') {
-                    // Call controller toggle ONLY if the model state thinks it's currently visible
-                    if (this.model.panels[panelName]) {
-                         this.controllertoggleMethodName;
-                    } else {
-                         // Model state is already false, just hide the DOM element
-                         this.updatePanelVisibility(panelName, false);
-                    }
-                } else if (panelName === 'style') {
-                     // Style panel has no model state, just hide DOM
-                     if(this.panels.style) this.panels.style.style.display = 'none';
+                 // The generic toggle will set it to false if it's currently true
+                 this.controller.togglePanel(panelName);
                 } else {
-                      // Fallback for panels without dedicated toggle methods (shouldn't happen with current structure)
-                      this.updatePanelVisibility(panelName, false);
+                      // OPTIMISM_UTILS.log(`PanelManager: Panel ${panelName} is already hidden in model state.`);
                 }
           }
+
+
+     // REMOVED adjustWorkspaceLayout - CSS handles layout now
+
+    // Syncs the display style of ALL panels based ONLY on the model state
+    // This is the single function to call after model state changes
+    syncPanelsWithModelState() {
+         OPTIMISM_UTILS.log("PanelManager: Syncing panel display with model state...");
+         for (const panelName in this.model.panels) {
+              this.updatePanelVisibility(panelName, this.model.panels[panelName]);
+         }
+         OPTIMISM_UTILS.log("PanelManager: Panel display sync complete.");
      }
 
+     // *** ADDED FROM PREVIOUS VERSION - NEEDED FOR CONTROLLER FALLBACK ***
+     // Syncs visibility of all panels based on model state (alternative name)
+     syncAllPanelVisibilities() {
+          OPTIMISM_UTILS.logWarn("PanelManager: Using syncAllPanelVisibilities (consider syncPanelsWithModelState).");
+          this.syncPanelsWithModelState();
+     }
 
-    // Syncs all panel visibilities based on the current model state
-    // This ensures the UI matches the model, e.g., after load or import
-    syncAllPanelVisibilities() {
-        OPTIMISM_UTILS.log("PanelManager: Syncing all panel visibilities...");
-        let anySidePanelVisible = false;
-        for (const panelName in this.model.panels) {
-             // Ensure we have a panel element managed for this state key
-             const shouldBeVisible = this.model.panels[panelName];
-             this.updatePanelVisibility(panelName, shouldBeVisible); // Update display based on model
-             if (shouldBeVisible && panelName !== 'arena' && panelName !== 'style') {
-                 anySidePanelVisible = true; // Track if any *side* panel is open
-             }
-        }
-         // REMOVED adjustWorkspaceLayout call - CSS handles layout now
-         OPTIMISM_UTILS.log(`PanelManager: Sync complete.`);
-    }
 
 } // End PanelManager Class
