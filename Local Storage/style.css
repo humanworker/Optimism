@@ -749,12 +749,7 @@ body.cmd-pressed .text-display.has-children {
     border: none;
     display: block;
 }
-#arena-viewport-shadow { /* Simple shadow for Arena */
-    position: absolute; top: 0; left: 0; bottom: 0; width: 15px;
-    pointer-events: none; z-index: 5; /* Within viewport */
-    box-shadow: inset 10px 0 8px -8px rgba(0,0,0,0.2);
-    background: linear-gradient(to right, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 100%);
-}
+
 
 /* --- Modals / Dialogs --- */
 .modal-overlay {

@@ -131,29 +131,43 @@ export class CanvasController {
 
     async addImageFromUrl(url, x, y) {
         if (!this.isInitialized) throw new Error('Controller not initialized');
+        console.error(`%%%%% controller.addImageFromUrl CALLED with URL: ${url} %%%%%`); // Log entry
         OPTIMISM_UTILS.log(`Controller: Adding image from URL: ${url}`);
         try {
             // Clean Are.na URLs
+            let originalUrl = url; // Keep original for logging
             if (url.includes('d2w9rnfcy7mm78.cloudfront.net')) {
                 url = url.split('?')[0];
+                 OPTIMISM_UTILS.log(`Cleaned Are.na URL: ${url}`);
             }
+
             // Use proxy
             const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=default`;
             OPTIMISM_UTILS.log(`Using image proxy: ${proxyUrl}`);
+            console.error(`%%%%% controller.addImageFromUrl: Fetching via proxy: ${proxyUrl} %%%%%`);
 
             // Fetch as blob via proxy
             const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error(`Failed to fetch image via proxy: ${response.statusText}`);
+            console.error(`%%%%% controller.addImageFromUrl: Proxy fetch response status: ${response.status} ${response.ok} %%%%%`);
+            if (!response.ok) throw new Error(`Failed to fetch image via proxy (${response.status})`);
+
             const blob = await response.blob();
-            if (!blob.type.startsWith('image/')) throw new Error('Fetched content is not an image');
+            console.error(`%%%%% controller.addImageFromUrl: Received blob type: ${blob.type}, size: ${blob.size} %%%%%`);
+            if (!blob.type.startsWith('image/')) throw new Error('Fetched content is not an image type.');
+            if (blob.size === 0) throw new Error('Fetched image blob is empty.');
 
             const file = new File([blob], `image.${blob.type.split('/')[1] || 'png'}`, { type: blob.type });
+            console.error(`%%%%% controller.addImageFromUrl: Created File object, calling controller.addImage... %%%%%`);
 
             // Use the existing addImage method
-            return await this.addImage(file, x, y);
+            const newElementId = await this.addImage(file, x, y); // Await the result
+            console.error(`%%%%% controller.addImageFromUrl: controller.addImage returned: ${newElementId} %%%%%`);
+            return newElementId; // Return the ID from addImage
+
         } catch (error) {
-            OPTIMISM_UTILS.logError('Error adding image from URL:', error);
-            throw error; // Re-throw
+            OPTIMISM_UTILS.logError(`Error adding image from URL (${originalUrl}):`, error); // Log original URL on error
+            console.error(`%%%%% controller.addImageFromUrl: ERROR - ${error.message} %%%%%`); // Log specific error
+            throw error; // Re-throw so caller (ArenaManager) knows it failed
         }
     }
 

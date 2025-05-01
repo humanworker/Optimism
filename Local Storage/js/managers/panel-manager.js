@@ -73,12 +73,14 @@ export class PanelManager {
              });
         } // Removed error log
 
-        if (this.toggles.arena) {
-             this.toggles.arena.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  this.controller.toggleArenaView();
-             });
-        } // Removed error log
+        // REMOVE Arena Toggle Listener Attachment from PanelManager
+        // ArenaManager handles its own toggle button listener
+        // if (this.toggles.arena) {
+        //      this.toggles.arena.addEventListener('click', (e) => {
+        //           e.stopPropagation();
+        //           this.controller.toggleArenaView();
+        //      });
+        // } // Removed error log
 
         // REMOVE: Grid toggle listener attachment - SettingsManager handles this now
         // else {

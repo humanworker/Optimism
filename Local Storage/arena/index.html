@@ -1042,14 +1042,13 @@
                         ctx.drawImage(tempImg, 0, 0);
 
                         // Get the image as a data URL
-                        const dataUrl = canvas.toDataURL('image/png');
+                        // const dataUrl = canvas.toDataURL('image/png'); // No longer needed
 
                         // Send the data URL to the parent window
+                        // *** CHANGE: Send imageUrl instead of imageData ***
                         window.parent.postMessage({
                             type: 'arenaImageTransfer',
-                            imageData: dataUrl,
-                            width: tempImg.width,
-                            height: tempImg.height
+                            imageUrl: imageUrl // Send the original URL that was confirmed
                         }, '*');
 
                         feedback.textContent = 'Image sent to canvas!';
