@@ -1,12 +1,12 @@
 /* --- Root Variables --- */
 :root {
     --element-width: 30px;
-    --canvas-bg-color: black;
+    --canvas-bg-color: white; /* Light theme default */
     --panel-bg-color: #e5e5e5; /* Consistent panel yellow */
     --element-bg-color: transparent;
-    --element-text-color: white;
-    --element-border-color: #555;
-    --selected-border-color: #fff;
+    --element-text-color: black; /* Light theme default */
+    --element-border-color: #ddd;
+    --selected-border-color: #555;
     --panel-width: 250px;
     --link-color: #3498db;
     --red-text-color: #ff5555;
@@ -16,8 +16,8 @@
     --card-bg-none: transparent;
 }
 
-/* --- Light Theme --- */
-.light-theme {
+/* --- REMOVE Light Theme Override --- */
+/* .light-theme {
     --canvas-bg-color: white;
     --element-text-color: black;
     --element-border-color: #ddd;
@@ -25,15 +25,15 @@
     --link-color: #2980b9;
     --red-text-color: #ff0000;
     --green-text-color: #008800;
-    /* Panel background remains --panel-bg-color */
-}
+    /* Panel background remains --panel-bg-color 
+} */
 
 /* --- Base Styles --- */
 body {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
-    background-color: var(--panel-bg-color); /* Body matches panels */
+    background-color: var(--panel-bg-color); /* Body matches panels - Keep */
     color: var(--element-text-color); /* Default text color (overridden by theme) */
     height: 100vh;
     width: 100vw;

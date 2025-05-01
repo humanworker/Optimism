@@ -17,7 +17,7 @@ export class CanvasModel {
         this.navigationStack = []; // Stack of { nodeId, nodeTitle, node }
 
         // State Management
-        this.isDarkTheme = true;
+        // this.isDarkTheme = true; // REMOVE theme state
         this.editCounter = 0;
         this.lastBackupReminder = 0;
         this.backupReminderThreshold = 200;
@@ -59,8 +59,8 @@ export class CanvasModel {
             // DB opening is handled in main.js now
             OPTIMISM_UTILS.log('Loading core data...');
             await this.loadData(); // Loads root node and app state
-            OPTIMISM_UTILS.log('Loading theme...');
-            await this.loadTheme(); // Loads theme settings
+            // OPTIMISM_UTILS.log('Loading theme...'); // REMOVE theme loading call
+            // await this.loadTheme(); // REMOVE theme loading call
 
             // Post-load checks and logs
             if (!this.data || !this.currentNode) {
@@ -175,32 +175,10 @@ export class CanvasModel {
          }
      }
 
-     // --- Theme Management ---
-
-     async loadTheme() {
-         try {
-             const themeData = await this.db.getTheme();
-             this.isDarkTheme = themeData?.isDarkTheme ?? true; // Use default if undefined
-         } catch (error) {
-             OPTIMISM_UTILS.logError('Error loading theme:', error);
-             this.isDarkTheme = true; // Fallback to default
-         }
-     }
-
-     async saveTheme() {
-         try {
-             await this.db.saveTheme({ id: 'theme', isDarkTheme: this.isDarkTheme });
-         } catch (error) {
-             OPTIMISM_UTILS.logError('Error saving theme:', error);
-         }
-     }
-
-     async toggleTheme() {
-         this.isDarkTheme = !this.isDarkTheme;
-         await this.saveTheme();
-         OPTIMISM_UTILS.log(`Theme toggled to ${this.isDarkTheme ? 'dark' : 'light'}`);
-         return this.isDarkTheme;
-     }
+     // --- REMOVE Theme Management Methods ---
+     // async loadTheme() { ... }
+     // async saveTheme() { ... }
+     // async toggleTheme() { ... }
 
      // --- Element Manipulation ---
 

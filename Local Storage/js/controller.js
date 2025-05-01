@@ -564,20 +564,6 @@ export class CanvasController {
     async toggleArenaView() { return this.togglePanel('arena'); }
     async toggleSettingsVisibility() { return this.togglePanel('settings'); } // Keep this one
 
-
-    async toggleTheme() {
-         if (!this.isInitialized) return false;
-         OPTIMISM_UTILS.log(`Controller: Toggling theme`);
-         try {
-              const isDark = await this.model.toggleTheme();
-              if (this.view) this.view.managers.theme.updateTheme(isDark);
-              return isDark;
-         } catch (error) {
-              OPTIMISM_UTILS.logError(`Error toggling theme:`, error);
-              return this.model.isDarkTheme; // Return current state on error
-         }
-    }
-
     async toggleDebugPanel() {
         if (!this.isInitialized) return false;
         OPTIMISM_UTILS.log(`Controller: Toggling debug panel`);

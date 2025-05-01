@@ -18,7 +18,7 @@ export class SettingsManager {
         this.exportButton = document.getElementById('settings-export-button');
         this.exportNoImagesButton = document.getElementById('settings-export-no-images-button');
         this.importButton = document.getElementById('settings-import-button');
-        this.themeButton = document.getElementById('settings-theme-toggle');
+        // this.themeButton = document.getElementById('settings-theme-toggle'); // REMOVE
         this.debugButton = document.getElementById('settings-debug-toggle');
     }
 

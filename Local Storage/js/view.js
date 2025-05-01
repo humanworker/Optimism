@@ -7,9 +7,10 @@ import { PanelManager } from './managers/panel-manager.js';
 import { DragDropManager } from './managers/drag-drop-manager.js';
 import { ResizeManager } from './managers/resize-manager.js';
 // Keyboard manager is initialized separately in main.js
+import { setupKeyboardShortcuts } from './managers/keyboard-manager.js';
 import { ExportImportManager } from './managers/export-import-manager.js'; // Needed for setup
 import { ArenaManager } from './managers/arena-manager.js';
-import { ThemeManager } from './managers/theme-manager.js';
+// import { ThemeManager } from './managers/theme-manager.js'; // REMOVE
 import { UndoRedoManager } from './managers/undo-redo-manager.js';
 import { ModalManager } from './managers/modal-manager.js';
 import { DebugManager } from './managers/debug-manager.js';
@@ -45,8 +46,8 @@ export class CanvasView {
         const dragDropManager = new DragDropManager(this.model, this.controller, this); // Handles all drag/drop
         const resizeManager = new ResizeManager(this.model, this.controller, this); // Handles element resizing
         const arenaManager = new ArenaManager(this.model, this.controller, this); // Manages Arena iframe
-        const themeManager = new ThemeManager(this.model, this.controller); // Manages theme switching
-        const undoRedoManager = new UndoRedoManager(this.model, this.controller); // Manages undo/redo buttons
+        // const themeManager = new ThemeManager(this.model, this.controller); // REMOVE
+        const undoRedoManager = new UndoRedoManager(this.model, this.controller); // Instantiate here
         const modalManager = new ModalManager(this.model, this.controller); // Manages modals
         const debugManager = new DebugManager(this.model, this.controller); // Manages debug panel
         const settingsManager = new SettingsManager(this.model, this.controller, this); // Manages settings panel content/interactions
@@ -64,7 +65,7 @@ export class CanvasView {
              dragDrop: dragDropManager,
              resize: resizeManager,
              arena: arenaManager,
-             theme: themeManager,
+             // theme: themeManager, // REMOVE
              undoRedo: undoRedoManager, // Assign the instance here
              modal: modalManager,
              debug: debugManager,
@@ -77,7 +78,7 @@ export class CanvasView {
         this.dragDropManager = dragDropManager;
         this.resizeManager = resizeManager;
         this.arenaManager = arenaManager;
-        this.themeManager = themeManager;
+        // this.themeManager = themeManager; // REMOVE
         this.undoRedoManager = undoRedoManager;
         this.modalManager = modalManager;
         this.debugManager = debugManager;
@@ -95,9 +96,10 @@ export class CanvasView {
          // Setup managers (which might add listeners or modify DOM)
          // CRITICAL: Setup PanelManager FIRST so panel elements are found and populated
          this.managers.panel.setupPanels(); // Finds elements, calls PanelRenderer.assignPanelElements -> _populateSettingsPanel
-         this.managers.settings.setup(); // Populates settings panel, sets up toggles within it
-         this.managers.theme.setup();
-
+         // 1. Populate Settings Panel Content (PanelRenderer)
+         // 2. Setup SettingsManager (attaches listeners to buttons *inside* settings panel)
+         this.managers.settings.setup();
+         // this.managers.theme.setup(); // REMOVE
          this.managers.dragDrop.setup();
          this.managers.resize.setup();
          this.managers.arena.setup();
@@ -113,7 +115,7 @@ export class CanvasView {
          this.setupPasteHandler();
 
          // Initial render states
-         this.managers.theme.updateTheme(this.model.isDarkTheme);
+         // this.managers.theme.updateTheme(this.model.isDarkTheme); // REMOVE
          this.managers.debug.updateVisibility(this.model.isDebugVisible);
          this.managers.panel.syncPanelsWithModelState(); // Set initial visibility based on model
          this.managers.settings.updateAllButtonStates(); // Sync settings buttons

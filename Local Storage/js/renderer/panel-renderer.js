@@ -308,7 +308,7 @@ export class PanelRenderer {
             { id: 'settings-export-button', text: 'Export' },
             { id: 'settings-export-no-images-button', text: 'Export w/o Images' },
             { id: 'settings-import-button', text: 'Import' },
-            { id: 'settings-theme-toggle', text: 'Toggle Theme' },
+            // { id: 'settings-theme-toggle', text: 'Toggle Theme' }, // REMOVE Theme Toggle Option
             { id: 'settings-debug-toggle', text: 'Show Debug' } // Initial text updated later
         ];
 

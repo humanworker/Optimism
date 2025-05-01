@@ -52,8 +52,7 @@ export class ExportImportManager {
                 timestamp: new Date().toISOString(),
                 data: {
                     nodes: {},
-                    // Save theme directly from model property
-                    theme: { isDarkTheme: this.model.isDarkTheme },
+                    // theme: { isDarkTheme: this.model.isDarkTheme }, // REMOVE theme export
                     images: {},
                     // Save app state properties from model
                     editCounter: this.model.editCounter,
@@ -189,11 +188,11 @@ export class ExportImportManager {
 
              // Import Theme
              this.view.showProgress('Importing theme...', 15);
-             if (importData.data.theme) {
-                 this.model.isDarkTheme = importData.data.theme.isDarkTheme;
-                 await this.model.saveTheme(); // Save to DB
-                 this.view.managers.theme.updateTheme(this.model.isDarkTheme); // Update UI
-             }
+             // if (importData.data.theme) { // REMOVE Theme import block
+             //     this.model.isDarkTheme = importData.data.theme.isDarkTheme;
+             //     await this.model.saveTheme(); // Save to DB
+             //     this.view.managers.theme.updateTheme(this.model.isDarkTheme); // Update UI
+             // }
 
              // Import Nodes
              const nodesToImport = importData.data.nodes;
