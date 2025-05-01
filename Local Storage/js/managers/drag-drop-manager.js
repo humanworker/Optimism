@@ -309,7 +309,8 @@ export class DragDropManager {
                        this.snapDraggedElementBack();
                        dropActionTaken = true; // Even though snapped back, action was adding link
                    }
-             } else if (this.currentDropTarget && !this.model.isNestingDisabled) {
+             } else if (this.currentDropTarget) { // <<< REMOVE !this.model.isNestingDisabled check here
+                 // The check for nesting disabled happened in findNestingDropTarget before currentDropTarget was set
                  OPTIMISM_UTILS.log(`DragDropManager: Element ${draggedId} dropped onto element ${this.currentDropTarget.dataset.id}`);
                  this.controller.moveElement(draggedId, this.currentDropTarget.dataset.id);
                  dropActionTaken = true;
@@ -489,12 +490,15 @@ export class DragDropManager {
          }
 
          // Check Elements for Nesting (if enabled)
-         if (!this.model.isNestingDisabled) {
-             const elementTarget = this.findNestingDropTarget(event);
-             if (elementTarget) {
-                 this.currentDropTarget = elementTarget;
-                 elementTarget.classList.add('drag-over');
-                 return; // Found element target
+         // Check is now inside findNestingDropTarget, but log state here
+         if (!this.isOverInbox && this.currentBreadcrumbTargetIndex === null && !this.isOverQuickLinks) { // Only check elements if not over other targets
+             OPTIMISM_UTILS.log(`updateDropTargets: Checking for element target. Nesting Disabled: ${this.model.isNestingDisabled}`); // Log state here
+              const elementTarget = this.findNestingDropTarget(event);
+             OPTIMISM_UTILS.log(`updateDropTargets: findNestingDropTarget returned: ${elementTarget?.dataset?.id || null}`); // Log result
+             if (elementTarget) { // Set state ONLY if a valid target was returned (findNestingDropTarget handles the disabled check)
+                  this.currentDropTarget = elementTarget; // Set the state ONLY if target found AND nesting allowed
+                  elementTarget.classList.add('drag-over');
+                  return; // Found element target
              }
          }
     }
@@ -528,17 +532,24 @@ export class DragDropManager {
      // Finds an element suitable for nesting under the cursor
      findNestingDropTarget(e) {
           // Get elements under point, exclude self, check locks/type
-          const elements = document.elementsFromPoint(e.clientX, e.clientY);
-          for (const element of elements) {
-               if (element.classList.contains('element-container') && element !== this.draggedElement) {
-                    // Cannot drop onto locked cards or images
-                    if (element.classList.contains('card-locked')) continue;
-                    if (element.dataset.type === 'image' && this.model.imagesLocked) continue;
-                    // Found valid target
-                    return element;
-               }
-          }
-          return null;
+
+          OPTIMISM_UTILS.log(`findNestingDropTarget called. Nesting Disabled: ${this.model.isNestingDisabled}`); // Log entry
+           // *** ADD THIS CHECK AT THE VERY BEGINNING ***
+           if (this.model.isNestingDisabled) {
+               OPTIMISM_UTILS.log("findNestingDropTarget: Nesting disabled, returning null."); // Log exit
+                return null; // Immediately return null if nesting is off
+           }
+           const elements = document.elementsFromPoint(e.clientX, e.clientY);
+           for (const element of elements) {
+                if (element.classList.contains('element-container') && element !== this.draggedElement) {
+                     // Cannot drop onto locked cards or images
+                     if (element.classList.contains('card-locked')) continue;
+                     if (element.dataset.type === 'image' && this.model.imagesLocked) continue;
+                     // Found valid target
+                     return element;
+                }
+           }
+           return null;
      }
 
 

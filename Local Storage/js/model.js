@@ -1315,14 +1315,22 @@ export class CanvasModel {
 
      // --- Other Toggles ---
      toggleDebugPanel() {
-         this.isDebugVisible = !this.isDebugVisible;
+         // ... (debug logic remains the same) ...
+         this.isDebugVisible = !this.isDebugVisible; // Assuming this was the original logic
          // No need to save state for debug panel visibility
          return this.isDebugVisible;
      }
      async toggleNestingDisabled() {
+         console.error(`%%%%% Model.toggleNestingDisabled CALLED! Current state: ${this.isNestingDisabled} %%%%%`); // Log entry and current state
          this.isNestingDisabled = !this.isNestingDisabled;
+         console.error(`%%%%% Model.toggleNestingDisabled: NEW state: ${this.isNestingDisabled} %%%%%`); // Log the new state
          OPTIMISM_UTILS.log(`Nesting disabled toggled to: ${this.isNestingDisabled}`);
-         await this.saveAppState();
+         try {
+             await this.saveAppState(); // Ensure state is saved
+              console.error(`%%%%% Model.toggleNestingDisabled: saveAppState finished. %%%%%`);
+         } catch(error) {
+              console.error(`%%%%% Model.toggleNestingDisabled: ERROR saving app state: ${error} %%%%%`);
+         }
          return this.isNestingDisabled;
      }
      async toggleArenaView() { return this.togglePanel('arena'); }

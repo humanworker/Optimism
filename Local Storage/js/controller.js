@@ -574,9 +574,11 @@ export class CanvasController {
 
     async toggleNestingDisabled() {
         if (!this.isInitialized) return false;
+        console.error("%%%%% Controller.toggleNestingDisabled CALLED! %%%%%"); // Add prominent log
         OPTIMISM_UTILS.log(`Controller: Toggling nesting disabled`);
         const isDisabled = await this.model.toggleNestingDisabled();
-        if (this.view) this.view.managers.settings.updateNestingButton(isDisabled);
+        OPTIMISM_UTILS.log(`Controller: Model returned isDisabled = ${isDisabled}`); // Log the result from model
+        if (this.view) this.view.managers.settings.updateNestingButton(isDisabled); // Ensure button text updates
         return isDisabled;
     }
 
