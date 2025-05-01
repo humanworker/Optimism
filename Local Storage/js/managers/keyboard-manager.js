@@ -57,6 +57,11 @@ export function setupKeyboardShortcuts(controller, model, view) {
                  event.preventDefault();
                  controller.toggleInboxVisibility();
                  break;
+            case 'a': // Add Blank Card to Inbox
+                 OPTIMISM_UTILS.log("KeyboardManager: 'A' key pressed - Add blank card."); // Log key press
+                 event.preventDefault();
+                 controller.addBlankCardToInbox();
+                 break;
             // Add other panel toggles if desired (e.g., 's' for settings?)
             // case 's': event.preventDefault(); controller.toggleSettingsVisibility(); break;
 
