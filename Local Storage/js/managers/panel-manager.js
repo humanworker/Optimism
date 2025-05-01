@@ -125,6 +125,15 @@ export class PanelManager {
               return;
          }
 
+         // Grid Panel specifically needs grid lines rendered/cleared too,
+         // *in addition* to renderWorkspace handling the general state.
+         // This ensures lines appear/disappear *with the panel*.
+         // We check model state directly here, not the 'isVisible' param for the specific panel changing
+         if (panelName === 'grid') {
+             if (this.model.panels.grid) this.view.renderer.grid.renderGrid();
+             else this.view.renderer.grid.clearGrid();
+         }
+
          const shouldDisplay = isVisible ? 'block' : 'none';
 
          if (panelElement.style.display !== shouldDisplay) {

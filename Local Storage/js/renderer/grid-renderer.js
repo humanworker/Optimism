@@ -28,10 +28,11 @@ export class GridRenderer {
 
     renderGrid() {
         this._ensureGridContainer();
-        this.clearGrid(); // Clear previous lines
+        // OPTIMISM_UTILS.log(`GridRenderer: renderGrid called. Model state grid visible: ${this.model.panels.grid}`); // Add log
+        this.clearGrid(); // Always clear previous lines first
 
         if (!this.model.panels.grid) { // Check model state for visibility
-             // OPTIMISM_UTILS.log("Grid rendering skipped: Model state is off.");
+              OPTIMISM_UTILS.log("GridRenderer: Model state is off, skipping line rendering.");
              return;
         }
 
@@ -77,7 +78,7 @@ export class GridRenderer {
     clearGrid() {
         if (this.gridContainer) {
             this.gridContainer.innerHTML = '';
-             // OPTIMISM_UTILS.log('Grid cleared');
+              // OPTIMISM_UTILS.log('GridRenderer: Grid cleared');
         }
     }
 

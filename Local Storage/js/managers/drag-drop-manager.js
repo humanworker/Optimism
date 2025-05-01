@@ -145,8 +145,9 @@ export class DragDropManager {
              const workspaceScroll = this.view.getScrollPosition();
 
              // Adjust element position based on current screen pos + scroll for accurate snapping checks
-             const checkX = event.clientX - workspaceRect.left + workspaceScroll.left - this.elemOffsetX;
-             const checkY = event.clientY - workspaceRect.top + workspaceScroll.top - this.elemOffsetY;
+             // Use the *desired* position before snapping for checks
+             const checkX = desiredX; // Use position before snapping for checks
+             const checkY = desiredY; // Use position before snapping for checks
              const checkRight = checkX + this.draggedElement.offsetWidth;
              const checkBottom = checkY + this.draggedElement.offsetHeight;
 
@@ -154,35 +155,43 @@ export class DragDropManager {
              const gridLines = this.view.workspace.querySelectorAll('#grid-container .grid-line');
              let snappedX = false;
              let snappedY = false;
+             let appliedSnapX = finalX; // Start with current desired position
+             let appliedSnapY = finalY;
 
              gridLines.forEach(line => {
                  if (line.classList.contains('grid-line-vertical')) {
                      const lineX = parseInt(line.style.left);
                      // Snap left edge
-                     if (!snappedX && Math.abs(checkX - lineX) < snapThreshold) { finalX = lineX; snappedX = true; }
+                     if (!snappedX && Math.abs(checkX - lineX) < snapThreshold) { appliedSnapX = lineX; snappedX = true; }
                      // Snap right edge
-                     if (!snappedX && Math.abs(checkRight - lineX) < snapThreshold) { finalX = lineX - this.draggedElement.offsetWidth; snappedX = true; }
+                     if (!snappedX && Math.abs(checkRight - lineX) < snapThreshold) { appliedSnapX = lineX - this.draggedElement.offsetWidth; snappedX = true; }
                  } else { // Horizontal line
                      const lineY = parseInt(line.style.top);
                      // Snap top edge
-                     if (!snappedY && Math.abs(checkY - lineY) < snapThreshold) { finalY = lineY; snappedY = true; }
+                     if (!snappedY && Math.abs(checkY - lineY) < snapThreshold) { appliedSnapY = lineY; snappedY = true; }
                      // Snap bottom edge
-                     if (!snappedY && Math.abs(checkBottom - lineY) < snapThreshold) { finalY = lineY - this.draggedElement.offsetHeight; snappedY = true; }
+                     if (!snappedY && Math.abs(checkBottom - lineY) < snapThreshold) { appliedSnapY = lineY - this.draggedElement.offsetHeight; snappedY = true; }
                  }
              });
+             // Use the snapped values if snapping occurred
+             finalX = snappedX ? appliedSnapX : finalX;
+             finalY = snappedY ? appliedSnapY : finalY;
+
              // Re-apply bounds after snapping
              finalX = Math.max(minX, Math.min(finalX, maxX));
              finalY = Math.max(minY, finalY);
+
+             // *** IMPORTANT: Update dataset immediately after potential snap ***
+             this.draggedElement.dataset.numX = finalX;
+             this.draggedElement.dataset.numY = finalY;
          }
 
 
          // Apply final position
-         // OPTIMISM_UTILS.log(`Dragging ${this.draggedElement.dataset.id} to style: ${finalX}, ${finalY}`);
          this.draggedElement.style.left = `${finalX}px`;
          this.draggedElement.style.top = `${finalY}px`;
          this.draggedElement.dataset.numX = finalX; // Store numeric position
          this.draggedElement.dataset.numY = finalY;
-         OPTIMISM_UTILS.log(`Dragging element style set to: left=${this.draggedElement.style.left}, top=${this.draggedElement.style.top}`);
 
 
          // --- Update Drop Target Highlighting ---
@@ -335,8 +344,11 @@ export class DragDropManager {
                           const newZIndex = this.view.renderer.element.findHighestImageZIndex() + 1;
                            updateProps.zIndex = Math.min(newZIndex, 99);
                       }
-                     this.controller.updateElement(draggedId, updateProps)
-                          .catch(err => OPTIMISM_UTILS.logError(`Error updating element position for ${draggedId}`, err)); // Add catch
+                      OPTIMISM_UTILS.log(`DragDropManager: Before position update. Grid Visible: ${this.model.panels.grid}`); // Log state BEFORE update
+                      // *** Ensure Controller Update is Called ***
+                      this.controller.updateElement(draggedId, updateProps)
+                           .then(() => OPTIMISM_UTILS.log(`DragDropManager: After position update. Grid Visible: ${this.model.panels.grid}`)) // Log state AFTER update resolves
+                           .catch(err => OPTIMISM_UTILS.logError(`Error updating element position for ${draggedId}`, err)); // Add catch
                   } else {
                        OPTIMISM_UTILS.log(`DragDropManager: Element ${draggedId} position effectively unchanged.`);
                        // If it wasn't dropped on a target and didn't move, re-show style panel?

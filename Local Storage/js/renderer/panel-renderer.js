@@ -384,13 +384,17 @@ export class PanelRenderer {
 
         // Grid on/off toggles
         this.gridPanel.querySelectorAll('.option-value[data-grid]').forEach(option => {
+             // ... (optional node cloning for listener safety) ... // Ensure only one listener active
              option.addEventListener('click', (e) => {
-                 e.preventDefault(); e.stopPropagation();
+                 e.stopPropagation(); // <<< ADD THIS LINE to prevent document click listener closing panel
+                 e.preventDefault();
+                 OPTIMISM_UTILS.log(`Grid On/Off link clicked. Target state 'on': ${option.dataset.grid === 'on'}. Current model state: ${this.model.panels.grid}`); // Log click
                  const turnOn = option.dataset.grid === 'on';
-                 if (turnOn !== this.model.panels.grid) { // Use panel state
-                     this.controller.toggleGridVisibility();
+                 if (turnOn !== this.model.panels.grid) { // Only call controller if state needs changing
+                     OPTIMISM_UTILS.log("Calling controller.toggleGridVisibility() from panel link"); // Log controller call
+                     this.controller.toggleGridVisibility(); // This toggles the model state
                  }
-                 this.updateGridPanelOptions(); // Update visual selection
+                 this.updateGridPanelOptions(); // Update visual selection immediately
              });
         });
          OPTIMISM_UTILS.log("Renderer: Grid input controls set up.");
