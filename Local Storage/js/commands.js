@@ -232,9 +232,14 @@ export class UpdateElementCommand extends Command {
         // If element should be deleted due to empty text
         if (this.mightDelete) {
             OPTIMISM_UTILS.log(`Update command triggering deletion for ${this.elementId}`);
+            // Ensure we actually have the element backup if mightDelete was true
+            if (!this.fullElement) { // This shouldn't happen if constructor logic is right, but safe check
+                 OPTIMISM_UTILS.logError(`Update&gt;Delete Error: Full element backup missing for ${this.elementId}`);
+                 return false; // Prevent deletion without backup for undo
+            }
             this.wasDeleted = true;
             // Backup images before deletion occurs within deleteElement
-            const deleteCmd = new DeleteElementCommand(this.model, this.elementId);
+            const deleteCmd = new DeleteElementCommand(this.model, this.elementId); // Use the command
             await deleteCmd.execute(); // Use DeleteElementCommand to handle image backup/queuing
             // Store the backed up image data for potential undo
             this.allOriginalImageData = deleteCmd.allOriginalImageData;

@@ -261,10 +261,11 @@ export class CanvasModel {
             }
         }
 
-        // Handle deletion if text becomes empty
+        // *** ADD Check for Empty Text during Update ***
         if (element.type === 'text' && properties.text !== undefined && String(properties.text).trim() === '') {
              OPTIMISM_UTILS.log(`Update resulted in empty text, deleting element ${id} from node ${nodeId}`);
              // Use deleteElement logic (which handles nested/images)
+             // Need to await this and return null AFTER saving potential non-text changes if any
              await this.deleteElement(id, nodeId);
              return null; // Indicate deletion
         }

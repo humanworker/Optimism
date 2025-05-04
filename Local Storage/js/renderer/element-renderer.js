@@ -243,8 +243,8 @@ export class ElementRenderer {
         // Double-click to edit
         container.addEventListener('dblclick', (e) => {
              if (e.target.tagName === 'A') return; // Don't edit on link click
-             if (OPTIMISM_UTILS.isModifierKeyPressed(e)) return; // <<< ADD: Ignore dblclick if modifier is pressed
-             if (container.classList.contains('card-locked')) return; // Don't edit locked cards
+             if (OPTIMISM_UTILS.isModifierKeyPressed(e)) return; // Ignore dblclick if modifier is pressed
+             if (container.classList.contains('card-locked')) return; // <<< ADD: Don't edit locked cards
              display.style.display = 'none';
              textarea.style.display = 'block';
              textarea.focus();
@@ -268,6 +268,15 @@ export class ElementRenderer {
 
             const originalText = element.text || '';
             const newText = textarea.value;
+
+            // *** ADD Check for Empty Text ***
+            if (newText.trim() === '') {
+                 OPTIMISM_UTILS.log(`ElementRenderer: Textarea blur detected empty text for ${elementData.id}. Deleting.`);
+                 // Ensure focus is removed before deletion if necessary
+                 textarea.style.display = 'none'; // Hide editor first
+                 this.controller.deleteElement(elementData.id);
+                 return; // Stop further processing for this blur event
+            }
 
              // Hide editor, show display first
              textarea.style.display = 'none';
@@ -341,18 +350,23 @@ export class ElementRenderer {
 
         // --- Selection ---
         container.addEventListener('click', (e) => {
+             // Check for locks ONLY for actions OTHER than basic selection
+
              // CMD/CTRL + Click = Navigate
              if (OPTIMISM_UTILS.isModifierKeyPressed(e)) {
-                 // Allow navigation even if locked (consistent with original code)
-                 // REMOVED hasChildren check - Navigate regardless
+                 // *** UPDATE: Prevent navigation if locked ***
+                 if (container.classList.contains('card-locked')) {
+                     OPTIMISM_UTILS.log(`CMD+Click ignored: Card ${elementData.id} is locked.`);
+                     e.stopPropagation();
+                     return; // Prevent navigation on locked card
+                 }
                  this.controller.navigateToElement(elementData.id);
                  e.stopPropagation(); // Prevent other actions like selection
                  return; // <<< IMPORTANT: Exit early after handling nav
              }
-             // Check locks *before* selecting (standard click)
-             if (container.classList.contains('card-locked')) return;
              if (elementData.type === 'image' && this.model.imagesLocked) return;
 
+             // If not CMD+Click and not locked, proceed with selection
              this.selectElement(container, elementData);
              e.stopPropagation(); // Prevent workspace click deselecting immediately
         });
@@ -361,9 +375,9 @@ export class ElementRenderer {
         // These listeners primarily delegate to the managers
         container.addEventListener('mousedown', (e) => {
              // Basic checks before handing off to managers
-             if (e.button !== 0) return; // Only left click
-             if (container.classList.contains('card-locked')) return;
+             if (e.button !== 0) return; // Only left click\
              if (elementData.type === 'image' && this.model.imagesLocked) return;
+             if (container.classList.contains('card-locked')) return; // <<< ADD Check: Prevent DRAG if locked
              if (e.target === resizeHandle) return; // Don't drag if on resize handle
 
              this.selectElement(container, elementData, true); // Select but mark as dragging (prevents style panel)
@@ -372,9 +386,10 @@ export class ElementRenderer {
 
         if (resizeHandle) {
              resizeHandle.addEventListener('mousedown', (e) => {
-                  if (e.button !== 0) return;
-                  // Allow resize of locked TEXT cards, but not locked IMAGES
+                  if (e.button !== 0) return; // Only left click
+                 // Prevent RESIZE if card is locked OR if it's an image and images are locked
                   if (container.classList.contains('card-locked') && elementData.type === 'image') return;
+                  if (container.classList.contains('card-locked')) return; // <<< ADD Check: Prevent RESIZE if locked
                   if (elementData.type === 'image' && this.model.imagesLocked) return;
 
                   this.selectElement(container, elementData); // Select before resizing

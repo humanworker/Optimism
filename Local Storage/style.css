@@ -520,41 +520,60 @@ mark {
 }
 
 /* --- Locking States --- */
-/* Generic lock styles for cards and images */
-.card-locked, .image-locked {
-    cursor: default !important;
+/* Make the locked container selectable but prevent content interaction */
+.card-locked {
+    cursor: default !important; /* Indicate non-interactive state */
+    /* Ensure container itself IS interactive for selection */
+    pointer-events: auto !important;
 }
-.card-locked .resize-handle,
-.image-locked .resize-handle {
+/* Prevent interaction with ALL children of a locked card */
+.card-locked * {
+    pointer-events: none !important;
+    cursor: default !important; /* Ensure children also show default cursor */
+}
+/* Hide resize handle specifically */
+.card-locked .resize-handle {
     display: none !important;
 }
-
-/* Specific card lock icon and pointer events */
+/* Style the lock icon on selected locked cards */
 .card-locked.selected::after {
     content: '🔒';
     position: absolute;
     top: 5px;
     right: 5px;
     font-size: 14px;
-    opacity: 0.6;
-    z-index: 10;
-    pointer-events: none;
+    opacity: 0.7; /* Slightly more visible */
+    z-index: 10; /* Above content */
+    pointer-events: none; /* Icon shouldn't be interactive */
 }
-.card-locked { pointer-events: auto; } /* Allow selecting the locked card itself */
-.card-locked * { pointer-events: none; } /* Prevent interaction with content */
+
+/* --- Ensure selection border still shows --- */
+/* (The default .selected rule should handle this, but confirm no override) */
+/* .element-container.selected is defined above */
+
+/* Keep priority border visible if selected and locked */
+.element-container.selected.has-priority-border.card-locked {
+     border-color: var(--red-text-color) !important;
+}
 
 /* Image lock pointer events */
 .image-locked {
     pointer-events: none; /* Prevent all interaction with locked images */
+    cursor: default !important; /* Ensure default cursor for locked image */
+}
+.image-locked .resize-handle {
+    display: none !important; /* Hide resize handle for locked images */
 }
 .image-locked.selected {
     border-color: transparent; /* Don't show selection border on locked images */
 }
 
-/* Cursor override when CMD/CTRL is pressed */
+/* --- Cursor override when CMD/CTRL is pressed --- */
+/* Update this to NOT apply pointer cursor to locked cards */
 body.cmd-pressed .element-container:not(.card-locked):not(.image-locked) {
     cursor: pointer !important; /* Navigation cursor */
 }
+/* Keep these as they are blocked by pointer-events on children anyway */
 body.cmd-pressed .text-element {
     cursor: text !important; /* Allow text selection */
 }
