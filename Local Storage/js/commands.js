@@ -80,6 +80,7 @@ export class DeleteElementCommand extends Command {
     constructor(model, elementId) {
         super(model);
         this.elementId = elementId;
+        this.parentNodeId = model.currentNode?.id; // Node where the element *was*
         this.nodeId = model.currentNode?.id; // Node where the element existed
         if (!this.nodeId) {
              throw new Error("DeleteElementCommand could not determine the current node ID.");
@@ -128,7 +129,9 @@ export class DeleteElementCommand extends Command {
         }
 
         // Model's deleteElement handles queuing images and removing nested node data
-        return await this.model.deleteElement(this.elementId, this.nodeId); // Pass context
+        const deleteSuccess = await this.model.deleteElement(this.elementId, this.nodeId); // Pass context
+        return { success: deleteSuccess, parentNodeId: this.nodeId }; // Return success and parent node ID
+
     }
 
     async undo() {
@@ -179,6 +182,9 @@ export class DeleteElementCommand extends Command {
 
         await this.model.saveData(); // Save the restored node data
         await this.model.saveAppState(); // Save updated deletion queue
+
+        // Return info needed to potentially update parent visuals
+         return { success: true, parentNodeId: this.nodeId, createdElementId: this.element.id };
     }
 }
 

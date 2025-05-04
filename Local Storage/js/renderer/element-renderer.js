@@ -512,11 +512,13 @@ export class ElementRenderer {
          if (elementData.type === 'text') {
               const textarea = container.querySelector('.text-element');
               const display = container.querySelector('.text-display');
+              const hasChildren = this.model.hasChildren(elementId); // <<< Re-check hasChildren state NOW
+              OPTIMISM_UTILS.log(`syncElementDisplay (Text) for ${elementId}: hasChildren = ${hasChildren}`); // Log result
               if (textarea && display) {
-                   const hasChildren = this.model.hasChildren(elementId);
                    textarea.value = elementData.text || ''; // Sync textarea value too
                    textarea.classList.toggle('has-children', hasChildren);
-                   display.classList.toggle('has-children', hasChildren);
+                   OPTIMISM_UTILS.log(`syncElementDisplay (Text) for ${elementId}: Toggled textarea 'has-children' class to ${hasChildren}`); // Log toggle
+                   display.classList.toggle('has-children', hasChildren); // <<< Sync display class
                    this._applyTextStyles(textarea, display, elementData.style);
                    this._updateTextDisplayContent(display, elementData.text, elementData.style);
               }
@@ -530,10 +532,12 @@ export class ElementRenderer {
                           else image.alt = 'Image re-sync failed';
                      }
                  });
-              }
-              container.style.zIndex = Math.min(parseInt(elementData.zIndex || 1), 99);
-               const hasChildren = this.model.hasChildren(elementId);
-               container.classList.toggle('has-children', hasChildren);
+             } // End image src update check
+             const hasChildren = this.model.hasChildren(elementId); // <<< Re-check hasChildren state NOW
+             OPTIMISM_UTILS.log(`syncElementDisplay (Image) for ${elementId}: hasChildren = ${hasChildren}`); // Log result
+             container.classList.toggle('has-children', hasChildren); // <<< Sync container class
+             // Sync z-index if needed
+             container.style.zIndex = Math.min(parseInt(elementData.zIndex || 1), 99);
          }
 
          // Sync selection state

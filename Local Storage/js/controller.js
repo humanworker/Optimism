@@ -273,11 +273,25 @@ export class CanvasController {
              const command = new DeleteElementCommand(this.model, id);
              const { result, showBackupReminder } = await this.model.execute(command);
 
-             if (result && this.view) {
+             // The 'result' from DeleteElementCommand execute should ideally indicate success/failure
+             // Let's assume result.success is true if deletion happened in the model
+             if (result?.success && this.view) {
                  this.model.selectedElement = null; // Clear selection in model
                  this.view.panelManager.hidePanel('style'); // Hide style panel
-                 this.view.renderWorkspace(); // Re-render the workspace
+                 this.view.renderWorkspace(); // Re-render the current workspace (where element was deleted)
+
+                 // *** REMOVE Logic to Update Parent Element Visuals ***
+                 // const deletedFromNodeId = result.parentNodeId; // ID of the node the element was deleted FROM
+                 // Find the element in the PARENT view that corresponds to deletedFromNodeId
+                 // const parentNavItem = this.model.navigationStack[this.model.navigationStack.length - 2]; // Get parent from stack
+                 // if (parentNavItem) {
+                 //     const parentElementId = deletedFromNodeId; // The node ID IS the parent element's ID
+                 //     OPTIMISM_UTILS.log(`Controller: Syncing parent element ${parentElementId} after child deletion.`);
+                 //     this.view.renderer.element.syncElementDisplay(parentElementId); // Trigger visual sync
+                 // }
                  // this.view.setScrollPosition(scroll); // Restore scroll
+                 // Parent element visuals will be updated by the renderWorkspace calling syncElementDisplay for it
+
                  this.view.managers.undoRedo.updateButtons();
                  if (showBackupReminder) this.view.managers.modal.showBackupReminder();
                  OPTIMISM_UTILS.log(`Controller: Element ${id} deleted successfully.`);
@@ -716,12 +730,19 @@ export class CanvasController {
         if (!this.isInitialized) return false;
         OPTIMISM_UTILS.log(`Controller: Requesting undo`);
         try {
-             const success = await this.model.undo();
-             if (success && this.view) {
+             const { result, showBackupReminder } = await this.model.undo(); // Get result from undo
+             if (result && this.view) { // Check if undo returned data (e.g., parentNodeId)
                   this.view.renderWorkspace(); // Full re-render after undo
+                  // *** ADD Logic to Update Parent Element Visuals on Undo ***
+                  if (result.parentNodeId && result.createdElementId) {
+                       // Undo of delete creates an element. Sync the parent where it was created.
+                       OPTIMISM_UTILS.log(`Controller: Syncing parent element ${result.parentNodeId} after undo (creation).`);
+                       this.view.renderer.element.syncElementDisplay(result.parentNodeId);
+                  }
+                  // Add other checks if undo of other commands needs parent sync
                   this.view.managers.undoRedo.updateButtons();
              }
-             return success;
+             return !!result; // Return true if undo happened
         } catch (error) {
              OPTIMISM_UTILS.logError(`Error during undo action:`, error);
              return false;
@@ -731,14 +752,20 @@ export class CanvasController {
          if (!this.isInitialized) return false;
          OPTIMISM_UTILS.log(`Controller: Requesting redo`);
          try {
-              const success = await this.model.redo();
-              if (success && this.view) {
-                   // Re-render might not be strictly necessary if execute updated state correctly
-                   // but full render ensures consistency after command re-execution.
+              const { result, showBackupReminder } = await this.model.redo(); // Get result from redo
+              if (result && this.view) {
                    this.view.renderWorkspace();
+                   // *** ADD Logic to Update Parent Element Visuals on Redo ***
+                   if (result.parentNodeId && result.success === true) { // Check if redo was successful (e.g., delete)
+                        // Redo of delete deletes an element. Sync the parent where it was deleted.
+                        OPTIMISM_UTILS.log(`Controller: Syncing parent element ${result.parentNodeId} after redo (deletion).`);
+                        this.view.renderer.element.syncElementDisplay(result.parentNodeId);
+                   }
+                   // Add other checks if redo of other commands needs parent sync
                    this.view.managers.undoRedo.updateButtons();
+                   if (showBackupReminder) this.view.managers.modal.showBackupReminder(); // Show reminder on redo too
               }
-              return success;
+              return !!result; // Return true if redo happened
          } catch (error) {
               OPTIMISM_UTILS.logError(`Error during redo action:`, error);
               return false;

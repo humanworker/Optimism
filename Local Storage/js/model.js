@@ -336,13 +336,26 @@ export class CanvasModel {
      }
 
      // Check if an element has children cards (nested data)
-     hasChildren(elementId, nodeId = this.currentNode?.id) {
-          const parentNode = this.findNodeById(nodeId);
-          return !!(parentNode?.children && parentNode.children[elementId]);
-          // Optionally add check for actual content:
-          // const childNode = parentNode?.children?.[elementId];
-          // return !!childNode && (childNode.elements?.length > 0 || Object.keys(childNode.children || {}).length > 0);
-     }
+     // Inside CanvasModel class
+
+// Check if an element has corresponding non-empty child node data
+hasChildren(elementId, nodeId = this.currentNode?.id) {
+    const parentNode = this.findNodeById(nodeId);
+    const childNode = parentNode?.children?.[elementId]; // Get the potential child node
+
+    if (!childNode) {
+         // OPTIMISM_UTILS.log(`hasChildren check: No child node found for ${elementId}`);
+         return false; // No child node object exists
+    }
+
+    // Check if the child node has any elements OR any further nested children
+    const hasElements = childNode.elements && childNode.elements.length > 0;
+    const hasNestedChildren = childNode.children && Object.keys(childNode.children).length > 0;
+
+    const result = hasElements || hasNestedChildren;
+    // OPTIMISM_UTILS.log(`hasChildren check for ${elementId}: elements=${hasElements}, children=${hasNestedChildren}, result=${result}`);
+    return result;
+}
 
     // --- Navigation ---
 
