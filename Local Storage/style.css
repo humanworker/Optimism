@@ -25,7 +25,7 @@
     --link-color: #2980b9;
     --red-text-color: #ff0000;
     --green-text-color: #008800;
-    /* Panel background remains --panel-bg-color 
+    /* Panel background remains --panel-bg-color
 } */
 
 /* --- Base Styles --- */
@@ -465,9 +465,19 @@ body.arena-view-active #workspace {
 .text-display.has-children, /* Div has children */
 .text-element.has-children  /* Textarea has children */
 {
-    text-decoration: underline;
+    text-decoration: underline !important; /* Ensure underline persists */
     cursor: pointer !important; /* Override text/move cursor */
 }
+
+/* --- NEW: Make text blue for elements with children --- */
+.text-display.has-children {
+    color: var(--link-color) !important; /* Use link color and !important */
+}
+/* Optional: Apply to textarea as well if desired */
+/* .text-element.has-children {
+    color: var(--link-color) !important;
+} */
+
 /* Specificity for display links */
 .text-display a {
     color: var(--link-color);
@@ -476,6 +486,9 @@ body.arena-view-active #workspace {
     pointer-events: auto; /* Ensure links are clickable */
 }
 .text-display.has-children a { /* Links inside elements with children */
+    /* Links inside a blue has-children element should maybe revert to standard text color? */
+    /* Or keep them blue? Let's keep them blue for now. */
+    /* color: var(--element-text-color); */
     cursor: pointer; /* Keep link cursor */
 }
 
