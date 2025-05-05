@@ -214,15 +214,37 @@ export class CanvasController {
     // Used for style panel clicks where explicit old values aren't needed
     async updateElementStyle(id, styleProperties) {
          const element = this.model.findElement(id);
-         if (!element) return;
+         if (!element || !this.view) return; // Need view for renderer access
          const currentStyle = element.style || {};
+         const oldTextSize = currentStyle.textSize; // Store old size before update
          const newStyle = { ...currentStyle, ...styleProperties };
+
          await this.updateElement(id, { style: newStyle });
 
          // Also update the style panel UI if it's visible
          if (this.view && this.view.panelManager.isPanelVisible('style')) {
               const updatedElement = this.model.findElement(id); // Get data again AFTER update
               if(updatedElement) this.view.renderer.panel.updateStylePanelOptions(updatedElement);
+         }
+
+         // *** ADD Auto-Resize Logic ***
+         // Check if textSize actually changed and it's a text element
+         if (element.type === 'text' && styleProperties.textSize && styleProperties.textSize !== oldTextSize) {
+             OPTIMISM_UTILS.log(`Text size changed for ${id}, triggering auto-resize.`);
+             // Use a timeout to allow DOM/CSS updates for the new font size to apply before measuring
+             setTimeout(async () => {
+                 const container = document.querySelector(`.element-container[data-id="${id}"]`);
+                 const textarea = container?.querySelector('.text-element');
+                 if (container && textarea) {
+                     // Recalculate optimal size based on new text size
+                     this.view.renderer.element.autoSizeElement(container, textarea);
+                     // Get the newly calculated dimensions
+                     const newWidth = parseInt(container.style.width);
+                     const newHeight = parseInt(container.style.height);
+                     // Update the model with the new dimensions (use explicit undo properties)
+                     await this.updateElementWithUndo(id, { width: newWidth, height: newHeight }, { width: element.width, height: element.height });
+                 }
+             }, 50); // Small delay (e.g., 50ms) might be needed
          }
     }
 
