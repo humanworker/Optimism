@@ -29,6 +29,21 @@ export class ResizeManager {
         // Basic checks (caller should have already checked locks)
         if (!elementContainer || event.button !== 0) return;
 
+        // *** ADD Check and Force Blur for Text Edit Mode ***
+        if (elementContainer.dataset.type === 'text') {
+            const textarea = elementContainer.querySelector('textarea.text-element');
+            // Check if the textarea is currently visible (indicating edit mode)
+            if (textarea && textarea.style.display !== 'none') {
+                OPTIMISM_UTILS.log("ResizeManager: Textarea is visible, forcing blur before resize.");
+                // Triggering blur programmatically ensures the text update logic runs
+                textarea.blur(); // This should trigger the 'blur' event listener in ElementRenderer
+                // NOTE: The blur handler is async. Waiting for it perfectly here is complex.
+                // Usually, triggering blur() is sufficient as the subsequent resize calculations
+                // will happen after the current JS task (including the blur handler's start) finishes.
+                // If timing issues persist, a small timeout *might* be needed before proceeding, but try without first.
+            }
+        }
+
         this.resizingElement = elementContainer;
         this.model.selectedElement = elementContainer.dataset.id; // Ensure selection
 
