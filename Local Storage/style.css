@@ -629,17 +629,29 @@ body.cmd-pressed .text-display.has-children {
     font-size: 14px;
     margin-right: 15px;
     display: inline-block;
-    padding: 3px 6px; /* Add some padding */
+    padding: 3px 0px; /* Adjust padding - remove horizontal for settings */
     border-radius: 3px;
     transition: background-color 0.2s ease;
+    text-decoration: underline; /* Ensure underline for settings links */
 }
+/* REMOVE generic hover background for option-values */
+/*
 .option-value:hover {
     background-color: rgba(128, 128, 128, 0.1); /* Subtle hover */
-}
+/* }
 .option-value.selected {
     text-decoration: underline;
     font-weight: bold;
     background-color: rgba(128, 128, 128, 0.15);
+}
+*/
+
+/* Keep hover effect for STYLE panel options if desired (or remove hover entirely) */
+#style-panel .option-value:hover {
+    /* background-color: rgba(128, 128, 128, 0.1); */ /* Remove if no hover wanted anywhere */
+}
+#style-panel .option-value.selected {
+    /* Styles for selected options in the style panel (if any remain) */
 }
 
 /* Shortcut Badges */
