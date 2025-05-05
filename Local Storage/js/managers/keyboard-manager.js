@@ -62,6 +62,14 @@ export function setupKeyboardShortcuts(controller, model, view) {
                  event.preventDefault();
                  controller.addBlankCardToInbox();
                  break;
+            case 'b': // Toggle Bookmarks panel OR toggle Priority on selected card
+                 if (!selectedElementId) { // <-- Check if NO element is selected
+                      OPTIMISM_UTILS.log("KeyboardManager: 'B' key pressed (no selection) - Toggle Bookmarks panel.");
+                      event.preventDefault();
+                      controller.togglePrioritiesVisibility(); // Toggle the panel
+                 }
+                 // If an element IS selected, the existing logic below handles toggling priority
+                 break;
             // Add other panel toggles if desired (e.g., 's' for settings?)
             // case 's': event.preventDefault(); controller.toggleSettingsVisibility(); break;
 
@@ -171,8 +179,8 @@ export function setupKeyboardShortcuts(controller, model, view) {
                        actionTaken = true;
                        break;
                   case 'b': // Toggle Priority/Bookmark
-                  case 'B':
-                       event.preventDefault();
+                       // Priority toggle for selected element (handled here)
+                       event.preventDefault(); // Prevent default for this action too
                        controller.toggleCardPriority(styleTargetId);
                        actionTaken = true;
                        break;
