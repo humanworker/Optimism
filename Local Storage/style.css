@@ -364,26 +364,36 @@ body.arena-view-active #workspace {
 }
 
 .element-container.selected {
-    border-color: var(--selected-border-color);
+    border-color: var(--green-text-color) !important; /* Use green for selection, ensure override */
+    border-width: 2px !important; /* Make selection border slightly thicker */
+    /* Adjust padding slightly to compensate for thicker border, if needed */
+    /* padding: calc(8px - 1px); */ /* Example if base padding was 8px */
     z-index: 190 !important; /* Ensure selected is above others, but below panels */
 }
 
 /* Background Colors */
 .element-container.card-bg-none { background-color: var(--card-bg-none); }
 .element-container.card-bg-yellow { background-color: var(--card-bg-yellow); }
-.element-container.card-bg-red { background-color: var(--card-bg-red); }
+.element-container.card-bg-red { background-color: var(--card-bg-red); } /* Ensure text color remains readable */
 
 /* Permanent Border */
 .has-permanent-border {
-    border-color: var(--selected-border-color) !important;
+    border: 1px solid var(--element-text-color); /* Default border color (black/white) */
+}
+/* Selected card with permanent border still shows green selection */
+.element-container.selected.has-permanent-border {
+    border-color: var(--green-text-color) !important; /* Selection overrides permanent border color */
+    border-width: 2px !important; /* Use selection thickness */
 }
 
 /* Priority Border */
 .has-priority-border {
     border: 1px solid var(--red-text-color) !important;
 }
+/* Selected card with priority border shows priority color */
 .element-container.selected.has-priority-border {
-     border-color: var(--red-text-color) !important; /* Priority overrides selection */
+     border-color: var(--red-text-color) !important; /* Priority border overrides green selection border */
+     border-width: 2px !important; /* Keep thicker border */
 }
 
 
@@ -567,6 +577,7 @@ mark {
 /* Keep priority border visible if selected and locked */
 .element-container.selected.has-priority-border.card-locked {
      border-color: var(--red-text-color) !important;
+     border-width: 2px !important; /* Keep selection thickness */
 }
 
 /* Image lock pointer events */
