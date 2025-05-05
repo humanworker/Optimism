@@ -8,9 +8,9 @@
     --element-border-color: #ddd;
     --selected-border-color: #555;
     --panel-width: 250px;
-    --link-color: #3498db;
-    --red-text-color: #ff5555;
-    --green-text-color: #55ff55;
+    --link-color: #0075c4;
+    --red-text-color: #c50000;
+    --green-text-color: #43c943;
     --card-bg-yellow: #ffffcc; /* Light yellow */
     --card-bg-red: #ffcccc;    /* Light red */
     --card-bg-none: transparent;
@@ -24,7 +24,7 @@
     --selected-border-color: #555;
     --link-color: #2980b9;
     --red-text-color: #ff0000;
-    --green-text-color: #008800;
+    --green-text-color: #1E8449; /* Darker Green - Example: Forest Green */
     /* Panel background remains --panel-bg-color
 } */
 
