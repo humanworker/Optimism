@@ -1308,8 +1308,8 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
                  else if (isRight && (pIsRight || pName === 'arena')) {
                       this.panels[pName] = false;
                  }
-                 // Rule 4: Opening Style panel closes Settings & Grid (Right panels) & Arena
-                 else if (panelNameToSet === 'style' && (pIsRight || pName === 'arena')) {
+                 // Rule 4: Opening Style panel closes Settings & Arena (but NOT Grid)
+                 else if (panelNameToSet === 'style' && ((pIsRight && pName !== 'grid') || pName === 'arena')) {
                        this.panels[pName] = false;
                  }
                  // Rule 5: Opening Settings/Grid closes Style panel
