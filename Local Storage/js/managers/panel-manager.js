@@ -13,6 +13,7 @@ export class PanelManager {
             inbox: null,
             grid: null,
             priorities: null,
+            todoist: null, // Added
             arena: null // Track arena viewport as well (though managed by ArenaManager)
         };
          // Toggle button references
@@ -20,6 +21,7 @@ export class PanelManager {
               settings: null,
               inbox: null,
               grid: null, // Toggle is inside settings panel now
+              todoist: null, // Added
               priorities: null,
               arena: null,
               // Style panel has no dedicated toggle button
@@ -39,6 +41,7 @@ export class PanelManager {
         this.panels.inbox = document.getElementById('inbox-panel');
         this.panels.grid = document.getElementById('grid-panel');
         this.panels.priorities = document.getElementById('priorities-panel');
+        this.panels.todoist = document.getElementById('todoist-panel'); // Added
         this.panels.arena = document.getElementById('arena-viewport'); // Find arena if it exists at setup time
 
         // Find toggle buttons
@@ -46,6 +49,7 @@ export class PanelManager {
         // *** REMOVE Button Creation Logic - Assume buttons exist in HTML ***
         this.toggles.inbox = document.getElementById('inbox-toggle');
         this.toggles.priorities = document.getElementById('priorities-toggle');
+        this.toggles.todoist = document.getElementById('todoist-toggle'); // Added
          this.toggles.arena = document.getElementById('arena-toggle');
          this.toggles.grid = document.getElementById('settings-grid-button'); // Still need reference for settings manager interaction? Maybe not needed here.
          // *** END REMOVAL ***
@@ -73,6 +77,14 @@ export class PanelManager {
              });
         } // Removed error log
 
+        if (this.toggles.todoist) {
+            // Listener added by TodoistManager itself to control disabled state
+            // this.toggles.todoist.addEventListener('click', (e) => { ... });
+        } else {
+            OPTIMISM_UTILS.logError("PanelManager: Todoist toggle button (#todoist-toggle) not found.");
+        }
+
+
         // REMOVE Arena Toggle Listener Attachment from PanelManager
         // ArenaManager handles its own toggle button listener
         // if (this.toggles.arena) {
@@ -96,6 +108,7 @@ export class PanelManager {
                   inbox: this.panels.inbox,
                   grid: this.panels.grid,
                   priorities: this.panels.priorities,
+                  todoist: this.panels.todoist, // Added
               });
          } else {
              OPTIMISM_UTILS.logError("PanelManager: PanelRenderer not available on view.");
@@ -120,7 +133,7 @@ export class PanelManager {
 
          // If panel element doesn't exist (e.g., style panel not in DOM initially)
          if (!panelElement) {
-              // Log if it's an unexpected missing panel
+              // Log if it's an unexpected missing panel (ignore style/arena)
               if(panelName !== 'style' && panelName !== 'arena') {
                   OPTIMISM_UTILS.logError(`PanelManager: Panel element "${panelName}" not found during visibility update.`);
               }
@@ -159,6 +172,10 @@ export class PanelManager {
                        break;
                   case 'priorities':
                        this.view.renderer.panel.renderPrioritiesPanel();
+                       break;
+                 case 'todoist':
+                       // Content updated by controller fetching tasks if connected
+                       // Maybe trigger a fetch here if not already loading?
                        break;
                   case 'style':
                        // Style panel content updated on element selection

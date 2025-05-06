@@ -25,6 +25,7 @@ export class CanvasModel {
         this.isNestingDisabled = false;
         this.imagesLocked = false;
         this.lockedCards = []; // IDs of locked cards
+        this.elementsSentToTodoist = new Set(); // Use a Set for efficient checking
         this.priorityCards = []; // IDs of priority cards
 
         // Panels Visibility State
@@ -34,6 +35,7 @@ export class CanvasModel {
             grid: false,
             arena: false,
             style: false, // Added for consistency, though usually transient
+            todoist: false, // Added Todoist panel state
             priorities: false,
         };
 
@@ -42,6 +44,10 @@ export class CanvasModel {
         this.quickLinks = []; // Array of { nodeId, nodeTitle, expiresAt }
         this.quickLinkExpiryCount = 100; // Edits before a quick link expires
         this.gridLayout = '1x2'; // Default grid layout
+
+        // External Integrations State
+        this.todoistApiToken = null; // Store Todoist API token
+        // this.todoistConnected getter defined later
 
         // Image Management
         this.deletedImageQueue = []; // Array of { imageId, deleteAtCounter }
@@ -70,6 +76,8 @@ export class CanvasModel {
             OPTIMISM_UTILS.log(`Edit Counter: ${this.editCounter}, Last Backup: ${this.lastBackupReminder}`);
             OPTIMISM_UTILS.log(`Quick Links: ${this.quickLinks.length}, Inbox Cards: ${this.inboxCards.length}`);
             OPTIMISM_UTILS.log(`Images Locked: ${this.imagesLocked}, Nesting Disabled: ${this.isNestingDisabled}`);
+             OPTIMISM_UTILS.log(`Todoist Connected: ${this.todoistConnected}`);
+             OPTIMISM_UTILS.log(`Elements Sent to Todoist: ${this.elementsSentToTodoist.size}`);
 
             return true;
         } catch (error) {
@@ -114,12 +122,15 @@ export class CanvasModel {
                  this.gridLayout = appState.gridLayout || '1x2';
                  this.isNestingDisabled = appState.isNestingDisabled || false;
                  this.priorityCards = appState.priorityCards || [];
+                 this.todoistApiToken = appState.todoistApiToken || null;
+                 // Load Set from Array (ensure it's an array before creating Set)
+                 this.elementsSentToTodoist = new Set(Array.isArray(appState.elementsSentToTodoist) ? appState.elementsSentToTodoist : []);
 
                  // Load panel states (ensure boolean conversion)
                  this.panels.settings = !!appState.isSettingsVisible;
                  this.panels.inbox = !!appState.isInboxVisible;
                  this.panels.grid = !!appState.isGridVisible;
-                 this.panels.arena = !!appState.isArenaVisible;
+                 this.panels.arena = !!appState.isArenaVisible; // Keep arena state
                  this.panels.priorities = !!appState.isPrioritiesVisible;
 
                   OPTIMISM_UTILS.log(`Loaded app state (Edit: ${this.editCounter}, Panels: ${JSON.stringify(this.panels)})`);
@@ -160,12 +171,15 @@ export class CanvasModel {
                  gridLayout: this.gridLayout,
                  isNestingDisabled: this.isNestingDisabled,
                  priorityCards: this.priorityCards,
+                 todoistApiToken: this.todoistApiToken,
+                 elementsSentToTodoist: Array.from(this.elementsSentToTodoist), // Convert Set to Array for storage
                  // Save panel states from the panels object
                  isSettingsVisible: this.panels.settings,
                  isInboxVisible: this.panels.inbox,
                  isGridVisible: this.panels.grid,
                  isArenaVisible: this.panels.arena,
                  isPrioritiesVisible: this.panels.priorities,
+                 isTodoistVisible: this.panels.todoist, // Added Todoist panel state
              };
              await this.db.put(this.db.STORE_NAMES.DATA, appState);
               // OPTIMISM_UTILS.log('App state saved.'); // Can be too verbose
@@ -173,6 +187,11 @@ export class CanvasModel {
              OPTIMISM_UTILS.logError('Error saving app state:', error);
              // Consider notifying the user
          }
+     }
+
+     // --- Computed State ---
+     get todoistConnected() {
+         return !!this.todoistApiToken;
      }
 
      // --- REMOVE Theme Management Methods ---
@@ -323,6 +342,13 @@ export class CanvasModel {
               this.lockedCards.splice(lockedIndex, 1);
               OPTIMISM_UTILS.log(`Removed element ${id} from locked cards list during deletion.`);
          }
+
+         // Remove from sent-to-todoist Set if present
+         if (this.elementsSentToTodoist.has(id)) {
+             this.elementsSentToTodoist.delete(id);
+             OPTIMISM_UTILS.log(`Removed element ${id} from sent-to-todoist list during deletion.`);
+         }
+
 
          // Queue all collected image IDs for deletion
          this.queueImagesForDeletion(collectedImageIds);
@@ -1243,6 +1269,23 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
         }
     }
 
+    // --- Todoist Integration State ---
+    async setTodoistToken(token) {
+        this.todoistApiToken = token || null; // Store null if empty
+        OPTIMISM_UTILS.log(`Todoist token ${token ? 'set' : 'cleared'}. Connected: ${this.todoistConnected}`);
+        await this.saveAppState();
+    }
+
+    async clearTodoistToken() {
+        await this.setTodoistToken(null);
+    }
+
+    async markElementAsSentToTodoist(elementId) {
+        this.elementsSentToTodoist.add(elementId);
+        await this.saveAppState();
+    }
+    isElementSentToTodoist(elementId) { return this.elementsSentToTodoist.has(elementId); }
+
     // --- Panel Management ---
     // async togglePanel(panelName) {
     //     if (!Object.hasOwnProperty.call(this.panels, panelName)) return false;
@@ -1284,7 +1327,7 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
 
          // If setting to visible
          if (isVisible) {
-             // Determine if the panel being opened is left/right/arena/style
+             // Determine if the panel being opened is left/right/arena/style/todoist
              const isLeft = panelNameToSet === 'inbox' || panelNameToSet === 'priorities';
              const isRight = panelNameToSet === 'settings' || panelNameToSet === 'grid'; // Style panel handled specially
              const isSidePanel = isLeft || isRight;
@@ -1300,11 +1343,11 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
                  if (panelNameToSet === 'arena' && (pIsLeft || pIsRight)) {
                      this.panels[pName] = false;
                  }
-                 // Rule 2: Opening a Left panel closes other Left panels & Arena
+                 // Rule 2: Opening a Left panel (Inbox, Priorities, Todoist) closes other Left panels & Arena
                  else if (isLeft && (pIsLeft || pName === 'arena')) {
                      this.panels[pName] = false;
                  }
-                 // Rule 3: Opening a Right panel closes other Right panels & Arena
+                 // Rule 3: Opening a Right panel (Settings, Grid) closes other Right panels & Arena
                  else if (isRight && (pIsRight || pName === 'arena')) {
                       this.panels[pName] = false;
                  }
@@ -1315,6 +1358,11 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
                  // Rule 5: Opening Settings/Grid closes Style panel
                  else if (isRight && pName === 'style') {
                        this.panels[pName] = false;
+                 }
+                 // Rule 6: Opening Todoist panel closes other Left Panels & Arena
+                 // (This might be redundant with Rule 2, but explicit check is fine)
+                 else if (panelNameToSet === 'todoist' && ((pIsLeft && pName !== 'todoist') || pName === 'arena')) {
+                      this.panels[pName] = false;
                  }
              }
          }
@@ -1353,6 +1401,7 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
      async toggleInboxVisibility() { return this.togglePanel('inbox'); }
      async toggleGridVisibility() { return this.togglePanel('grid'); }
      async togglePrioritiesVisibility() { return this.togglePanel('priorities'); }
+     async toggleTodoistVisibility() { return this.togglePanel('todoist'); } // Added
      // async toggleStyleVisibility() - Style panel is usually shown contextually, not toggled directly by user button
 
      // Revised togglePanel using new logic

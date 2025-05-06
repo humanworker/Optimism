@@ -184,6 +184,10 @@ export class ElementRenderer {
         // Priority State (read directly from model)
         const isPriority = this.model.isCardPriority(elementId);
         container.classList.toggle('has-priority-border', isPriority);
+
+        // Sent-to-Todoist State (read directly from model)
+        const isSent = this.model.isElementSentToTodoist(elementId);
+        container.classList.toggle('sent-to-todoist', isSent);
     }
 
     // Applies text-specific styles to textarea and display div

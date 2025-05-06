@@ -62,6 +62,12 @@ export function setupKeyboardShortcuts(controller, model, view) {
                  event.preventDefault();
                  controller.addBlankCardToInbox();
                  break;
+            case 't': // Send selected text element to Todoist
+                 if (selectedElementId && model.todoistConnected) {
+                      event.preventDefault();
+                      controller.sendSelectedToTodoist();
+                 }
+                 break;
             case 'b': // Toggle Bookmarks panel OR toggle Priority on selected card
                  if (!selectedElementId) { // <-- Check if NO element is selected
                       OPTIMISM_UTILS.log("KeyboardManager: 'B' key pressed (no selection) - Toggle Bookmarks panel.");

@@ -7,6 +7,7 @@ import {
     MoveElementCommand,
     MoveElementToBreadcrumbCommand,
     MoveToInboxCommand
+    // Add other commands if needed by Todoist actions
 } from './commands.js';
 
 export class CanvasController {
@@ -747,6 +748,54 @@ export class CanvasController {
          }
     }
 
+    // --- Todoist Actions ---
+
+    async toggleTodoistPanel() {
+        if (!this.model.todoistConnected) {
+             OPTIMISM_UTILS.log("Cannot toggle Todoist panel: Not connected.");
+             // Optionally show a message or direct to settings
+             return false;
+        }
+        const isVisible = await this.togglePanel('todoist'); // Use generic toggle
+        if (isVisible) {
+             this.fetchTodoistTasks(); // Fetch tasks when opening
+        }
+        return isVisible;
+    }
+
+    async connectTodoist(token) {
+         if (!this.isInitialized) return false;
+         OPTIMISM_UTILS.log(`Controller: Attempting to connect Todoist.`);
+         await this.view.managers.todoist.storeToken(token); // Manager handles model update
+         // Re-fetch tasks if panel happens to be open, or just update buttons
+         this.view.managers.settings.updateAllButtonStates();
+         this.view.managers.todoist.updateToggleButtonState();
+         if (this.model.panels.todoist) {
+              this.fetchTodoistTasks();
+         }
+    }
+
+    async disconnectTodoist() {
+        if (!this.isInitialized) return false;
+        OPTIMISM_UTILS.log(`Controller: Disconnecting Todoist.`);
+        await this.view.managers.todoist.clearToken(); // Manager handles model/UI updates
+        this.view.managers.settings.updateAllButtonStates();
+    }
+
+    async fetchTodoistTasks() {
+         if (!this.isInitialized || !this.model.todoistConnected) return [];
+         OPTIMISM_UTILS.log(`Controller: Fetching Todoist tasks...`);
+         const tasks = await this.view.managers.todoist.fetchTasks();
+         if (tasks && this.view.renderer.panel) { // Check if tasks array is returned
+              this.view.renderer.panel.renderTodoistPanel(tasks);
+              return tasks;
+         }
+         return [];
+    }
+
+    // Todoist: Send selected element to Todoist (placeholder for now)
+    async sendSelectedToTodoist() { console.error("sendSelectedToTodoist NOT IMPLEMENTED YET"); }
+
     // --- Undo/Redo Proxy ---
     async undo() {
         if (!this.isInitialized) return false;
@@ -831,4 +880,24 @@ export class CanvasController {
          }
     }
 
+    async sendSelectedToTodoist() {
+         if (!this.isInitialized || !this.model.selectedElement || !this.model.todoistConnected) return;
+
+         const elementId = this.model.selectedElement;
+         const element = this.model.findElementGlobally(elementId);
+
+         if (!element || element.type !== 'text') return; // Only send text elements for now
+         if (this.model.isElementSentToTodoist(elementId)) {
+              OPTIMISM_UTILS.log(`Element ${elementId} already sent to Todoist.`);
+              // Optionally show status message
+              return;
+         }
+
+         OPTIMISM_UTILS.log(`Controller: Sending element ${elementId} to Todoist.`);
+         const success = await this.view.managers.todoist.createTask(element.text);
+         if (success) {
+              await this.model.markElementAsSentToTodoist(elementId);
+              this.view.renderer.element.syncElementDisplay(elementId); // Update visuals
+         } // Error handling done in manager/API call
+    }
 } // End CanvasController Class

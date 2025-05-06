@@ -19,6 +19,8 @@ export class SettingsManager {
         this.exportButton = null;
         this.exportNoImagesButton = null;
         this.importButton = null;
+        this.connectTodoistButton = null; // Added
+        this.disconnectTodoistButton = null; // Added
         this.debugButton = null;
     }
 
@@ -53,6 +55,8 @@ export class SettingsManager {
             this.exportButton = document.getElementById('settings-export-button');
             this.exportNoImagesButton = document.getElementById('settings-export-no-images-button');
             this.importButton = document.getElementById('settings-import-button');
+            this.connectTodoistButton = document.getElementById('settings-connect-todoist'); // Added
+            this.disconnectTodoistButton = document.getElementById('settings-disconnect-todoist'); // Added
 
             // --- Attach Listeners ---
             if (this.gridButton) {
@@ -116,6 +120,30 @@ export class SettingsManager {
                 });
             } else { OPTIMISM_UTILS.logError("SettingsManager (deferred): Import button (#settings-import-button) not found."); }
 
+            if (this.connectTodoistButton) {
+                this.connectTodoistButton.addEventListener('click', (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    const token = prompt("Enter your Todoist API Token (Find it in Todoist Settings > Integrations > Developer):");
+                    if (token && token.trim() !== "") {
+                        this.controller.connectTodoist(token.trim());
+                        this.view.panelManager.hidePanel('settings'); // Close panel after connecting
+                    } else {
+                        OPTIMISM_UTILS.log("Todoist connection cancelled or token empty.");
+                    }
+                });
+            } else { OPTIMISM_UTILS.logError("SettingsManager (deferred): Connect Todoist button (#settings-connect-todoist) not found."); }
+
+            if (this.disconnectTodoistButton) {
+                this.disconnectTodoistButton.addEventListener('click', (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    if (confirm("Are you sure you want to disconnect from Todoist?")) {
+                        this.controller.disconnectTodoist();
+                        // Optionally close settings panel: this.view.panelManager.hidePanel('settings');
+                    }
+                });
+            } else { OPTIMISM_UTILS.logError("SettingsManager (deferred): Disconnect Todoist button (#settings-disconnect-todoist) not found."); }
+
+
             // Update button states after attaching listeners
             this.updateAllButtonStates(); // Ensure states are correct after potential creation/finding
             OPTIMISM_UTILS.log("SettingsManager: Deferred button listeners attached.");
@@ -129,10 +157,14 @@ export class SettingsManager {
          // Ensure buttons are found before updating text
          if (!this.lockImagesButton) this.lockImagesButton = document.getElementById('settings-lock-images-button');
          if (!this.nestingButton) this.nestingButton = document.getElementById('settings-disable-nesting-button');
+         if (!this.connectTodoistButton) this.connectTodoistButton = document.getElementById('settings-connect-todoist');
+         if (!this.disconnectTodoistButton) this.disconnectTodoistButton = document.getElementById('settings-disconnect-todoist');
 
          this.updateLockImagesButton(this.model.imagesLocked);
          this.updateNestingButton(this.model.isNestingDisabled);
          // Undo/Redo state updated by UndoRedoManager
+         // Show/Hide Todoist connect/disconnect buttons
+         this.updateTodoistButtonsVisibility(this.model.todoistConnected);
          // Debug state updated by DebugManager
          // Grid state updated by PanelRenderer/Controller
     }
@@ -147,6 +179,13 @@ export class SettingsManager {
         if (this.nestingButton) {
             this.nestingButton.textContent = isDisabled ? "Enable Nesting" : "Disable Nesting";
         }
+    }
+
+    updateTodoistButtonsVisibility(isConnected) {
+        if (this.connectTodoistButton) this.connectTodoistButton.style.display = isConnected ? 'none' : 'inline-block';
+        if (this.disconnectTodoistButton) this.disconnectTodoistButton.style.display = isConnected ? 'inline-block' : 'none';
+        // Also update the main toggle button state via the TodoistManager
+        this.view.managers.todoist?.updateToggleButtonState();
     }
 
 } // End SettingsManager Class

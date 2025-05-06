@@ -15,6 +15,7 @@ import { UndoRedoManager } from './managers/undo-redo-manager.js';
 import { ModalManager } from './managers/modal-manager.js';
 import { DebugManager } from './managers/debug-manager.js';
 import { SettingsManager } from './managers/settings-manager.js';
+import { TodoistManager } from './managers/todoist-manager.js'; // Added
 
 
 export class CanvasView {
@@ -51,6 +52,7 @@ export class CanvasView {
         const modalManager = new ModalManager(this.model, this.controller); // Manages modals
         const debugManager = new DebugManager(this.model, this.controller); // Manages debug panel
         const settingsManager = new SettingsManager(this.model, this.controller, this); // Manages settings panel content/interactions
+        const todoistManager = new TodoistManager(this.model, this.controller, this); // Added
 
         // Assign view reference to managers that need it (if not passed in constructor)
         // These assignments might become redundant if managers access view via this.managers.view
@@ -69,7 +71,8 @@ export class CanvasView {
              undoRedo: undoRedoManager, // Assign the instance here
              modal: modalManager,
              debug: debugManager,
-             settings: settingsManager
+             settings: settingsManager,
+             todoist: todoistManager // Added
         };
         // --- *** END ADDED BLOCK *** ---
 
@@ -83,6 +86,7 @@ export class CanvasView {
         this.modalManager = modalManager;
         this.debugManager = debugManager;
         this.settingsManager = settingsManager;
+        this.todoistManager = todoistManager; // Added
 
 
         OPTIMISM_UTILS.log("View initialized with renderers and managers.");
@@ -106,6 +110,7 @@ export class CanvasView {
          this.managers.undoRedo.setup(); // Now safe to setup undo/redo buttons
          this.managers.modal.setup();
          this.managers.debug.setup();
+         this.managers.todoist.setup(); // Added
          this.renderer.panel.setupStylePanelActions(); // Setup actions within the style panel
 
 
@@ -154,6 +159,7 @@ export class CanvasView {
         // Re-apply states that depend on elements existing
         this.updateLockedCardStyles();
         this.updateCardPriorityStyles();
+        this.updateSentToTodoistStyles(); // Added
         this.updateImagesLockState(this.model.imagesLocked);
 
         // Render grid if visible
@@ -261,6 +267,14 @@ export class CanvasView {
           });
      }
 
+    // Apply .sent-to-todoist class to applicable elements
+    updateSentToTodoistStyles() {
+        document.querySelectorAll('.element-container.sent-to-todoist').forEach(el => el.classList.remove('sent-to-todoist'));
+        this.model.elementsSentToTodoist.forEach(elementId => {
+            const container = document.querySelector(`.element-container[data-id="${elementId}"]`);
+            if (container) container.classList.add('sent-to-todoist');
+        });
+    }
 
     // Update visuals for image lock state globally
     updateImagesLockState(isLocked) {

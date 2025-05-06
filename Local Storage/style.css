@@ -300,7 +300,7 @@ body.resizing {
     border-left: 1px solid var(--element-border-color);
     border-right: none;
 }
-#inbox-panel, #priorities-panel {
+#inbox-panel, #priorities-panel, #todoist-panel { /* Added #todoist-panel */
     left: 0; /* Anchor to the left edge of the viewport */
     right: auto;
     border-right: 1px solid var(--element-border-color);
@@ -308,7 +308,7 @@ body.resizing {
 }
 
 /* Ensure Panels are correctly positioned and visible when display: block */
-#style-panel, #settings-panel, #grid-panel, #inbox-panel, #priorities-panel {
+#style-panel, #settings-panel, #grid-panel, #inbox-panel, #priorities-panel, #todoist-panel { /* Added #todoist-panel */
     visibility: visible; /* Override any potential parent visibility issues */
 }
 
@@ -570,6 +570,19 @@ mark {
     pointer-events: none; /* Icon shouldn't be interactive */
 }
 
+/* Red dot indicator for items sent to Todoist */
+.sent-to-todoist::before {
+    content: '';
+    position: absolute;
+    top: 6px; /* Adjust position as needed */
+    left: 6px; /* Adjust position as needed */
+    width: 8px;
+    height: 8px;
+    background-color: var(--red-text-color);
+    border-radius: 50%;
+    z-index: 10; /* Ensure it's visible */
+}
+
 /* --- Ensure selection border still shows --- */
 /* (The default .selected rule should handle this, but confirm no override) */
 /* .element-container.selected is defined above */
@@ -733,6 +746,23 @@ body.cmd-pressed .text-display.has-children {
 .inbox-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
 #inbox-toggle.drag-highlight { color: var(--green-text-color) !important; }
 #inbox-panel.drag-highlight { border: 2px dashed var(--green-text-color) !important; }
+
+/* --- Priorities Panel Specific --- */
+/* --- Todoist Panel Specific --- */
+#todoist-panel .panel-heading { margin-bottom: 10px; }
+.todoist-container { display: flex; flex-direction: column; gap: 10px; }
+.todoist-task {
+    border: 1px solid var(--element-border-color);
+    border-radius: 4px; padding: 10px; font-size: 14px;
+    position: relative; background-color: var(--canvas-bg-color); /* Match workspace */
+    color: var(--element-text-color); /* Ensure text color */
+    overflow: hidden;
+    word-wrap: break-word; /* Allow long task names to wrap */
+}
+/* Add hover if desired */
+/* .todoist-task:hover { background-color: rgba(128, 128, 128, 0.1); } */
+.todoist-task-content { color: inherit; }
+.todoist-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
 
 /* --- Priorities Panel Specific --- */
 #priorities-panel .panel-heading { margin-bottom: 10px; }

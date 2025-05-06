@@ -11,6 +11,7 @@ export class PanelRenderer {
         this.inboxPanel = null;
         this.gridPanel = null;
         this.prioritiesPanel = null;
+        this.todoistPanel = null; // Added
     }
 
     // Called by PanelManager after panels are created/found
@@ -20,6 +21,7 @@ export class PanelRenderer {
         this.inboxPanel = panels.inbox;
         this.gridPanel = panels.grid;
         this.prioritiesPanel = panels.priorities;
+        this.todoistPanel = panels.todoist; // Added
 
         // *** CHANGE: Populate panels immediately after assigning ***
         this._populateSettingsPanel(); // Populate settings panel
@@ -185,7 +187,9 @@ export class PanelRenderer {
             { id: 'settings-export-button', text: 'Export' },
             { id: 'settings-export-no-images-button', text: 'Export w/o Images' },
             { id: 'settings-import-button', text: 'Import' },
-            // { id: 'settings-theme-toggle', text: 'Toggle Theme' }, // REMOVE Theme Toggle Option
+            // Todoist Connect/Disconnect added here
+            { id: 'settings-connect-todoist', text: 'Connect Todoist' },
+            { id: 'settings-disconnect-todoist', text: 'Disconnect Todoist' },
             { id: 'settings-debug-toggle', text: 'Show Debug' } // Initial text updated later
         ];
 
@@ -214,6 +218,10 @@ export class PanelRenderer {
         updateButtonText('settings-disable-nesting-button', this.model.isNestingDisabled ? 'Enable Nesting' : 'Disable Nesting');
         updateButtonText('settings-debug-toggle', this.model.isDebugVisible ? 'Hide Debug' : 'Show Debug');
 
+        // Show/Hide Todoist buttons based on connection status
+        const connectBtn = document.getElementById('settings-connect-todoist');
+        const disconnectBtn = document.getElementById('settings-disconnect-todoist');
+        if (connectBtn) connectBtn.style.display = this.model.todoistConnected ? 'none' : 'inline-block';
         // Undo/Redo disabled state (handled by UndoRedoManager, but can be done here too for initial state)
         const undoButton = document.getElementById('settings-undo-button');
         const redoButton = document.getElementById('settings-redo-button');
@@ -221,6 +229,7 @@ export class PanelRenderer {
         if(undoButton) undoButton.classList.toggle('disabled', !this.model.canUndo());
         if(redoButton) redoButton.classList.toggle('disabled', !this.model.canRedo());
 
+        if (disconnectBtn) disconnectBtn.style.display = this.model.todoistConnected ? 'inline-block' : 'none';
     }
 
     // --- Grid Panel ---
@@ -406,6 +415,48 @@ export class PanelRenderer {
               // Defer focus slightly to ensure element is fully ready
               setTimeout(() => firstCardTextarea.focus(), 50);
          }
+    }
+
+    // --- Todoist Panel ---
+
+    renderTodoistPanel(tasks = []) {
+        if (!this.todoistPanel) return;
+        const container = this.todoistPanel.querySelector('.todoist-container');
+        if (!container) return;
+        container.innerHTML = ''; // Clear existing
+
+        if (!this.model.todoistConnected) {
+             container.innerHTML = '<div class="todoist-hint">Connect Todoist in Settings</div>';
+             return;
+        }
+
+        if (tasks.length === 0) {
+            container.innerHTML = '<div class="todoist-hint">No tasks due today or overdue :)</div>';
+            return;
+        }
+
+        tasks.forEach(task => {
+            const taskElement = this._createTodoistTaskElement(task);
+            container.appendChild(taskElement);
+        });
+    }
+
+    _createTodoistTaskElement(task) {
+        const taskElement = document.createElement('div');
+        taskElement.className = 'todoist-task';
+        taskElement.dataset.id = task.id; // Store Todoist task ID if needed
+        const content = document.createElement('div');
+        content.className = 'todoist-task-content';
+        content.textContent = task.content;
+        taskElement.appendChild(content);
+        return taskElement;
+    }
+
+    renderTodoistPanelError(errorMessage) {
+        if (!this.todoistPanel) return;
+        const container = this.todoistPanel.querySelector('.todoist-container');
+        if (!container) return;
+        container.innerHTML = `<div class="todoist-hint" style="color: var(--red-text-color);">${errorMessage}</div>`;
     }
 
     // --- Priorities Panel ---
