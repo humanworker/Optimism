@@ -80,6 +80,7 @@ export class PanelRenderer {
         createOptionLabel('highlight', 'Highlighted?', '6');
         createOptionLabel('border', 'Card Border?', '7');
         createOptionLabel('lock', 'Lock Card?', '8');
+        createOptionLabel('add-to-todoist', 'Add to Todoist', 'T');
 
         // Update "Move to Inbox" option - Remove descriptive text link
         const moveToInboxOption = this.stylePanel.querySelector('#move-to-inbox-option');
@@ -425,16 +426,24 @@ export class PanelRenderer {
         if (!container) return;
         container.innerHTML = ''; // Clear existing
 
+        // Add the "Todoist" title
+        const titleElement = document.createElement('h4');
+        titleElement.textContent = 'Todoist';
+        titleElement.className = 'panel-content-title'; // Optional: for styling
+        container.appendChild(titleElement);
+
         if (!this.model.todoistConnected) {
-             container.innerHTML = '<div class="todoist-hint">Connect Todoist in Settings</div>';
+            const hint = document.createElement('div');
+            hint.className = 'todoist-hint';
+            hint.textContent = 'Connect Todoist in Settings';
+            container.appendChild(hint);
              return;
         }
 
         if (tasks.length === 0) {
-            container.innerHTML = '<div class="todoist-hint">No tasks due today or overdue :)</div>';
+            container.innerHTML += '<div class="todoist-hint">No tasks due today :)</div>'; // Append hint after title
             return;
         }
-
         tasks.forEach(task => {
             const taskElement = this._createTodoistTaskElement(task);
             container.appendChild(taskElement);

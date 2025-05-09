@@ -105,7 +105,7 @@ export class TodoistManager {
 
     async fetchTasks() {
         OPTIMISM_UTILS.log("TodoistManager: Fetching today/overdue tasks...");
-        const result = await this._callApi('/tasks?filter=(today | overdue)');
+        const result = await this._callApi('/tasks?filter=today');
         return result?.data || []; // Return tasks array or empty on error/no connection
     }
 
