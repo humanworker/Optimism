@@ -71,6 +71,8 @@ export class ExportImportManager {
                     gridLayout: this.model.gridLayout,
                     isNestingDisabled: this.model.isNestingDisabled,
                     priorityCards: this.model.priorityCards,
+                    todoistApiToken: this.model.todoistApiToken, // EXPORT: Add token
+                    elementsSentToTodoist: Array.from(this.model.elementsSentToTodoist), // EXPORT: Add sent elements
                     // Save panel states
                     isSettingsVisible: this.model.panels.settings,
                     isInboxVisible: this.model.panels.inbox,
@@ -250,6 +252,8 @@ export class ExportImportManager {
              this.model.gridLayout = importData.data.gridLayout ?? '1x2';
              this.model.isNestingDisabled = importData.data.isNestingDisabled ?? false;
              this.model.priorityCards = importData.data.priorityCards ?? [];
+             this.model.todoistApiToken = importData.data.todoistApiToken ?? null; // IMPORT: Read token
+             this.model.elementsSentToTodoist = new Set(Array.isArray(importData.data.elementsSentToTodoist) ? importData.data.elementsSentToTodoist : []); // IMPORT: Read sent elements
              // Set panel states
              this.model.panels.settings = importData.data.isSettingsVisible ?? false;
              this.model.panels.inbox = importData.data.isInboxVisible ?? false;
