@@ -449,11 +449,26 @@ export class PanelRenderer {
     _createTodoistTaskElement(task) {
         const taskElement = document.createElement('div');
         taskElement.className = 'todoist-task';
-        taskElement.dataset.id = task.id; // Store Todoist task ID if needed
+        taskElement.dataset.todoistId = task.id; // Store Todoist task ID
+        taskElement.dataset.taskContent = task.content; // Store content for easy access
+        taskElement.draggable = true; // Make it draggable
+
         const content = document.createElement('div');
         content.className = 'todoist-task-content';
         content.textContent = task.content;
         taskElement.appendChild(content);
+
+        // Add drag listeners
+        taskElement.addEventListener('dragstart', (e) => {
+            OPTIMISM_UTILS.log(`Dragging Todoist task: ${task.content}`);
+            e.dataTransfer.setData('text/plain', `todoist-task-content:${task.content}`); // Prefix to identify
+            e.dataTransfer.effectAllowed = 'copy'; // Indicate a copy operation
+            taskElement.classList.add('dragging');
+        });
+        taskElement.addEventListener('dragend', () => {
+            taskElement.classList.remove('dragging');
+        });
+
         return taskElement;
     }
 

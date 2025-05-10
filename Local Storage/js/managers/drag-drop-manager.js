@@ -9,6 +9,7 @@ export class DragDropManager {
         // Drag State
         this.draggedElement = null; // The DOM element being dragged from workspace
         this.inboxDragTarget = null; // The DOM element being dragged from inbox
+        this.draggingTodoistTaskContent = null; // To store content of dragged todoist task
         this.arenaImageBeingDragged = null; // URL of image dragged from Arena iframe
 
         // Drag Offsets/Start Position
@@ -107,6 +108,11 @@ export class DragDropManager {
          this.view.hideDropZone();
     }
 
+    // Called by todoist task dragstart listener in PanelRenderer
+    startTodoistTaskDrag(event, taskContent) {
+        this.draggingTodoistTaskContent = taskContent; // Store the content
+    }
+
     // --- Drag Over/Move Handlers ---
 
     handleMouseMove(event) {
@@ -201,11 +207,15 @@ export class DragDropManager {
     handleDocumentDragOver(event) {
          event.preventDefault(); // Necessary to allow drop
          // Show drop zone only for external file/image drags
-         if (!this.draggedElement && !this.inboxDragTarget && !this.arenaImageBeingDragged) {
+         if (event.dataTransfer.getData('text/plain').startsWith('todoist-task-content:')) {
+            this.view.showDropZone('Drop to create new card');
+            event.dataTransfer.dropEffect = 'copy';
+         } else if (!this.draggedElement && !this.inboxDragTarget && !this.arenaImageBeingDragged) {
               // Check if files are being dragged
               if (event.dataTransfer.types.includes('Files')) {
                    this.view.showDropZone();
               }
+
          } else if (this.arenaImageBeingDragged) {
               this.view.showDropZone('Drop Are.na image here'); // Specific message
          } else {
@@ -249,6 +259,9 @@ export class DragDropManager {
          if (!event.relatedTarget || event.relatedTarget.nodeName === 'HTML') {
              this.view.hideDropZone();
               this.arenaImageBeingDragged = null; // Cancel Arena drag if leaving window
+              // Clear draggingTodoistTaskContent if it was set (though dragend on element should handle it)
+              this.draggingTodoistTaskContent = null;
+
          }
     }
 
@@ -369,6 +382,10 @@ export class DragDropManager {
              this.inboxDragTarget = null;
              // Workspace highlight removal handled by its dragleave/drop
          }
+         // Clear todoist drag state if it was active
+         if (this.draggingTodoistTaskContent) {
+            this.draggingTodoistTaskContent = null;
+         }
     }
 
     handleWorkspaceDrop(event) {
@@ -394,7 +411,7 @@ export class DragDropManager {
         // Prevent default only if we handle the drop
         // Allow drop to proceed if it wasn't something we explicitly started dragging
 
-        if (this.draggedElement || this.inboxDragTarget) {
+        if (this.draggedElement) { // Only prevent if dragging a workspace element
              // If dragging internal elements, mouseup handles it, ignore drop here
              // This prevents trying to process internal drags as external file drops
              return;
@@ -408,6 +425,22 @@ export class DragDropManager {
          const y = event.clientY - rect.top + this.view.workspace.scrollTop;
 
          let handled = false;
+
+         // --- Handle Todoist Task Drop ---
+         const dataTransferText = event.dataTransfer.getData('text/plain');
+         if (dataTransferText.startsWith('todoist-task-content:')) {
+            const taskContent = dataTransferText.substring('todoist-task-content:'.length);
+            OPTIMISM_UTILS.log(`DragDropManager: Todoist task dropped: "${taskContent}"`);
+            this.view.showLoading('Creating card from Todoist task...');
+            this.controller.createCanvasCardFromText(taskContent, x, y) // New controller method
+                .then(() => handled = true)
+                .catch(err => alert('Failed to create card from Todoist task.'))
+                .finally(() => {
+                    this.view.hideLoading();
+                    this.draggingTodoistTaskContent = null; // Clear state
+                });
+            return; // Handled (or attempted)
+         }
 
          // --- Handle Arena Image Drop ---
          if (this.arenaImageBeingDragged) {
@@ -590,6 +623,7 @@ export class DragDropManager {
         this.currentBreadcrumbTargetIndex = null;
         this.isOverQuickLinks = false;
         this.isOverInbox = false;
+        this.draggingTodoistTaskContent = null; // Reset this too
          // OPTIMISM_UTILS.log("Drag state cleared.");
     }
 

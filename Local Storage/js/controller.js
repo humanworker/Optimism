@@ -92,6 +92,34 @@ export class CanvasController {
         }
     }
 
+    async createCanvasCardFromText(text, x, y) {
+        if (!this.isInitialized) return;
+        OPTIMISM_UTILS.log(`Controller: Creating canvas card from text at (${x}, ${y})`);
+        try {
+            const element = {
+                id: crypto.randomUUID(),
+                type: 'text', x, y, text: text, // Use provided text
+                width: 200, height: 100, // Default dimensions
+                style: { // Default styles
+                    textSize: 'small', textColor: 'default', textAlign: 'left',
+                    hasHeader: false, isHighlighted: false, hasBorder: false,
+                    cardBgColor: 'none', isLocked: false,
+                },
+                autoSize: true // Enable auto-sizing
+            };
+            const command = new AddElementCommand(this.model, element);
+            const { result, showBackupReminder } = await this.model.execute(command);
+
+            if (result && this.view) {
+                 this.view.renderWorkspace(); // Re-render to show the new card
+                 if (showBackupReminder) this.view.managers.modal.showBackupReminder();
+                 OPTIMISM_UTILS.log('Controller: Canvas card from text created successfully.');
+            }
+        } catch (error) {
+            OPTIMISM_UTILS.logError('Error creating canvas card from text:', error);
+        }
+    }
+
     async addImage(file, x, y) {
         if (!this.isInitialized) throw new Error('Controller not initialized');
         OPTIMISM_UTILS.log(`Controller: Adding image at (${x}, ${y})`);
