@@ -786,7 +786,7 @@ export class CanvasController {
         }
         const isVisible = await this.togglePanel('todoist'); // Use generic toggle
         if (isVisible) {
-             this.fetchTodoistTasks(); // Fetch tasks when opening
+             this.view.managers.todoist.triggerRefresh(); // Use manager's triggerRefresh
         }
         return isVisible;
     }
@@ -799,7 +799,7 @@ export class CanvasController {
          this.view.managers.settings.updateAllButtonStates();
          this.view.managers.todoist.updateToggleButtonState();
          if (this.model.panels.todoist) {
-              this.fetchTodoistTasks();
+              this.view.managers.todoist.triggerRefresh();
          }
     }
 
@@ -812,13 +812,14 @@ export class CanvasController {
 
     async fetchTodoistTasks() {
          if (!this.isInitialized || !this.model.todoistConnected) return [];
-         OPTIMISM_UTILS.log(`Controller: Fetching Todoist tasks...`);
-         const tasks = await this.view.managers.todoist.fetchTasks();
-         if (tasks && this.view.renderer.panel) { // Check if tasks array is returned
-              this.view.renderer.panel.renderTodoistPanel(tasks);
-              return tasks;
-         }
-         return [];
+         OPTIMISM_UTILS.log(`Controller: Requesting Todoist tasks refresh...`);
+         // The manager's triggerRefresh now handles fetching and rendering
+         await this.view.managers.todoist.triggerRefresh();
+         // The actual tasks data isn't directly returned here anymore,
+         // as the manager updates the panel directly.
+         // If other parts of the controller needed the tasks, this would need adjustment.
+         // For now, it just triggers the refresh.
+         return true; // Indicate refresh was triggered
     }
 
     // Todoist: Send selected element to Todoist (placeholder for now)
@@ -924,8 +925,10 @@ export class CanvasController {
          OPTIMISM_UTILS.log(`Controller: Sending element ${elementId} to Todoist.`);
          const success = await this.view.managers.todoist.createTask(element.text);
          if (success) {
-              await this.model.markElementAsSentToTodoist(elementId);
-              this.view.renderer.element.syncElementDisplay(elementId); // Update visuals
+            OPTIMISM_UTILS.log(`Controller: Task creation successful for ${elementId}. Marking and syncing.`);
+            await this.model.markElementAsSentToTodoist(elementId);
+            this.view.renderer.element.syncElementDisplay(elementId); // Update visuals
+            // TodoistManager.createTask now handles refreshing the panel if it's open
          } // Error handling done in manager/API call
     }
 } // End CanvasController Class

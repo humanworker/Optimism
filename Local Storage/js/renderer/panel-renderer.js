@@ -446,6 +446,12 @@ export class PanelRenderer {
         });
     }
 
+    // Helper to check if todoist panel has any tasks rendered (or hints)
+    isTodoistPanelPopulated() {
+        const container = this.todoistPanel?.querySelector('.todoist-container');
+        return container ? container.children.length > 0 : false;
+    }
+
     _createTodoistTaskElement(task) {
         const taskElement = document.createElement('div');
         taskElement.className = 'todoist-task';
