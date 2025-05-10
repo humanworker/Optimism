@@ -426,11 +426,7 @@ export class PanelRenderer {
         if (!container) return;
         container.innerHTML = ''; // Clear existing
 
-        // Add the "Todoist" title
-        const titleElement = document.createElement('h4');
-        titleElement.textContent = 'Todoist';
-        titleElement.className = 'panel-content-title'; // Optional: for styling
-        container.appendChild(titleElement);
+        
 
         if (!this.model.todoistConnected) {
             const hint = document.createElement('div');
