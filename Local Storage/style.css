@@ -788,8 +788,8 @@ body.cmd-pressed .text-display.has-children {
     display: flex; /* For toggle and text alignment */
     align-items: center;
     white-space: nowrap; /* Prevent text wrapping initially */
-    overflow: hidden; /* Hide overflow */
-    text-overflow: ellipsis; /* Show ellipsis for long lines */
+    /* overflow: hidden; */ /* Moved to text child */
+    /* text-overflow: ellipsis; */ /* Moved to text child */
 }
 .outliner-item.focused .outliner-item-text {
     color: var(--red-text-color);
@@ -806,8 +806,12 @@ body.cmd-pressed .text-display.has-children {
     visibility: hidden; /* Hidden by default, shown on hover/focus */
 }
 .outliner-item:hover .outliner-item-toggle, .outliner-item.focused .outliner-item-toggle { visibility: visible; }
-.outliner-item-toggle.no-children { visibility: hidden !important; cursor: default; } /* Hide if no children */
-.outliner-item-text { flex-grow: 1; } /* Allow text to take remaining space */
+.outliner-item-toggle.no-children { visibility: hidden !important; cursor: default !important; } /* Hide if no children, ensure no pointer cursor */
+.outliner-item-text {
+    flex-grow: 1; /* Allow text to take remaining space */
+    overflow: hidden; /* Crucial for ellipsis to work correctly */
+    text-overflow: ellipsis; /* Show ellipsis for long lines */
+}
 
 /* --- Priorities Panel Specific --- */
 #priorities-panel .panel-heading { margin-bottom: 10px; }

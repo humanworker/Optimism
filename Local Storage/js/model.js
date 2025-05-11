@@ -1355,13 +1355,16 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
                       this.panels[pName] = false;
                  }
                  // Rule 4: Opening Style panel closes Settings, Arena (but NOT Grid or Outliner)
-                 else if (panelNameToSet === 'style' && ((pIsRight && pName !== 'grid' && pName !== 'outliner') || pName === 'arena')) {
-                       this.panels[pName] = false;
-                 }
-                 // Rule 5: Opening Settings/Grid closes Style panel
-                 else if (isRight && pName === 'style') {
-                       this.panels[pName] = false;
-                 }
+                 else if (panelNameToSet === 'style' && (
+                    (pIsRight && pName !== 'grid' && pName !== 'outliner') || // pIsRight will be true for settings, grid, outliner
+                    pName === 'arena'
+                )) {
+                      this.panels[pName] = false;
+                }
+                // Rule 5: Opening Settings/Grid/Outliner closes Style panel
+                else if ((isRight || panelNameToSet === 'outliner') && pName === 'style') { // Added outliner here
+                      this.panels[pName] = false;
+                }
                  // Rule 6: Opening Todoist panel closes other Left Panels & Arena
                  // (This might be redundant with Rule 2, but explicit check is fine)
                  else if (panelNameToSet === 'todoist' && ((pIsLeft && pName !== 'todoist') || pName === 'arena')) {

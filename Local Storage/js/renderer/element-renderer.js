@@ -261,6 +261,10 @@ export class ElementRenderer {
              textarea.select(); // Select text on edit start
              e.stopPropagation();
         });
+        
+        // DEBUG LOGGING for canvas textarea focus/blur
+        textarea.addEventListener('focus', () => OPTIMISM_UTILS.log(`Canvas textarea ${elementData.id} FOCUSED. ActiveElement:`, document.activeElement));
+        textarea.addEventListener('blur', () => OPTIMISM_UTILS.log(`Canvas textarea ${elementData.id} BLURRED. ActiveElement after blur:`, document.activeElement));
 
          // Auto-sizing on input
          textarea.addEventListener('input', () => {
