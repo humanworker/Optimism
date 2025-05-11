@@ -62,6 +62,14 @@ export function setupKeyboardShortcuts(controller, model, view) {
                  event.preventDefault();
                  controller.addBlankCardToInbox();
                  break;
+            case 's': // Toggle Settings Panel
+                 event.preventDefault();
+                 controller.toggleSettingsVisibility(); // Assuming this controller method exists
+                 break;
+            case 'e': // Export Data (with images)
+                 event.preventDefault();
+                 controller.exportData(true); // true for includeImages
+                 break;
             case 't': // Send selected text element to Todoist
                  if (selectedElementId && model.todoistConnected) {
                       event.preventDefault();
