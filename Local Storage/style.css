@@ -465,6 +465,9 @@ body.arena-view-active #workspace {
 .text-element.align-centre, .text-display.align-centre { text-align: center; }
 .text-element.align-right, .text-display.align-right { text-align: right; }
 
+/* Italic Style */
+.text-element.is-italic, .text-display.is-italic { font-style: italic; }
+
 /* Header Formatting */
 .text-display.has-header .first-line {
     font-weight: bold;

@@ -79,8 +79,9 @@ export class PanelRenderer {
         createOptionLabel('header', 'Header?', '5');
         createOptionLabel('highlight', 'Highlighted?', '6');
         createOptionLabel('border', 'Card Border?', '7');
-        createOptionLabel('lock', 'Lock Card?', '8');
-        createOptionLabel('add-to-todoist', 'Add to Todoist', 'T');
+        // createOptionLabel('lock', 'Lock Card?', '8'); // Old: Shortcut changed to L
+        createOptionLabel('italic', 'Italic?', '8');     // New: Italic
+        // "Move to Inbox" will be handled next
 
         // Update "Move to Inbox" option - Remove descriptive text link
         const moveToInboxOption = this.stylePanel.querySelector('#move-to-inbox-option');
@@ -106,6 +107,10 @@ export class PanelRenderer {
              // Note: The actual move action is still triggered by the keyboard shortcut '9'
              // If you wanted a click action here, you'd need a different approach
         }
+
+        // Add Lock Card and Add to Todoist at the end
+        createOptionLabel('lock', 'Lock Card?', 'L'); // New shortcut for Lock
+        createOptionLabel('add-to-todoist', 'Add to Todoist', 'T'); // Moved to end
 
          OPTIMISM_UTILS.log("Renderer: Style panel options populated.");
     }

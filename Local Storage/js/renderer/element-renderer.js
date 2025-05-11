@@ -198,8 +198,8 @@ export class ElementRenderer {
         const sizes = ['size-small', 'size-large', 'size-huge'];
         const colors = ['color-default', 'color-red', 'color-green'];
         const aligns = ['align-left', 'align-centre', 'align-right'];
-        textarea.classList.remove(...sizes, ...colors, ...aligns, 'is-highlighted');
-        display.classList.remove(...sizes, ...colors, ...aligns, 'is-highlighted', 'has-header');
+        textarea.classList.remove(...sizes, ...colors, ...aligns, 'is-highlighted', 'is-italic');
+        display.classList.remove(...sizes, ...colors, ...aligns, 'is-highlighted', 'has-header', 'is-italic');
         textarea.style.backgroundColor = ''; // Clear direct highlight style
 
         // Apply Size
@@ -222,6 +222,12 @@ export class ElementRenderer {
             textarea.classList.add('is-highlighted');
             textarea.style.backgroundColor = 'rgb(255, 255, 176)'; // Direct style for textarea bg
             display.classList.add('is-highlighted');
+        }
+
+        // Apply Italic class
+        if (style.isItalic) {
+            textarea.classList.add('is-italic');
+            display.classList.add('is-italic');
         }
 
         // Apply Header class (for display div only)

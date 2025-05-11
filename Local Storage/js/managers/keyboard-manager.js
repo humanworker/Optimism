@@ -143,7 +143,7 @@ export function setupKeyboardShortcuts(controller, model, view) {
                         case '0': // Reset Text Styles
                              newStyleProps = {
                                  textSize: 'small', textColor: 'default', textAlign: 'left',
-                                 hasHeader: false, isHighlighted: false
+                                 hasHeader: false, isHighlighted: false, isItalic: false // Added isItalic reset
                              };
                              // Also reset container styles triggered by 0 if desired
                              // newStyleProps.cardBgColor = 'none';
@@ -174,11 +174,17 @@ export function setupKeyboardShortcuts(controller, model, view) {
                         controller.updateElementStyle(styleTargetId, { hasBorder: !hasBorder });
                         styleUpdated = true;
                         break;
-                  case '8': // Toggle Lock
-                       event.preventDefault();
-                       controller.toggleCardLock(styleTargetId); // Uses specific controller method
-                       actionTaken = true; // Mark as action, not just style
-                       break;
+                  case '8': // Toggle Italic (NEW)
+                        // This applies if the selected element is text.
+                        // The logic for 'isItalic' is now primarily handled within the text-specific style block above.
+                        // However, we can keep a specific handler here if '8' should *only* do italic.
+                        if (selectedElementData.type === 'text') {
+                            event.preventDefault();
+                            const isItalic = selectedElementData.style?.isItalic || false;
+                            controller.updateElementStyle(styleTargetId, { isItalic: !isItalic });
+                            styleUpdated = true;
+                        }
+                        break;
                   case '9': // Move to Inbox
                        event.preventDefault();
                        controller.moveToInbox(styleTargetId);
@@ -188,6 +194,11 @@ export function setupKeyboardShortcuts(controller, model, view) {
                        // Priority toggle for selected element (handled here)
                        event.preventDefault(); // Prevent default for this action too
                        controller.toggleCardPriority(styleTargetId);
+                       actionTaken = true;
+                        break;
+                  case 'l': // Toggle Lock (NEW SHORTCUT)
+                       event.preventDefault();
+                       controller.toggleCardLock(styleTargetId);
                        actionTaken = true;
                        break;
              }

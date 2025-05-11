@@ -71,7 +71,7 @@ export class CanvasController {
                 width: 200, height: 100, // Default dimensions
                 style: { // Default styles
                     textSize: 'small', textColor: 'default', textAlign: 'left',
-                    hasHeader: false, isHighlighted: false, hasBorder: false,
+                    hasHeader: false, isHighlighted: false, isItalic: false, hasBorder: false,
                     cardBgColor: 'none', isLocked: false,
                 },
                 autoSize: true // Enable auto-sizing for new elements
