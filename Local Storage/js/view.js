@@ -16,6 +16,7 @@ import { ModalManager } from './managers/modal-manager.js';
 import { DebugManager } from './managers/debug-manager.js';
 import { SettingsManager } from './managers/settings-manager.js';
 import { TodoistManager } from './managers/todoist-manager.js'; // Added
+import { OutlineManager } from './managers/outline-manager.js'; // NEW
 
 
 export class CanvasView {
@@ -53,6 +54,7 @@ export class CanvasView {
         const debugManager = new DebugManager(this.model, this.controller); // Manages debug panel
         const settingsManager = new SettingsManager(this.model, this.controller, this); // Manages settings panel content/interactions
         const todoistManager = new TodoistManager(this.model, this.controller, this); // Added
+        const outlineManager = new OutlineManager(this.model, this.controller, this); // NEW
 
         // Assign view reference to managers that need it (if not passed in constructor)
         // These assignments might become redundant if managers access view via this.managers.view
@@ -72,7 +74,8 @@ export class CanvasView {
              modal: modalManager,
              debug: debugManager,
              settings: settingsManager,
-             todoist: todoistManager // Added
+             todoist: todoistManager, // Added
+             outline: outlineManager // NEW
         };
         // --- *** END ADDED BLOCK *** ---
 
@@ -87,6 +90,7 @@ export class CanvasView {
         this.debugManager = debugManager;
         this.settingsManager = settingsManager;
         this.todoistManager = todoistManager; // Added
+        this.outlineManager = outlineManager; // NEW
 
 
         OPTIMISM_UTILS.log("View initialized with renderers and managers.");
@@ -111,6 +115,7 @@ export class CanvasView {
          this.managers.modal.setup();
          this.managers.debug.setup();
          this.managers.todoist.setup(); // Added
+         this.managers.outline.setup(); // NEW
          this.renderer.panel.setupStylePanelActions(); // Setup actions within the style panel
 
 

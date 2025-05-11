@@ -296,7 +296,7 @@ body.resizing {
 /* Specific Panel Positioning */
 #style-panel, #settings-panel, #grid-panel {
     right: 0; /* Anchor to the right edge of the viewport */
-    left: auto;
+    /* left: auto; */ /* Let width define this if using var(--panel-width) */
     border-left: 1px solid var(--element-border-color);
     border-right: none;
 }
@@ -306,9 +306,16 @@ body.resizing {
     border-right: 1px solid var(--element-border-color);
     border-left: none;
 }
+/* Outliner panel specific positioning - on the right */
+#outliner-panel {
+    right: 0;
+    left: auto; /* Important for right-side panel */
+    border-left: 1px solid var(--element-border-color);
+    border-right: none;
+}
 
 /* Ensure Panels are correctly positioned and visible when display: block */
-#style-panel, #settings-panel, #grid-panel, #inbox-panel, #priorities-panel, #todoist-panel { /* Added #todoist-panel */
+#style-panel, #settings-panel, #grid-panel, #inbox-panel, #priorities-panel, #todoist-panel, #outliner-panel { /* Added #outliner-panel */
     visibility: visible; /* Override any potential parent visibility issues */
 }
 
@@ -766,6 +773,41 @@ body.cmd-pressed .text-display.has-children {
 /* .todoist-task:hover { background-color: rgba(128, 128, 128, 0.1); } */
 .todoist-task-content { color: inherit; }
 .todoist-hint { color: var(--element-text-color); opacity: 0.7; text-align: center; margin: 20px 0; font-style: italic; }
+
+/* --- Outliner Panel Specific --- */
+#outliner-panel .panel-heading { margin-bottom: 10px; }
+.outliner-container {
+    font-family: monospace; /* Uniform font for consistent indentation */
+    font-size: 14px; /* Or adjust as needed */
+    line-height: 1.5;
+    user-select: none; /* Prevent text selection by default, allow for inline edit later */
+}
+.outliner-item {
+    padding: 2px 0; /* Minimal vertical padding */
+    cursor: default; /* Default cursor, will change for interactive parts */
+    display: flex; /* For toggle and text alignment */
+    align-items: center;
+    white-space: nowrap; /* Prevent text wrapping initially */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Show ellipsis for long lines */
+}
+.outliner-item.focused .outliner-item-text {
+    color: var(--red-text-color);
+    /* Add other focus styles like a subtle background if desired */
+    /* background-color: rgba(255, 0, 0, 0.05); */
+}
+.outliner-item-toggle {
+    display: inline-block;
+    width: 16px; /* Space for the toggle */
+    height: 16px;
+    margin-right: 4px;
+    cursor: pointer;
+    text-align: center;
+    visibility: hidden; /* Hidden by default, shown on hover/focus */
+}
+.outliner-item:hover .outliner-item-toggle, .outliner-item.focused .outliner-item-toggle { visibility: visible; }
+.outliner-item-toggle.no-children { visibility: hidden !important; cursor: default; } /* Hide if no children */
+.outliner-item-text { flex-grow: 1; } /* Allow text to take remaining space */
 
 /* --- Priorities Panel Specific --- */
 #priorities-panel .panel-heading { margin-bottom: 10px; }

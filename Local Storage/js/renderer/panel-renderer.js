@@ -12,6 +12,7 @@ export class PanelRenderer {
         this.gridPanel = null;
         this.prioritiesPanel = null;
         this.todoistPanel = null; // Added
+        this.outlinerPanel = null; // NEW
     }
 
     // Called by PanelManager after panels are created/found
@@ -22,6 +23,7 @@ export class PanelRenderer {
         this.gridPanel = panels.grid;
         this.prioritiesPanel = panels.priorities;
         this.todoistPanel = panels.todoist; // Added
+        this.outlinerPanel = panels.outliner; // NEW
 
         // *** CHANGE: Populate panels immediately after assigning ***
         this._populateSettingsPanel(); // Populate settings panel
@@ -488,6 +490,61 @@ export class PanelRenderer {
         const container = this.todoistPanel.querySelector('.todoist-container');
         if (!container) return;
         container.innerHTML = `<div class="todoist-hint" style="color: var(--red-text-color);">${errorMessage}</div>`;
+    }
+
+    // --- Outliner Panel ---
+    renderOutlinerPanel(outlineItems, focusedElementId) {
+        if (!this.outlinerPanel) return;
+        const container = this.outlinerPanel.querySelector('.outliner-container'); // Ensure this.outlinerPanel is assigned
+        if (!container) return;
+
+        container.innerHTML = ''; // Clear previous content
+
+        if (!outlineItems || outlineItems.length === 0) {
+            container.innerHTML = '<div class="outliner-hint" style="opacity: 0.7; text-align: center; margin: 20px 0;">Outline is empty or not loaded.</div>';
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        let newlyFocusedDomElement = null;
+
+        outlineItems.forEach(itemData => {
+            const itemElement = document.createElement('div');
+            itemElement.className = 'outliner-item';
+            itemElement.dataset.elementId = itemData.elementId;
+            itemElement.dataset.parentId = itemData.parentId;
+            itemElement.style.paddingLeft = `${itemData.level * 20}px`; // 20px indent per level
+
+            const toggle = document.createElement('span');
+            toggle.className = 'outliner-item-toggle';
+            if (itemData.hasChildren) {
+                toggle.textContent = itemData.isCollapsed ? '►' : '▼';
+                // Add click listener for toggle later
+            } else {
+                toggle.classList.add('no-children');
+                toggle.innerHTML = ' '; // Keep space consistent
+            }
+
+            const text = document.createElement('span');
+            text.className = 'outliner-item-text';
+            text.textContent = itemData.displayText || (itemData.type === 'image' ? 'Image' : 'Untitled');
+            
+            itemElement.appendChild(toggle);
+            itemElement.appendChild(text);
+
+            if (itemData.elementId === focusedElementId) {
+                itemElement.classList.add('focused');
+                newlyFocusedDomElement = itemElement; // Capture the DOM element for the manager
+            }
+
+            fragment.appendChild(itemElement);
+        });
+        container.appendChild(fragment);
+
+        // Pass the DOM element of the focused item back to the manager if it was found
+        if (newlyFocusedDomElement && this.controller.view.managers.outline) {
+            this.controller.view.managers.outline.focusedItem.domElement = newlyFocusedDomElement;
+        }
     }
 
     // --- Priorities Panel ---

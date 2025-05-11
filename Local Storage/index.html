@@ -39,6 +39,7 @@
              <button id="priorities-toggle" class="nav-link">Bookmarks</button> <!-- REMOVED style="display: none;" -->
              <button id="inbox-toggle" class="nav-link">Inbox</button> <!-- REMOVED style="display: none;" -->
              <button id="todoist-toggle" class="nav-link" style="display: none;">Todoist</button> <!-- Added Todoist Toggle, initially hidden -->
+             <button id="outliner-toggle" class="nav-link" style="display: none;">Outliner</button> <!-- NEW -->
              <button id="arena-toggle" class="nav-link" style="display: none;">Show Are.na</button> <!-- Keep this hidden initially maybe? Or control via JS setup -->
              <button id="settings-toggle" class="nav-link">Settings</button>
         </div>
@@ -129,6 +130,13 @@
         <div class="panel-heading">Todoist</div>
         <div class="todoist-container">
             <!-- Todoist tasks dynamically added -->
+        </div>
+    </div>
+
+    <div id="outliner-panel" class="side-panel" style="display: none;">
+        <div class="panel-heading">Outliner</div>
+        <div class="outliner-container">
+            <!-- Outline items will be dynamically added here -->
         </div>
     </div>
 

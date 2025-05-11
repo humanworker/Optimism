@@ -648,6 +648,7 @@ export class CanvasController {
     async toggleInboxVisibility() { return this.togglePanel('inbox'); }
     async toggleGridVisibility() { return this.togglePanel('grid'); }
     async togglePrioritiesVisibility() { return this.togglePanel('priorities'); }
+    async toggleOutlinerPanel() { return this.togglePanel('outliner'); } // NEW
     async toggleArenaView() { return this.togglePanel('arena'); }
     async toggleSettingsVisibility() { return this.togglePanel('settings'); } // Keep this one
 

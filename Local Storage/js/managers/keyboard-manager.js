@@ -66,6 +66,10 @@ export function setupKeyboardShortcuts(controller, model, view) {
                  event.preventDefault();
                  controller.toggleSettingsVisibility(); // Assuming this controller method exists
                  break;
+            case 'o': // Toggle Outliner Panel
+                 event.preventDefault();
+                 controller.toggleOutlinerPanel();
+                 break;
             case 'e': // Export Data (with images)
                  event.preventDefault();
                  controller.exportData(true); // true for includeImages

@@ -14,6 +14,7 @@ export class PanelManager {
             grid: null,
             priorities: null,
             todoist: null, // Added
+            outliner: null, // NEW
             arena: null // Track arena viewport as well (though managed by ArenaManager)
         };
          // Toggle button references
@@ -21,6 +22,7 @@ export class PanelManager {
               settings: null,
               inbox: null,
               grid: null, // Toggle is inside settings panel now
+              outliner: null, // NEW
               todoist: null, // Added
               priorities: null,
               arena: null,
@@ -41,6 +43,7 @@ export class PanelManager {
         this.panels.inbox = document.getElementById('inbox-panel');
         this.panels.grid = document.getElementById('grid-panel');
         this.panels.priorities = document.getElementById('priorities-panel');
+        this.panels.outliner = document.getElementById('outliner-panel'); // NEW
         this.panels.todoist = document.getElementById('todoist-panel'); // Added
         this.panels.arena = document.getElementById('arena-viewport'); // Find arena if it exists at setup time
 
@@ -49,6 +52,7 @@ export class PanelManager {
         // *** REMOVE Button Creation Logic - Assume buttons exist in HTML ***
         this.toggles.inbox = document.getElementById('inbox-toggle');
         this.toggles.priorities = document.getElementById('priorities-toggle');
+        this.toggles.outliner = document.getElementById('outliner-toggle'); // NEW
         this.toggles.todoist = document.getElementById('todoist-toggle'); // Added
          this.toggles.arena = document.getElementById('arena-toggle');
          this.toggles.grid = document.getElementById('settings-grid-button'); // Still need reference for settings manager interaction? Maybe not needed here.
@@ -76,6 +80,12 @@ export class PanelManager {
                   this.controller.togglePrioritiesVisibility();
              });
         } // Removed error log
+
+        if (this.toggles.outliner) {
+            // Listener added by OutlineManager itself
+        } else {
+            OPTIMISM_UTILS.logError("PanelManager: Outliner toggle button (#outliner-toggle) not found.");
+        }
 
         if (this.toggles.todoist) {
             // Listener added by TodoistManager itself to control disabled state
@@ -108,6 +118,7 @@ export class PanelManager {
                   inbox: this.panels.inbox,
                   grid: this.panels.grid,
                   priorities: this.panels.priorities,
+                  outliner: this.panels.outliner, // NEW
                   todoist: this.panels.todoist, // Added
               });
          } else {
@@ -133,7 +144,7 @@ export class PanelManager {
 
          // If panel element doesn't exist (e.g., style panel not in DOM initially)
          if (!panelElement) {
-              // Log if it's an unexpected missing panel (ignore style/arena)
+              // Log if it's an unexpected missing panel (ignore style/arena, others should exist)
               if(panelName !== 'style' && panelName !== 'arena') {
                   OPTIMISM_UTILS.logError(`PanelManager: Panel element "${panelName}" not found during visibility update.`);
               }
@@ -172,6 +183,9 @@ export class PanelManager {
                        break;
                   case 'priorities':
                        this.view.renderer.panel.renderPrioritiesPanel();
+                       break;
+                 case 'outliner': // NEW
+                       this.view.managers.outline.refreshOutline(); // Tell OutlineManager to refresh
                        break;
                  case 'todoist':
                        // Content updated by controller fetching tasks if connected

@@ -35,6 +35,7 @@ export class CanvasModel {
             grid: false,
             arena: false,
             style: false, // Added for consistency, though usually transient
+            outliner: false, // NEW Outliner panel state
             todoist: false, // Added Todoist panel state
             priorities: false,
         };
@@ -131,6 +132,7 @@ export class CanvasModel {
                  this.panels.inbox = !!appState.isInboxVisible;
                  this.panels.grid = !!appState.isGridVisible;
                  this.panels.arena = !!appState.isArenaVisible; // Keep arena state
+                 this.panels.outliner = !!appState.isOutlinerVisible; // NEW
                  this.panels.priorities = !!appState.isPrioritiesVisible;
 
                   OPTIMISM_UTILS.log(`Loaded app state (Edit: ${this.editCounter}, Panels: ${JSON.stringify(this.panels)})`);
@@ -179,6 +181,7 @@ export class CanvasModel {
                  isGridVisible: this.panels.grid,
                  isArenaVisible: this.panels.arena,
                  isPrioritiesVisible: this.panels.priorities,
+                 isOutlinerVisible: this.panels.outliner, // NEW
                  isTodoistVisible: this.panels.todoist, // Added Todoist panel state
              };
              await this.db.put(this.db.STORE_NAMES.DATA, appState);
@@ -1351,8 +1354,8 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
                  else if (isRight && (pIsRight || pName === 'arena')) {
                       this.panels[pName] = false;
                  }
-                 // Rule 4: Opening Style panel closes Settings & Arena (but NOT Grid)
-                 else if (panelNameToSet === 'style' && ((pIsRight && pName !== 'grid') || pName === 'arena')) {
+                 // Rule 4: Opening Style panel closes Settings, Arena (but NOT Grid or Outliner)
+                 else if (panelNameToSet === 'style' && ((pIsRight && pName !== 'grid' && pName !== 'outliner') || pName === 'arena')) {
                        this.panels[pName] = false;
                  }
                  // Rule 5: Opening Settings/Grid closes Style panel
@@ -1363,6 +1366,11 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
                  // (This might be redundant with Rule 2, but explicit check is fine)
                  else if (panelNameToSet === 'todoist' && ((pIsLeft && pName !== 'todoist') || pName === 'arena')) {
                       this.panels[pName] = false;
+                 }
+                 // Rule 7: Opening Outliner panel (right side) closes Arena, Settings, Grid, Style
+                 else if (panelNameToSet === 'outliner') {
+                     if (pName === 'arena' || pName === 'settings' || pName === 'grid' || pName === 'style')
+                     this.panels[pName] = false;
                  }
              }
          }
@@ -1401,6 +1409,7 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
      async toggleInboxVisibility() { return this.togglePanel('inbox'); }
      async toggleGridVisibility() { return this.togglePanel('grid'); }
      async togglePrioritiesVisibility() { return this.togglePanel('priorities'); }
+     async toggleOutlinerVisibility() { return this.togglePanel('outliner'); } // NEW
      async toggleTodoistVisibility() { return this.togglePanel('todoist'); } // Added
      // async toggleStyleVisibility() - Style panel is usually shown contextually, not toggled directly by user button
 
