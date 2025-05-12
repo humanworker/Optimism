@@ -188,9 +188,6 @@ export class PanelManager {
                   case 'priorities':
                        this.view.renderer.panel.renderPrioritiesPanel();
                        break;
-                 case 'outliner': // NEW
-                       this.view.managers.outline.refreshOutline(); // Tell OutlineManager to refresh
-                       break;
                  case 'todoist':
                        // Content updated by controller fetching tasks if connected
                        // Maybe trigger a fetch here if not already loading?

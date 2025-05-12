@@ -13,11 +13,12 @@ export class OutlineManager {
 
         this.focusedItem = {
             elementId: null,
-            path: [], 
+            path: [],
             domElement: null,
+            currentCanvasNodeIdForLastFocus: null, // NEW: Track context for focus
             index: -1 // Index in the flat outlineItems array
         };
-        this.outlineItems = []; 
+        this.outlineItems = [];
         this.isInlineEditing = false; // To track if an item is being edited
     }
 
@@ -42,71 +43,95 @@ export class OutlineManager {
             OPTIMISM_UTILS.logError("OutlineManager: Toggle button (#outliner-toggle) not found.");
         }
 
-        // Listen for keyboard events when the panel is focused or has focus within
-        // We'll make the container focusable and listen on it.
-        this.containerElement.setAttribute('tabindex', '-1'); // Make it focusable
+        this.containerElement.setAttribute('tabindex', '-1');
         this.containerElement.addEventListener('keydown', this._handleKeyDown.bind(this));
-
-        // Allow clicking on items to focus them
         this.containerElement.addEventListener('click', this._handleClick.bind(this));
-
 
         OPTIMISM_UTILS.log("OutlineManager: Setup complete.");
     }
-    
-    // Called by PanelManager when panel visibility changes
+
     onPanelVisible() {
         if (this.model.panels.outliner && this.containerElement) {
-            this.refreshOutline(); // Refresh content
-
-            // Only try to focus the outliner container if no other input/textarea has focus.
-            // This prevents stealing focus from a canvas textarea that just became active.
+            OPTIMISM_UTILS.log("OutlineManager: onPanelVisible called.");
+            this.refreshOutline();
             setTimeout(() => {
                 const activeEl = document.activeElement;
+                OPTIMISM_UTILS.log(`OutlineManager onPanelVisible timeout: Current activeElement is:`, activeEl, `TagName: ${activeEl?.tagName}`);
                 if (!activeEl || (activeEl.tagName !== 'TEXTAREA' && activeEl.tagName !== 'INPUT')) {
+                    OPTIMISM_UTILS.log("OutlineManager onPanelVisible timeout: Focusing containerElement because activeElement is not an input/textarea.");
                     this.containerElement.focus();
-                    // If a specific item was focused, ensure it's still visually focused
-                    if (this.focusedItem.elementId && !this.focusedItem.domElement) { // domElement might be null after refreshOutline
-                        const domEl = this.containerElement.querySelector(`.outliner-item[data-element-id="${this.focusedItem.elementId}"]`);
-                        if (domEl) this.setFocusByElementId(this.focusedItem.elementId, domEl, false);
-                    } else if (this.focusedItem.domElement) { // If we still have a valid domElement reference
-                        this.focusedItem.domElement.classList.add('focused'); 
-                        this.ensureFocusedItemVisible();
+                    if (this.focusedItem.elementId) { 
+                        const domElToFocus = this.containerElement.querySelector(`.outliner-item[data-element-id="${this.focusedItem.elementId}"]`);
+                        if (domElToFocus) {
+                            if(this.focusedItem.domElement && this.focusedItem.domElement !== domElToFocus) {
+                                this.focusedItem.domElement.classList.remove('focused');
+                            }
+                            domElToFocus.classList.add('focused');
+                            this.focusedItem.domElement = domElToFocus;
+                            this.ensureFocusedItemVisible();
+                        }
                     }
+                } else {
+                    OPTIMISM_UTILS.log("OutlineManager onPanelVisible timeout: Skipping container focus, input/textarea element is active:", activeEl.tagName, activeEl);
                 }
             }, 0);
         }
     }
 
-
     refreshOutline() {
-        if (!this.containerElement) return; // Guard against missing container
+        if (!this.containerElement) {
+             OPTIMISM_UTILS.logError("OutlineManager: Container element missing, cannot refresh outline.");
+             return;
+        }
         
-        // Preserve focus if possible, or re-determine if lost/first load
         const previouslyFocusedId = this.focusedItem.elementId;
-        let shouldRefocus = !!previouslyFocusedId;
+        const previousCanvasNodeId = this.focusedItem.currentCanvasNodeIdForLastFocus || null;
+        this.focusedItem.currentCanvasNodeIdForLastFocus = this.model.currentNode.id; // Update for next time
 
-        OPTIMISM_UTILS.log("OutlineManager: Refreshing outline...");
+        OPTIMISM_UTILS.log("OutlineManager: Refreshing outline... Previously focused:", previouslyFocusedId, "Prev Canvas Node:", previousCanvasNodeId);
 
         this.outlineItems = this._buildOutlineDataStructure();
+        OPTIMISM_UTILS.log(`OutlineManager: Built ${this.outlineItems.length} outline items.`);
         
+        this.focusedItem.domElement = null; // DOM will be rebuilt
+
         if (this.outlineItems.length === 0) {
+            OPTIMISM_UTILS.log("OutlineManager: No outline items built. Rendering empty panel.");
             this.view.renderer.panel.renderOutlinerPanel([], null);
-            this.focusedItem = { elementId: null, path: [], domElement: null, index: -1 };
+            this.focusedItem.elementId = null;
+            this.focusedItem.path = [];
+            this.focusedItem.index = -1;
             return;
         }
 
-        if (!shouldRefocus || !this.outlineItems.some(item => item.elementId === previouslyFocusedId)) {
-            this._determineInitialFocus();
+        let currentTargetIdForFocus;
+        if (!previouslyFocusedId || previousCanvasNodeId !== this.model.currentNode.id || !this.outlineItems.some(item => item.elementId === previouslyFocusedId)) {
+            OPTIMISM_UTILS.log(`OutlineManager: Recalculating focus. Prev ID: ${previouslyFocusedId}, Prev Canvas Node: ${previousCanvasNodeId}, Current Canvas Node: ${this.model.currentNode.id}`);
+            currentTargetIdForFocus = this._determineInitialFocusTargetId();
         } else {
-            // If previously focused item still exists, find its new index
-            this.focusedItem.index = this.outlineItems.findIndex(item => item.elementId === previouslyFocusedId);
-            if (this.focusedItem.index === -1) { // Should not happen if some() passed
-                this._determineInitialFocus();
-            }
+            OPTIMISM_UTILS.log("OutlineManager: Attempting to maintain focus on ID:", previouslyFocusedId, "as canvas node context is same.");
+            currentTargetIdForFocus = previouslyFocusedId;
         }
         
-        this.view.renderer.panel.renderOutlinerPanel(this.outlineItems, this.focusedItem.elementId);
+        const targetIndex = this.outlineItems.findIndex(item => item.elementId === currentTargetIdForFocus);
+
+        if (targetIndex !== -1) {
+            this.focusedItem.elementId = currentTargetIdForFocus;
+            this.focusedItem.path = this.outlineItems[targetIndex].parentPath;
+            this.focusedItem.index = targetIndex;
+            OPTIMISM_UTILS.log(`OutlineManager: Focus target for render: ${this.focusedItem.elementId} at index ${this.focusedItem.index}`);
+        } else if (this.outlineItems.length > 0) { 
+            OPTIMISM_UTILS.log(`OutlineManager: Target ID ${currentTargetIdForFocus} not found OR invalid after build. Defaulting to first item of new outline.`);
+            this.focusedItem.elementId = this.outlineItems[0].elementId;
+            this.focusedItem.path = this.outlineItems[0].parentPath;
+            this.focusedItem.index = 0;
+        } else { 
+            this.focusedItem.elementId = null;
+            this.focusedItem.path = [];
+            this.focusedItem.index = -1;
+        }
+        
+        this.view.renderer.panel.renderOutlinerPanel(this.outlineItems, this.focusedItem.elementId); 
         this.ensureFocusedItemVisible(); 
     }
 
@@ -115,11 +140,10 @@ export class OutlineManager {
         const GMaxLevel = 15; 
 
         const processNode = (node, level, parentPath, parentIsCollapsed) => {
-            if (!node || level > GMaxLevel) { // Removed !node.elements check to allow empty nodes to be processed if they are parents
+            if (!node || level > GMaxLevel) {
                 return;
             }
 
-            // Ensure elements array exists, even if empty
             const elements = node.elements || [];
             const sortedElements = [...elements].sort((a, b) => {
                 const orderA = a.outlineOrder !== undefined ? a.outlineOrder : Infinity; 
@@ -133,7 +157,7 @@ export class OutlineManager {
             for (const element of sortedElements) {
                 if (!element) continue;
 
-                const isCollapsed = element.style?.outlineCollapsed || false;
+                const isCollapsedInStyle = element.style?.outlineCollapsed || false;
                 const hasModelChildren = this.model.hasChildren(element.id, node.id); 
 
                 items.push({
@@ -142,15 +166,15 @@ export class OutlineManager {
                     displayText: element.type === 'text' ? (element.text || '') : "Image",
                     type: element.type,
                     level: level,
-                    isCollapsed: isCollapsed,
+                    isCollapsed: isCollapsedInStyle,
                     hasChildren: hasModelChildren, 
                     parentPath: [...parentPath] 
                 });
 
-                if (hasModelChildren && !isCollapsed && !parentIsCollapsed) {
-                    const childNode = node.children?.[element.id];
-                    if (childNode) {
-                        processNode(childNode, level + 1, [...parentPath, element.id], false);
+                if (hasModelChildren && !isCollapsedInStyle && !parentIsCollapsed) {
+                    const childNodeData = node.children?.[element.id];
+                    if (childNodeData) {
+                        processNode(childNodeData, level + 1, [...parentPath, element.id], false);
                     }
                 }
             }
@@ -160,143 +184,135 @@ export class OutlineManager {
         return items;
     }
     
-    // In outline-manager.js
-    _determineInitialFocus() {
-        if (this.outlineItems.length === 0) {
-            this.focusedItem = { elementId: null, path: [], domElement: null, index: -1 };
-            return;
-        }
+    _determineInitialFocusTargetId() {
+        if (this.outlineItems.length === 0) return null;
 
         const currentCanvasNode = this.model.currentNode;
         let targetElementIdToFocus = null;
 
+        OPTIMISM_UTILS.log(`_determineInitialFocusTargetId: Current canvas node ID: ${currentCanvasNode.id}`);
+
         if (currentCanvasNode.id === 'root') {
-            // If viewing root, focus the first element directly under root in the outline
-            const firstRootChild = this.outlineItems.find(item => item.parentId === 'root'); 
+            const firstRootChild = this.outlineItems.find(item => item.parentId === 'root');
             if (firstRootChild) {
                 targetElementIdToFocus = firstRootChild.elementId;
+                OPTIMISM_UTILS.log(`_determineInitialFocusTargetId: Root view, target is first root child: ${targetElementIdToFocus}`);
+            } else {
+                OPTIMISM_UTILS.log("_determineInitialFocusTargetId: Root view, no root children found in outlineItems.");
             }
         } else {
-            // We are viewing the contents of a node that corresponds to an element (currentCanvasNode.id is an elementId)
-            // First, find this "parent" element in the outline.
             const parentOutlineItem = this.outlineItems.find(item => item.elementId === currentCanvasNode.id);
             if (parentOutlineItem) {
+                OPTIMISM_UTILS.log(`_determineInitialFocusTargetId: Found parent outline item for current node ${currentCanvasNode.id}:`, JSON.stringify(parentOutlineItem));
                 if (!parentOutlineItem.isCollapsed && parentOutlineItem.hasChildren) {
-                    // If it's expanded and has children, focus its first child in the outline.
-                    // Children in the outline will have their parentId set to currentCanvasNode.id
                     const firstChildInOutline = this.outlineItems.find(item => item.parentId === currentCanvasNode.id);
                     if (firstChildInOutline) {
                         targetElementIdToFocus = firstChildInOutline.elementId;
+                        OPTIMISM_UTILS.log(`_determineInitialFocusTargetId: Parent expanded with children, target is first child: ${targetElementIdToFocus}`);
                     } else {
-                        // Should be rare if hasChildren is true and not collapsed. Focus parent itself.
                         targetElementIdToFocus = parentOutlineItem.elementId;
+                        OPTIMISM_UTILS.log("_determineInitialFocusTargetId: Parent expanded, hasChildren true, but no child found in outlineItems. Targeting parent itself:", targetElementIdToFocus);
                     }
                 } else {
-                    // If it's collapsed or has no children displayed in outline, focus the parent element itself.
                     targetElementIdToFocus = parentOutlineItem.elementId;
+                    OPTIMISM_UTILS.log(`_determineInitialFocusTargetId: Parent collapsed or no children in outline, target is parent itself: ${targetElementIdToFocus}`);
                 }
+            } else {
+                OPTIMISM_UTILS.log(`_determineInitialFocusTargetId: Parent outline item for current node ${currentCanvasNode.id} NOT found.`);
             }
         }
         
-        // Fallback to the very first item in the entire outline if no specific target found
         if (!targetElementIdToFocus && this.outlineItems.length > 0) {
             targetElementIdToFocus = this.outlineItems[0].elementId;
+            OPTIMISM_UTILS.log(`_determineInitialFocusTargetId: Fallback to first outline item: ${targetElementIdToFocus}`);
         }
-
-        if (targetElementIdToFocus) {
-            const focusIndex = this.outlineItems.findIndex(item => item.elementId === targetElementIdToFocus);
-            if (focusIndex !== -1) {
-                this.focusedItem.elementId = targetElementIdToFocus;
-                this.focusedItem.path = this.outlineItems[focusIndex].parentPath;
-                this.focusedItem.index = focusIndex;
-            } else {
-                // Default to very first item if specific target not in the flattened list
-                this.focusedItem.elementId = this.outlineItems[0]?.elementId || null;
-                this.focusedItem.path = this.outlineItems[0]?.parentPath || [];
-                this.focusedItem.index = this.outlineItems.length > 0 ? 0 : -1;
-            }
-        } else {
-             this.focusedItem = { elementId: null, path: [], domElement: null, index: -1 };
-        }
-
-        OPTIMISM_UTILS.log("OutlineManager: Initial focus determined for elementId:", this.focusedItem.elementId, "at index", this.focusedItem.index);
+        
+        OPTIMISM_UTILS.log("_determineInitialFocusTargetId: Determined target ID:", targetElementIdToFocus);
+        return targetElementIdToFocus;
     }
 
     ensureFocusedItemVisible() {
-        // domElement might be stale after a refreshOutline, so re-query
-        if (this.focusedItem.elementId) {
+        if (this.focusedItem.elementId && this.containerElement) {
             const focusedDom = this.containerElement.querySelector(`.outliner-item[data-element-id="${this.focusedItem.elementId}"]`);
             if (focusedDom) {
-                this.focusedItem.domElement = focusedDom; // Update reference
+                if (this.focusedItem.domElement !== focusedDom) {
+                    if(this.focusedItem.domElement) this.focusedItem.domElement.classList.remove('focused');
+                    this.focusedItem.domElement = focusedDom;
+                    this.focusedItem.domElement.classList.add('focused');
+                }
                 focusedDom.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+            } else {
+                if(this.focusedItem.domElement) this.focusedItem.domElement.classList.remove('focused');
+                this.focusedItem.domElement = null;
             }
         }
     }
 
-    // --- Focus Management ---
-    setFocusByElementId(elementId, domElement = null, shouldRender = true) { 
+    setFocusByElementId(elementId, domElement = null, shouldRender = true) {
         const newIndex = this.outlineItems.findIndex(item => item.elementId === elementId);
-        if (newIndex === -1) return; // Item not found in current outline data
+        if (newIndex === -1) {
+            OPTIMISM_UTILS.logError(`setFocusByElementId: Item ${elementId} not found in current outlineItems.`);
+            return;
+        }
 
-        // Remove focus from previous
-        if (this.focusedItem.domElement) {
+        if (this.focusedItem.domElement && this.focusedItem.domElement !== domElement) {
             this.focusedItem.domElement.classList.remove('focused');
         }
         
         this.focusedItem.elementId = elementId;
         this.focusedItem.index = newIndex;
         this.focusedItem.path = this.outlineItems[newIndex].parentPath;
-        
-        if (domElement) {
-            domElement.classList.add('focused');
-            this.focusedItem.domElement = domElement;
-        } else if (shouldRender) { 
-            // If domElement not provided and shouldRender is true, re-render will set it.
-            // This case is typically handled by refreshOutline itself.
-        }
-
+        this.focusedItem.domElement = domElement; // Assign new domElement
 
         if (shouldRender) {
-            // Re-render to apply focus class correctly if not directly providing domElement
-            // Or, if domElement was provided, but other visual aspects might need updating due to focus change
+            OPTIMISM_UTILS.log(`setFocusByElementId: Re-rendering panel to focus ${elementId}`);
             this.view.renderer.panel.renderOutlinerPanel(this.outlineItems, this.focusedItem.elementId);
-        } else if (this.focusedItem.domElement) { // if shouldRender is false, but we have a domElement
-             this.focusedItem.domElement.classList.add('focused'); // ensure class is set
+            // PanelRenderer should set this.focusedItem.domElement after render if it finds the ID
+        } else if (this.focusedItem.domElement) {
+            this.focusedItem.domElement.classList.add('focused');
+        } else { 
+             const foundDom = this.containerElement?.querySelector(`.outliner-item[data-element-id="${elementId}"]`);
+             if (foundDom) {
+                 foundDom.classList.add('focused');
+                 this.focusedItem.domElement = foundDom;
+             }
         }
         
         this.ensureFocusedItemVisible();
         OPTIMISM_UTILS.log(`Outline focus set to: ${elementId} at index ${this.focusedItem.index}`);
     }
 
-    moveFocusUp() { 
+    moveFocusUp() {
         if (this.isInlineEditing || this.outlineItems.length === 0 || this.focusedItem.index <= 0) return;
-        
-        const newIndex = this.focusedItem.index - 1;
-        const newItem = this.outlineItems[newIndex];
-        const newDomElement = this.containerElement.children[newIndex]; // Assumes direct children match outlineItems
 
-        if (newItem && newDomElement) {
-            this.setFocusByElementId(newItem.elementId, newDomElement, false); // false: don't re-render full panel
+        const newIndex = this.focusedItem.index - 1;
+        const newItemData = this.outlineItems[newIndex];
+        const newDomElement = this.containerElement?.children[newIndex];
+
+        if (newItemData && newDomElement && newDomElement.classList.contains('outliner-item')) {
+            this.setFocusByElementId(newItemData.elementId, newDomElement, false);
+        } else {
+            OPTIMISM_UTILS.logError("moveFocusUp: Could not find new item or DOM element at index", newIndex);
         }
     }
 
-    moveFocusDown() { 
+    moveFocusDown() {
         if (this.isInlineEditing || this.outlineItems.length === 0 || this.focusedItem.index >= this.outlineItems.length - 1) return;
 
         const newIndex = this.focusedItem.index + 1;
-        const newItem = this.outlineItems[newIndex];
-        const newDomElement = this.containerElement.children[newIndex]; // Assumes direct children match outlineItems
-        
-        if (newItem && newDomElement) {
-            this.setFocusByElementId(newItem.elementId, newDomElement, false); // false: don't re-render full panel
+        const newItemData = this.outlineItems[newIndex];
+        const newDomElement = this.containerElement?.children[newIndex];
+
+        if (newItemData && newDomElement && newDomElement.classList.contains('outliner-item')) {
+            this.setFocusByElementId(newItemData.elementId, newDomElement, false);
+        } else {
+            OPTIMISM_UTILS.logError("moveFocusDown: Could not find new item or DOM element at index", newIndex);
         }
     }
 
-    // --- Keyboard & Click Handling ---
     _handleKeyDown(event) {
-        if (!this.model.panels.outliner) return; // Only process if panel is active
+        if (!this.model.panels.outliner || this.isInlineEditing) return;
 
-        // Prevent default browser behavior for keys we handle
         switch (event.key) {
             case 'ArrowUp':
                 event.preventDefault();
@@ -306,37 +322,36 @@ export class OutlineManager {
                 event.preventDefault();
                 this.moveFocusDown();
                 break;
-            case ' ': // Spacebar
-                if (event.shiftKey) { // Shift + Space
+            case ' ':
+                if (event.shiftKey) {
                     event.preventDefault();
                     this.toggleCollapseFocusedItem();
                 }
-                // Potentially allow regular space for inline editing later
                 break;
-            // Enter, Escape, Shift+Arrows will be handled later
         }
     }
 
     _handleClick(event) {
+        OPTIMISM_UTILS.log('OutlineManager _handleClick triggered. Target:', event.target, 'Closest .outliner-item:', event.target.closest('.outliner-item'));
         if (this.isInlineEditing) {
-            // If clicking outside while editing, consider it a save
-            // This needs careful handling with _saveEdit an _cancelEdit later
+            return;
         }
 
-        const targetItem = event.target.closest('.outliner-item');
-        if (targetItem && targetItem.dataset.elementId) {
-            const elementId = targetItem.dataset.elementId;
-            const toggleClicked = event.target.classList.contains('outliner-item-toggle');
+        const targetItemElement = event.target.closest('.outliner-item');
+        if (!targetItemElement) return;
 
-            if (toggleClicked) {
-                event.stopPropagation(); // Prevent click from also triggering item focus/edit
-                this.setFocusByElementId(elementId, targetItem, true); // Focus item first
-                this.toggleCollapseFocusedItem();
-            } else {
-                this.setFocusByElementId(elementId, targetItem, true); // Focus the clicked item
-                // TODO: Initiate inline editing on click (Phase 4)
-                // this.startEditingFocusedItem(); 
-            }
+        const elementId = targetItemElement.dataset.elementId;
+        if (!elementId) return;
+
+        const isToggleClick = event.target.classList.contains('outliner-item-toggle');
+
+        if (isToggleClick) {
+            event.stopPropagation();
+            this.setFocusByElementId(elementId, targetItemElement, false);
+            this.toggleCollapseFocusedItem();
+        } else {
+            this.setFocusByElementId(elementId, targetItemElement, false); // Set to false to avoid re-render, just update class
+            // TODO: Phase 4 - this.startEditingFocusedItem(); 
         }
     }
 
@@ -351,33 +366,29 @@ export class OutlineManager {
     moveItemDown() { /* ... to be implemented ... */ }
     indentItem() { /* ... to be implemented ... */ }
     outdentItem() { /* ... to be implemented ... */ }
-    
-    async toggleCollapseFocusedItem() { 
-        if (!this.focusedItem.elementId || this.isInlineEditing) return;
+
+    async toggleCollapseFocusedItem() {
+        if (!this.focusedItem.elementId || this.isInlineEditing || this.focusedItem.index === -1) return;
 
         const itemData = this.outlineItems[this.focusedItem.index];
         if (!itemData || !itemData.hasChildren) {
-            OPTIMISM_UTILS.log("Cannot toggle collapse: No focused item or item has no children.");
+            OPTIMISM_UTILS.log("Cannot toggle collapse: No focused item data or item has no children.");
             return;
         }
 
         const newCollapsedState = !itemData.isCollapsed;
         OPTIMISM_UTILS.log(`Toggling collapse for ${itemData.elementId} to ${newCollapsedState}`);
 
-        // Update the model
-        // We need a command for this to make it undoable.
-        // For now, directly update model for testing, then wrap in command.
         const element = this.model.findElementGlobally(itemData.elementId);
         if (element) {
             if (!element.style) element.style = {};
+            
+            // TODO: Replace with Command for undoability in a later phase
             element.style.outlineCollapsed = newCollapsedState;
-            // This direct model manipulation won't be undoable yet.
-            // We'll replace this with a command later.
-            await this.model.saveData(); // Save the change
-            this.model.incrementEditCounter(); // Manually increment if not using a command
+            await this.model.saveData();
+            this.model.incrementEditCounter(); 
 
-            // Refresh the outline to reflect the change
-            this.refreshOutline();
+            this.refreshOutline(); 
         } else {
             OPTIMISM_UTILS.logError(`Element ${itemData.elementId} not found in model for toggling collapse.`);
         }
