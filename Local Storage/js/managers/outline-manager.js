@@ -52,7 +52,13 @@ export class OutlineManager {
 
     onPanelVisible() {
         if (this.model.panels.outliner && this.containerElement) {
-            OPTIMISM_UTILS.log("OutlineManager: onPanelVisible called.");
+            OPTIMISM_UTILS.log("OutlineManager: onPanelVisible called, panel is becoming visible.");
+            if (!document.body.classList.contains('outliner-visible')) { // Add class if not present
+                document.body.classList.add('outliner-visible');
+                // When outliner becomes visible, ensure Arena specific class is removed if present
+                // as they occupy similar screen space roles.
+                document.body.classList.remove('arena-view-active');
+            }
             this.refreshOutline();
             setTimeout(() => {
                 const activeEl = document.activeElement;
@@ -75,6 +81,12 @@ export class OutlineManager {
                     OPTIMISM_UTILS.log("OutlineManager onPanelVisible timeout: Skipping container focus, input/textarea element is active:", activeEl.tagName, activeEl);
                 }
             }, 0);
+        } else {
+            // Panel is becoming hidden
+            OPTIMISM_UTILS.log("OutlineManager: onPanelVisible called, panel is becoming hidden.");
+            if (document.body.classList.contains('outliner-visible')) {
+                document.body.classList.remove('outliner-visible');
+            }
         }
     }
 

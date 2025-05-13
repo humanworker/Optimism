@@ -1330,50 +1330,51 @@ hasChildren(elementId, nodeId = this.currentNode?.id) {
 
          // If setting to visible
          if (isVisible) {
-             // Determine if the panel being opened is left/right/arena/style/todoist
-             const isLeft = panelNameToSet === 'inbox' || panelNameToSet === 'priorities';
-             const isRight = panelNameToSet === 'settings' || panelNameToSet === 'grid'; // Style panel handled specially
-             const isSidePanel = isLeft || isRight;
+            const isOpeningLeft = panelNameToSet === 'inbox' || panelNameToSet === 'priorities' || panelNameToSet === 'todoist';
+            const isOpeningStandardRight = panelNameToSet === 'settings' || panelNameToSet === 'grid';
+            const isOpeningLargeRight = panelNameToSet === 'arena' || panelNameToSet === 'outliner';
+            const isOpeningStyle = panelNameToSet === 'style';
 
              // Close conflicting panels based on rules
              for (const pName in this.panels) {
                  if (pName === panelNameToSet) continue; // Don't close self
 
-                 const pIsLeft = pName === 'inbox' || pName === 'priorities';
-                 const pIsRight = pName === 'settings' || pName === 'grid';
+                const pIsLeft = pName === 'inbox' || pName === 'priorities' || pName === 'todoist';
+                const pIsStandardRight = pName === 'settings' || pName === 'grid';
+                const pIsLargeRight = pName === 'arena' || pName === 'outliner';
+                const pIsStyle = pName === 'style';
 
-                 // Rule 1: Opening Arena closes all side panels
-                 if (panelNameToSet === 'arena' && (pIsLeft || pIsRight)) {
-                     this.panels[pName] = false;
-                 }
-                 // Rule 2: Opening a Left panel (Inbox, Priorities, Todoist) closes other Left panels & Arena
-                 else if (isLeft && (pIsLeft || pName === 'arena')) {
-                     this.panels[pName] = false;
-                 }
-                 // Rule 3: Opening a Right panel (Settings, Grid) closes other Right panels & Arena
-                 else if (isRight && (pIsRight || pName === 'arena')) {
-                      this.panels[pName] = false;
-                 }
-                 // Rule 4: Opening Style panel closes Settings, Arena (but NOT Grid or Outliner)
-                 else if (panelNameToSet === 'style' && (
-                    (pIsRight && pName !== 'grid' && pName !== 'outliner') || // pIsRight will be true for settings, grid, outliner
-                    pName === 'arena'
-                )) {
-                      this.panels[pName] = false;
+                // Rule 1: If opening a LARGE RIGHT panel (Arena or Outliner)
+                if (isOpeningLargeRight) {
+                    // Close all other panels (left, standard right, other large right, style)
+                    if (pIsLeft || pIsStandardRight || (pIsLargeRight && pName !== panelNameToSet) || pIsStyle) {
+                        this.panels[pName] = false;
+                    }
                 }
-                // Rule 5: Opening Settings/Grid/Outliner closes Style panel
-                else if ((isRight || panelNameToSet === 'outliner') && pName === 'style') { // Added outliner here
-                      this.panels[pName] = false;
+                // Rule 2: If opening a LEFT panel
+                else if (isOpeningLeft) {
+                    // Close other LEFT panels, and close LARGE RIGHT panels (Arena, Outliner)
+                    if ((pIsLeft && pName !== panelNameToSet) || pIsLargeRight) {
+                        this.panels[pName] = false;
+                    }
+                    // Style and Standard Right panels can remain open with a Left panel.
                 }
-                 // Rule 6: Opening Todoist panel closes other Left Panels & Arena
-                 // (This might be redundant with Rule 2, but explicit check is fine)
-                 else if (panelNameToSet === 'todoist' && ((pIsLeft && pName !== 'todoist') || pName === 'arena')) {
+                // Rule 3: If opening a STANDARD RIGHT panel (Settings or Grid)
+                else if (isOpeningStandardRight) {
+                    // Close other STANDARD RIGHT panels, close LARGE RIGHT panels, and close STYLE.
+                    if ((pIsStandardRight && pName !== panelNameToSet) || pIsLargeRight || pIsStyle) {
+                        this.panels[pName] = false;
+                    }
+                    // Left panels can remain open.
+                }
+                // Rule 4: If opening STYLE panel
+                else if (isOpeningStyle) {
+                    // Close other STANDARD RIGHT panels (Settings, Grid) and Arena.
+                    // Outliner and Left panels can remain open with Style.
+                    // Note: Grid is a "standard right" panel.
+                    if (pIsStandardRight || pName === 'arena') { 
                       this.panels[pName] = false;
-                 }
-                 // Rule 7: Opening Outliner panel (right side) closes Arena, Settings, Grid, Style
-                 else if (panelNameToSet === 'outliner') {
-                     if (pName === 'arena' || pName === 'settings' || pName === 'grid' || pName === 'style')
-                     this.panels[pName] = false;
+                    }
                  }
              }
          }

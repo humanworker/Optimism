@@ -68,11 +68,16 @@ export class ArenaManager {
         if (showArena && !this.arenaViewport) {
             // Create viewport and iframe
             this._createArenaViewport();
-             document.body.classList.add('arena-view-active'); // Add class for CSS adjustments
+            if (!document.body.classList.contains('arena-view-active')) {
+                document.body.classList.add('arena-view-active'); 
+            }
+            // If Arena is shown, outliner should be hidden (model handles this)
+            // and its class removed.
+            document.body.classList.remove('outliner-visible');
         } else if (!showArena && this.arenaViewport) {
             // Remove viewport
             this._removeArenaViewport();
-             document.body.classList.remove('arena-view-active'); // Ensure class is removed
+            document.body.classList.remove('arena-view-active'); 
         }
 
         // --- Adjust Workspace ---

@@ -295,8 +295,8 @@ body.resizing {
 
 /* Specific Panel Positioning */
 #style-panel, #settings-panel, #grid-panel {
-    right: 0; /* Anchor to the right edge of the viewport */
-    /* left: auto; */ /* Let width define this if using var(--panel-width) */
+    right: 0; 
+    width: var(--panel-width); /* Standard width for these */
     border-left: 1px solid var(--element-border-color);
     border-right: none;
 }
@@ -309,6 +309,7 @@ body.resizing {
 /* Outliner panel specific positioning - on the right */
 #outliner-panel {
     right: 0;
+    width: 30vw; /* Outliner panel takes 30% of viewport width */
     left: auto; /* Important for right-side panel */
     border-left: 1px solid var(--element-border-color);
     border-right: none;
@@ -323,10 +324,10 @@ body.resizing {
 #workspace {
     position: absolute;
     top: 40px;         /* Below title bar */
-    /* --- Fixed position between panels --- */
-    left: var(--panel-width); /* Start after left panel area */
-    right: var(--panel-width);/* End before right panel area */
-    width: calc(100vw - 2 * var(--panel-width)); /* Fixed width calculation */
+    /* Default: Assumes left and right panels are standard width */
+    left: var(--panel-width); 
+    right: var(--panel-width); 
+    width: calc(100vw - 2 * var(--panel-width)); 
     /* Remove margin centering */
     height: calc(100vh - 40px);
     box-sizing: border-box;
@@ -345,6 +346,13 @@ body.arena-view-active #workspace {
     left: 0 !important; /* Ensure override */
     width: 70% !important; /* Ensure override */
     right: auto !important;
+}
+/* Outliner View Adjustments */
+body.outliner-visible #workspace {
+    left: 0 !important; /* Workspace takes full width from left */
+    width: 70vw !important; /* Workspace takes 70% */
+    right: auto !important; /* Override default right positioning */
+    margin-left: 0; /* Ensure no margin if it was ever used */
 }
 
 
@@ -786,10 +794,7 @@ body.cmd-pressed .text-display.has-children {
     padding: 2px 0; /* Minimal vertical padding */
     cursor: default; /* Default cursor, will change for interactive parts */
     display: flex; /* For toggle and text alignment */
-    align-items: center;
-    white-space: nowrap; /* Prevent text wrapping initially */
-    /* overflow: hidden; */ /* Moved to text child */
-    /* text-overflow: ellipsis; */ /* Moved to text child */
+    align-items: flex-start; /* Align items to the top for multi-line text */
 }
 .outliner-item.focused .outliner-item-text {
     color: var(--red-text-color);
@@ -799,18 +804,26 @@ body.cmd-pressed .text-display.has-children {
 .outliner-item-toggle {
     display: inline-block;
     width: 16px; /* Space for the toggle */
-    height: 16px;
-    margin-right: 4px;
+    /* height: 16px; /* Height can be implicit if using text character for toggle */
+    margin-right: 4px; /* Space between toggle and text */
     cursor: pointer;
     text-align: center;
+    line-height: inherit; /* Align with text line if using text-based toggle */
     visibility: hidden; /* Hidden by default, shown on hover/focus */
+    flex-shrink: 0; /* Crucial: Prevent the toggle from shrinking */
+    
 }
 .outliner-item:hover .outliner-item-toggle, .outliner-item.focused .outliner-item-toggle { visibility: visible; }
 .outliner-item-toggle.no-children { visibility: hidden !important; cursor: default !important; } /* Hide if no children, ensure no pointer cursor */
 .outliner-item-text {
     flex-grow: 1; /* Allow text to take remaining space */
-    overflow: hidden; /* Crucial for ellipsis to work correctly */
-    text-overflow: ellipsis; /* Show ellipsis for long lines */
+    /* REMOVE these if full text wrapping is desired */
+    /* overflow: hidden; */
+    /* text-overflow: ellipsis; */
+    white-space: pre-wrap; /* Allow wrapping, preserve whitespace from text content */
+    word-break: break-word; /* Or break-all, to help long words wrap */
+    min-width: 0; /* Crucial for flex items that need to shrink/wrap properly */
+    box-sizing: border-box; /* Add for good measure if it ever gets padding/border */
 }
 
 /* --- Priorities Panel Specific --- */

@@ -172,8 +172,12 @@ export class PanelManager {
              this.updatePanelContent(panelName); // Render content if needed
              // Layout adjustment is now handled by CSS only
 
-             if (panelName === 'outliner' && this.view.managers.outline) { // NEW
+             if (panelName === 'outliner' && this.view.managers.outline) {
                 this.view.managers.outline.onPanelVisible();
+             }
+        } else { // Panel is becoming hidden
+             if (panelName === 'outliner' && this.view.managers.outline) {
+                this.view.managers.outline.onPanelVisible(); // Call it, onPanelVisible will see model state is false
              }
          }
     }
