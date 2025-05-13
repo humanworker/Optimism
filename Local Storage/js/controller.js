@@ -278,10 +278,11 @@ export class CanvasController {
     }
 
      // Used for blur/resize where explicit old values ARE needed for correct undo
-     async updateElementWithUndo(id, newProperties, oldProperties) {
+     // Add optional targetNodeId
+     async updateElementWithUndo(id, newProperties, oldProperties, targetNodeId = null) {
          if (!this.isInitialized) return false;
          try {
-             const command = new UpdateElementCommand(this.model, id, newProperties, oldProperties);
+             const command = new UpdateElementCommand(this.model, id, newProperties, oldProperties, targetNodeId);
              const { result, showBackupReminder } = await this.model.execute(command);
 
             if (!result) {
@@ -290,7 +291,10 @@ export class CanvasController {
                  return false;
             }
 
-             const updatedElement = this.model.findElement(id);
+             // Find element in its actual node if targetNodeId was provided, otherwise in current node
+             const nodeToSearch = targetNodeId ? this.model.findNodeById(targetNodeId) : this.model.currentNode;
+             const updatedElement = nodeToSearch?.elements.find(el => el.id === id);
+
              if (updatedElement && this.view) {
                  // Sync the specific element's display
                  this.view.renderer.element.syncElementDisplay(id);
@@ -314,14 +318,15 @@ export class CanvasController {
          }
      }
 
-    async deleteElement(id) {
+    // Add optional targetNodeId
+    async deleteElement(id, targetNodeId = null) {
         if (!this.isInitialized) return false;
-        OPTIMISM_UTILS.log(`Controller: Deleting element ${id}`);
+        OPTIMISM_UTILS.log(`Controller: Deleting element ${id} from node ${targetNodeId || this.model.currentNode.id}`);
         try {
              // --- Save scroll position (handled by view/manager if needed) ---
              // const scroll = this.view.getScrollPosition();
 
-             const command = new DeleteElementCommand(this.model, id);
+             const command = new DeleteElementCommand(this.model, id, targetNodeId);
              const { result, showBackupReminder } = await this.model.execute(command);
 
              // The 'result' from DeleteElementCommand execute should ideally indicate success/failure

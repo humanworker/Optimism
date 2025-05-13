@@ -323,8 +323,22 @@ export class OutlineManager {
     }
 
     _handleKeyDown(event) {
-        if (!this.model.panels.outliner || this.isInlineEditing) return;
+        if (!this.model.panels.outliner) return; // Only process if panel is active
 
+        if (this.isInlineEditing) {
+            // Keyboard events while inline editing
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this._saveInlineEdit();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                this._cancelInlineEdit();
+            }
+            // Allow other keys (like arrows, backspace, typing) to work naturally in contenteditable
+            return; 
+        }
+
+        // Keyboard events when an item is focused (but not inline editing)
         switch (event.key) {
             case 'ArrowUp':
                 event.preventDefault();
@@ -340,13 +354,24 @@ export class OutlineManager {
                     this.toggleCollapseFocusedItem();
                 }
                 break;
+            case 'Enter':
+                event.preventDefault();
+                // If not inline editing, Enter on a focused item could either
+                // start editing (if text) or create a new item (Phase 4B)
+                this.startEditingFocusedItem(); // Let's make Enter start editing for now
+                break;
         }
     }
 
     _handleClick(event) {
         OPTIMISM_UTILS.log('OutlineManager _handleClick triggered. Target:', event.target, 'Closest .outliner-item:', event.target.closest('.outliner-item'));
         if (this.isInlineEditing) {
-            return;
+            // If clicking outside while editing, consider it a save
+            // This needs careful handling with _saveEdit an _cancelEdit later
+            const currentTextSpan = this.focusedItem.domElement.querySelector('.outliner-item-text');
+            if (currentTextSpan && !currentTextSpan.contains(event.target)) {
+                this._saveInlineEdit(); // Save if clicking away from the editable span
+            }
         }
 
         const targetItemElement = event.target.closest('.outliner-item');
@@ -362,15 +387,107 @@ export class OutlineManager {
             this.setFocusByElementId(elementId, targetItemElement, false);
             this.toggleCollapseFocusedItem();
         } else {
-            this.setFocusByElementId(elementId, targetItemElement, false); // Set to false to avoid re-render, just update class
-            // TODO: Phase 4 - this.startEditingFocusedItem(); 
+            // If we just focused a new item, or re-clicked the same item's text part
+            if (this.focusedItem.elementId !== elementId || !this.isInlineEditing) {
+                this.setFocusByElementId(elementId, targetItemElement, false);
+                this.startEditingFocusedItem();
+            }
+            // If it's a click within an already editing contenteditable span, let the browser handle it.
         }
     }
 
     // --- Editing ---
-    startEditingFocusedItem() { /* ... to be implemented ... */ }
-    saveEdit() { /* ... to be implemented ... */ }
-    cancelEdit() { /* ... to be implemented ... */ }
+    startEditingFocusedItem() {
+        if (!this.focusedItem.domElement || this.isInlineEditing) return;
+
+        const itemData = this.outlineItems[this.focusedItem.index];
+        if (!itemData || itemData.type !== 'text') {
+            OPTIMISM_UTILS.log("OutlineManager: Cannot edit non-text item or no item focused.");
+            return;
+        }
+
+        const textSpan = this.focusedItem.domElement.querySelector('.outliner-item-text');
+        if (!textSpan) return;
+
+        this.isInlineEditing = true;
+        this.originalEditText = itemData.displayText; // Store original text
+        textSpan.contentEditable = "true";
+        textSpan.classList.add('editing'); // For potential styling
+        textSpan.focus();
+
+        // Select all text within contentEditable
+        const range = document.createRange();
+        range.selectNodeContents(textSpan);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        OPTIMISM_UTILS.log(`OutlineManager: Started editing ${itemData.elementId}`);
+
+        // Add temporary blur listener to save
+        // Use a named function for easy removal
+        this._boundSaveOnBlur = () => this._saveInlineEdit(true); // Pass flag indicating it's a blur save
+        textSpan.addEventListener('blur', this._boundSaveOnBlur);
+    }
+
+    async _saveInlineEdit(fromBlur = false) {
+        if (!this.isInlineEditing || !this.focusedItem.domElement) return;
+
+        const textSpan = this.focusedItem.domElement.querySelector('.outliner-item-text');
+        if (!textSpan) {
+            this.isInlineEditing = false; return;
+        }
+        
+        // Remove blur listener immediately to prevent re-triggering
+        textSpan.removeEventListener('blur', this._boundSaveOnBlur);
+
+        const newText = textSpan.textContent;
+        const elementId = this.focusedItem.elementId;
+        const itemData = this.outlineItems[this.focusedItem.index];
+
+        textSpan.contentEditable = "false";
+        textSpan.classList.remove('editing');
+        this.isInlineEditing = false;
+
+        // If called from blur, and text hasn't changed, don't do anything further
+        // except ensure display is correct (in case of empty text deletion by model)
+        if (fromBlur && newText === this.originalEditText && String(newText).trim() !== "") {
+            OPTIMISM_UTILS.log("OutlineManager: Edit saved (no change on blur).");
+            // Ensure the original text is displayed correctly if it was an empty save
+            textSpan.textContent = this.originalEditText;
+            return;
+        }
+
+        if (newText !== this.originalEditText || String(newText).trim() === "") { // Also save if text becomes empty (for deletion)
+            OPTIMISM_UTILS.log(`OutlineManager: Saving edit for ${elementId}. New text: "${newText}"`);
+            // Use UpdateElementCommand via controller
+            // The command will handle empty text deletion
+            await this.controller.updateElementWithUndo(
+                elementId,
+                { text: newText },
+                { text: this.originalEditText },
+                itemData.parentId // Pass the actual parentId of the element being edited
+            );
+            // Model change will trigger view.renderWorkspace -> panelManager.sync -> outlineManager.onPanelVisible -> refreshOutline
+            // So, the outline will re-render with the updated (or deleted) item.
+            // Focus might need to be reset by refreshOutline or subsequent navigation.
+        } else {
+            OPTIMISM_UTILS.log("OutlineManager: Edit saved (no change).");
+        }
+    }
+
+    _cancelInlineEdit() {
+        if (!this.isInlineEditing || !this.focusedItem.domElement) return;
+
+        const textSpan = this.focusedItem.domElement.querySelector('.outliner-item-text');
+        textSpan.removeEventListener('blur', this._boundSaveOnBlur); // Remove blur listener
+        textSpan.contentEditable = "false";
+        textSpan.classList.remove('editing');
+        textSpan.textContent = this.originalEditText; // Revert to original
+        this.isInlineEditing = false;
+        this.containerElement.focus(); // Return focus to the container for navigation
+        OPTIMISM_UTILS.log("OutlineManager: Edit cancelled.");
+    }
 
     // --- Structural Changes ---
     createNewItem() { /* ... to be implemented ... */ }

@@ -6,7 +6,9 @@ export function setupKeyboardShortcuts(controller, model, view) {
 
     document.addEventListener('keydown', (event) => {
         const activeElement = document.activeElement;
-        const isEditingText = activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT');
+        const isFormInputFocused = activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT');
+        const isContentEditableFocused = activeElement && activeElement.getAttribute('contenteditable') === 'true';
+        const isEditingText = isFormInputFocused || isContentEditableFocused;
         const selectedElementId = model.selectedElement;
         const selectedElementData = selectedElementId ? model.findElementGlobally(selectedElementId) : null;
 

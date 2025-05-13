@@ -823,6 +823,11 @@ body.cmd-pressed .text-display.has-children {
     white-space: pre-wrap; /* Allow wrapping, preserve whitespace from text content */
     word-break: break-word; /* Or break-all, to help long words wrap */
     min-width: 0; /* Crucial for flex items that need to shrink/wrap properly */
+    outline: none; /* Remove default outline on contenteditable focus */
+}
+.outliner-item-text.editing {
+    background-color: rgba(0,0,0, 0.03); /* Subtle background for editing */
+    box-shadow: inset 0 0 0 1px var(--element-border-color); /* Subtle inset border */
     box-sizing: border-box; /* Add for good measure if it ever gets padding/border */
 }
 
